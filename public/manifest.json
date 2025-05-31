@@ -1,0 +1,17 @@
+{
+  "name": "Trip Distance Calculator",
+  "short_name": "JGEx",
+  "description": "Calculadora de distancias y precios para viajes en USA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4F46E5",
+  "icons": [
+    {
+      "src": "/icons/icon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
