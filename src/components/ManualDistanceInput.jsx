@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import OpenStreetPlaceSearch from './OpenStreetPlaceSearch';
-import OpenStreetMap from './OpenStreetMap';
 
 const ManualDistanceInput = ({ onCalculate }) => {
   const [origin, setOrigin] = useState(null); // { description, lat, lng, ... }
@@ -9,7 +8,44 @@ const ManualDistanceInput = ({ onCalculate }) => {
   const [duration, setDuration] = useState('');
   const [inputMode, setInputMode] = useState('distance');
   const [errors, setErrors] = useState({});
-  
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchRoute = async () => {
+      if (origin && destination && origin.lat && origin.lng && destination.lat && destination.lng) {
+        try {
+          const response = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=false&alternatives=true&steps=true&hints=;`
+          );
+          const data = await response.json();
+          
+          if (data.routes && data.routes.length > 0) {
+            const route = data.routes[0];
+            const distanceInMeters = route.distance;
+            const durationInSeconds = route.duration;
+            
+            const distanceInMiles = distanceInMeters / 1609.34;
+            const durationInHours = durationInSeconds / 3600;
+            
+            if (isMounted) {
+              setDistance(distanceInMiles.toFixed(2));
+              setDuration(durationInHours.toFixed(2));
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching route from OSM:', error);
+        }
+      }
+    };
+
+    fetchRoute();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [origin, destination]);
+
   // Reset non-active input when switching modes
   const handleModeChange = (mode) => {
     setInputMode(mode);

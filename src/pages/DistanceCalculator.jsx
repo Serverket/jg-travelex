@@ -3,7 +3,6 @@ import { useAppContext } from '../context/AppContext'
 import { GoogleMap, useJsApiLoader, DirectionsRenderer } from '@react-google-maps/api'
 import PlaceSearch from '../components/PlaceSearch'
 import OpenStreetMap from '../components/OpenStreetMap'
-import OpenStreetPlaceSearch from '../components/OpenStreetPlaceSearch'
 import ManualDistanceInput from '../components/ManualDistanceInput'
 
 const libraries = ['places']
@@ -12,16 +11,12 @@ const DistanceCalculator = () => {
   const { rateSettings, addTrip, createOrder, calculateTripPrice } = useAppContext()
   
   // Estado para el método de cálculo seleccionado
-  const [calculationMethod, setCalculationMethod] = useState('manual') // 'manual', 'google', 'osm'
+  const [calculationMethod, setCalculationMethod] = useState('manual') // 'manual', 'google'
   
   // Estado para Google Maps
   const [origin, setOrigin] = useState(null)
   const [destination, setDestination] = useState(null)
   const [directions, setDirections] = useState(null)
-  
-  // Estado para OpenStreetMap
-  const [osmOrigin, setOsmOrigin] = useState(null)
-  const [osmDestination, setOsmDestination] = useState(null)
   
   // Estado común para todos los métodos
   const [distance, setDistance] = useState(null)
@@ -46,7 +41,7 @@ const DistanceCalculator = () => {
   // Efecto para establecer el método de cálculo predeterminado según la disponibilidad de la API key
   useEffect(() => {
     if (!googleMapsApiKeyAvailable) {
-      setCalculationMethod('osm') // Si no hay API key, usar OpenStreetMap por defecto
+      setCalculationMethod('manual') // Default to manual calculation
     }
   }, [googleMapsApiKeyAvailable])
 
@@ -58,16 +53,6 @@ const DistanceCalculator = () => {
   // Manejar selección de destino en Google Maps
   const handleDestinationSelect = (place) => {
     setDestination(place)
-  }
-
-  // Manejar selección de origen en OpenStreetMap
-  const handleOsmOriginSelect = (place) => {
-    setOsmOrigin(place)
-  }
-
-  // Manejar selección de destino en OpenStreetMap
-  const handleOsmDestinationSelect = (place) => {
-    setOsmDestination(place)
   }
 
   // Calcular la ruta con Google Maps
@@ -119,21 +104,6 @@ const DistanceCalculator = () => {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  // Manejar cálculo de ruta con OpenStreetMap
-  const handleOsmRouteCalculated = (routeData) => {
-    setDistance(routeData.distance)
-    setDuration(routeData.duration / 60) // Convertir segundos a minutos
-    
-    // Calcular precio
-    const calculatedPrice = calculateTripPrice(
-      parseFloat(routeData.distance), 
-      routeData.duration / 60, 
-      activeSurcharges, 
-      activeDiscounts
-    )
-    setPrice(calculatedPrice)
   }
 
   // Manejar entrada manual de distancia y duración
@@ -208,8 +178,8 @@ const DistanceCalculator = () => {
       return
     }
 
-    const originDescription = origin?.description || osmOrigin?.description || 'Origen no especificado'
-    const destinationDescription = destination?.description || osmDestination?.description || 'Destino no especificado'
+    const originDescription = origin?.description || 'Origen no especificado';
+    const destinationDescription = destination?.description || 'Destino no especificado';
 
     const tripData = {
       origin: originDescription,
@@ -234,8 +204,8 @@ const DistanceCalculator = () => {
       return
     }
 
-    const originDescription = origin?.description || osmOrigin?.description || 'Origen no especificado'
-    const destinationDescription = destination?.description || osmDestination?.description || 'Destino no especificado'
+    const originDescription = origin?.description || 'Origen no especificado';
+    const destinationDescription = destination?.description || 'Destino no especificado';
 
     const tripData = {
       origin: originDescription,
@@ -255,18 +225,18 @@ const DistanceCalculator = () => {
 
   // Limpiar el formulario
   const clearForm = () => {
-    setOrigin(null)
-    setDestination(null)
+    setOrigin(null);
+    setDestination(null);
     setOsmOrigin(null)
     setOsmDestination(null)
-    setDirections(null)
-    setDistance(null)
-    setDuration(null)
-    setPrice(null)
-    setActiveSurcharges([])
-    setActiveDiscounts([])
-    setError('')
-    setOrderCreated(false)
+    setDirections(null);
+    setDistance(null);
+    setDuration(null);
+    setPrice(null);
+    setActiveSurcharges([]);
+    setActiveDiscounts([]);
+    setError('');
+    setOrderCreated(false);
   }
 
   // Renderizar el método de cálculo seleccionado
@@ -307,26 +277,6 @@ const DistanceCalculator = () => {
             </button>
           </div>
         )
-      case 'osm':
-        return (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Origen</label>
-              <OpenStreetPlaceSearch 
-                placeholder="Ingrese dirección de origen" 
-                onPlaceSelected={handleOsmOriginSelect} 
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Destino</label>
-              <OpenStreetPlaceSearch 
-                placeholder="Ingrese dirección de destino" 
-                onPlaceSelected={handleOsmDestinationSelect} 
-              />
-            </div>
-          </div>
-        )
       default:
         return null
     }
@@ -364,20 +314,6 @@ const DistanceCalculator = () => {
             </GoogleMap>
           </div>
         )
-      case 'osm':
-        return (
-          osmOrigin && osmDestination ? (
-            <OpenStreetMap 
-              origin={osmOrigin} 
-              destination={osmDestination} 
-              onRouteCalculated={handleOsmRouteCalculated} 
-            />
-          ) : (
-            <div className="h-96 w-full rounded overflow-hidden bg-gray-100 flex items-center justify-center">
-              <p className="text-gray-500">Seleccione origen y destino para ver el mapa</p>
-            </div>
-          )
-        )
       case 'manual':
         // Mostrar mapa solo si ambos lugares están seleccionados y tienen lat/lng
         if (origin && destination && origin.lat && origin.lng && destination.lat && destination.lng) {
@@ -413,7 +349,7 @@ const DistanceCalculator = () => {
       <div className="bg-white p-4 rounded-lg shadow">
         <h2 className="text-lg font-medium text-gray-700 mb-4">Método de Cálculo</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <input
               type="radio"
@@ -425,7 +361,7 @@ const DistanceCalculator = () => {
               className="mr-2"
             />
             <label htmlFor="method-manual" className="text-sm text-gray-700">
-              Cálculo Manual
+              Cálculo Inteligente
             </label>
             <p className="text-xs text-gray-500 mt-1">Ingrese origen, destino, distancia y duración manualmente</p>
           </div>
@@ -450,26 +386,10 @@ const DistanceCalculator = () => {
                 : 'Requiere API key de Google Maps (no disponible)'}
             </p>
           </div>
-          
-          <div>
-            <input
-              type="radio"
-              id="method-osm"
-              name="calculation-method"
-              value="osm"
-              checked={calculationMethod === 'osm'}
-              onChange={() => setCalculationMethod('osm')}
-              className="mr-2"
-            />
-            <label htmlFor="method-osm" className="text-sm text-gray-700">
-              OpenStreetMap
-            </label>
-            <p className="text-xs text-gray-500 mt-1">Cálculo usando OpenStreetMap (no requiere API key)</p>
-          </div>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Formulario */}
         <div className="lg:col-span-1 bg-white p-4 rounded-lg shadow space-y-4">
           <h2 className="text-lg font-medium text-gray-700 mb-4">Detalles del Viaje</h2>
@@ -538,7 +458,7 @@ const DistanceCalculator = () => {
         </div>
         
         {/* Mapa */}
-        <div className="lg:col-span-2 bg-white p-4 rounded-lg shadow">
+        <div className="lg:col-span-1 bg-white p-4 rounded-lg shadow">
           {renderMap()}
         </div>
       </div>
