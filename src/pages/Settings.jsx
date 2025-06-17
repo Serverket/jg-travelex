@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
 
 const Settings = () => {
@@ -21,7 +21,12 @@ const Settings = () => {
     rate: '',
     type: 'percentage'
   })
-  
+
+  // Reset editedSettings when rateSettings change
+  useEffect(() => {
+    setEditedSettings({ ...rateSettings });
+  }, [rateSettings]);
+
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -197,12 +202,12 @@ const Settings = () => {
           
           <div className="space-y-4">
             <div>
-              <label htmlFor="baseMileRate" className="block text-sm font-medium text-gray-700">Tarifa por Milla ($)</label>
+              <label htmlFor="distanceRate" className="block text-sm font-medium text-gray-700">Tarifa por Milla ($)</label>
               <input
                 type="number"
-                id="baseMileRate"
-                name="baseMileRate"
-                value={editedSettings.baseMileRate}
+                id="distanceRate"
+                name="distanceRate"
+                value={editedSettings.distanceRate ?? ''}
                 onChange={handleBaseRateChange}
                 min="0"
                 step="0.01"
@@ -211,12 +216,12 @@ const Settings = () => {
             </div>
             
             <div>
-              <label htmlFor="baseHourRate" className="block text-sm font-medium text-gray-700">Tarifa por Hora ($)</label>
+              <label htmlFor="durationRate" className="block text-sm font-medium text-gray-700">Tarifa por Hora ($)</label>
               <input
                 type="number"
-                id="baseHourRate"
-                name="baseHourRate"
-                value={editedSettings.baseHourRate}
+                id="durationRate"
+                name="durationRate"
+                value={editedSettings.durationRate ?? ''}
                 onChange={handleBaseRateChange}
                 min="0"
                 step="0.01"
@@ -243,7 +248,7 @@ const Settings = () => {
                 <div className="flex-grow">
                   <input
                     type="text"
-                    value={factor.name}
+                    value={factor.name ?? ''}
                     onChange={(e) => handleSurchargeChange(factor.id, 'name', e.target.value)}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     placeholder="Nombre"
@@ -253,7 +258,7 @@ const Settings = () => {
                 <div className="w-24">
                   <input
                     type="number"
-                    value={factor.rate}
+                    value={factor.rate ?? ''}
                     onChange={(e) => handleSurchargeChange(factor.id, 'rate', e.target.value)}
                     min="0"
                     step="0.01"
@@ -264,7 +269,7 @@ const Settings = () => {
                 
                 <div className="w-32">
                   <select
-                    value={factor.type}
+                    value={factor.type ?? ''}
                     onChange={(e) => handleSurchargeChange(factor.id, 'type', e.target.value)}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   >
@@ -339,7 +344,7 @@ const Settings = () => {
                 <div className="flex-grow">
                   <input
                     type="text"
-                    value={discount.name}
+                    value={discount.name ?? ''}
                     onChange={(e) => handleDiscountChange(discount.id, 'name', e.target.value)}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     placeholder="Nombre"
@@ -349,7 +354,7 @@ const Settings = () => {
                 <div className="w-24">
                   <input
                     type="number"
-                    value={discount.rate}
+                    value={discount.rate ?? ''}
                     onChange={(e) => handleDiscountChange(discount.id, 'rate', e.target.value)}
                     min="0"
                     step="0.01"
@@ -360,7 +365,7 @@ const Settings = () => {
                 
                 <div className="w-32">
                   <select
-                    value={discount.type}
+                    value={discount.type ?? ''}
                     onChange={(e) => handleDiscountChange(discount.id, 'type', e.target.value)}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   >

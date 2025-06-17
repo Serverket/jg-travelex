@@ -138,75 +138,73 @@ const DistanceCalculator = () => {
 
   // Manejar entrada manual de distancia y duración
   const handleManualCalculation = (data) => {
-    setOrigin({ description: data.origin.description })
-    setDestination({ description: data.destination.description })
+    console.log('Manual calculation with:', data);
+    console.log('Current rateSettings:', rateSettings);
+    setOrigin(data.origin)
+    setDestination(data.destination)
     setDistance(data.distance)
-    setDuration(data.duration / 60) // Convertir a minutos para mostrar consistentemente
+    setDuration(data.duration)
     
-    // Calcular precio
-    const calculatedPrice = calculateTripPrice(
-      parseFloat(data.distance), 
-      data.duration, 
-      activeSurcharges, 
-      activeDiscounts
-    )
-    setPrice(calculatedPrice)
+    // Calcular precio solo si tenemos al menos distancia o duración
+    if (data.distance || data.duration) {
+      const calculatedPrice = calculateTripPrice(
+        parseFloat(data.distance || 0), 
+        data.duration || 0, 
+        activeSurcharges, 
+        activeDiscounts
+      )
+      setPrice(calculatedPrice)
+    }
   }
 
   // Manejar cambios en los recargos
   const handleSurchargeChange = (id) => {
     setActiveSurcharges(prev => {
-      const isActive = prev.includes(id)
-      const newSurcharges = isActive 
+      const newSurcharges = prev.includes(id) 
         ? prev.filter(surchargeId => surchargeId !== id)
-        : [...prev, id]
+        : [...prev, id];
       
-      // Recalcular precio si ya hay una distancia calculada
-      if (distance && duration) {
-        setTimeout(() => {
-          const calculatedPrice = calculateTripPrice(
-            parseFloat(distance), 
-            parseFloat(duration), 
-            newSurcharges, 
-            activeDiscounts
-          )
-          setPrice(calculatedPrice)
-        }, 0)
+      // Recalculate price immediately
+      if (distance || duration) {
+        const calculatedPrice = calculateTripPrice(
+          parseFloat(distance || 0), 
+          parseFloat(duration || 0), 
+          newSurcharges, 
+          activeDiscounts
+        );
+        setPrice(calculatedPrice);
       }
       
-      return newSurcharges
-    })
+      return newSurcharges;
+    });
   }
 
   // Manejar cambios en los descuentos
   const handleDiscountChange = (id) => {
     setActiveDiscounts(prev => {
-      const isActive = prev.includes(id)
-      const newDiscounts = isActive 
+      const newDiscounts = prev.includes(id) 
         ? prev.filter(discountId => discountId !== id)
-        : [...prev, id]
+        : [...prev, id];
       
-      // Recalcular precio si ya hay una distancia calculada
-      if (distance && duration) {
-        setTimeout(() => {
-          const calculatedPrice = calculateTripPrice(
-            parseFloat(distance), 
-            parseFloat(duration), 
-            activeSurcharges, 
-            newDiscounts
-          )
-          setPrice(calculatedPrice)
-        }, 0)
+      // Recalculate price immediately
+      if (distance || duration) {
+        const calculatedPrice = calculateTripPrice(
+          parseFloat(distance || 0), 
+          parseFloat(duration || 0), 
+          activeSurcharges, 
+          newDiscounts
+        );
+        setPrice(calculatedPrice);
       }
       
-      return newDiscounts
-    })
+      return newDiscounts;
+    });
   }
 
   // Guardar el viaje
   const saveTrip = () => {
-    if (!distance || !duration || !price) {
-      setError('Primero debe calcular una ruta')
+    if (!distance && !duration) {
+      setError('Primero debe ingresar distancia o duración')
       return
     }
 
@@ -216,8 +214,8 @@ const DistanceCalculator = () => {
     const tripData = {
       origin: originDescription,
       destination: destinationDescription,
-      distance,
-      duration,
+      distance: distance || 0,
+      duration: duration || 0,
       price,
       activeSurcharges,
       activeDiscounts,
@@ -231,7 +229,7 @@ const DistanceCalculator = () => {
 
   // Crear una orden
   const createTripOrder = () => {
-    if (!distance || !duration || !price) {
+    if ((!distance && !duration) || !price) {
       setError('Primero debe calcular una ruta')
       return
     }
@@ -242,8 +240,8 @@ const DistanceCalculator = () => {
     const tripData = {
       origin: originDescription,
       destination: destinationDescription,
-      distance,
-      duration,
+      distance: distance || 0,
+      duration: duration || 0,
       price,
       activeSurcharges,
       activeDiscounts,
@@ -381,6 +379,16 @@ const DistanceCalculator = () => {
           )
         )
       case 'manual':
+        // Mostrar mapa solo si ambos lugares están seleccionados y tienen lat/lng
+        if (origin && destination && origin.lat && origin.lng && destination.lat && destination.lng) {
+          return (
+            <OpenStreetMap
+              origin={origin}
+              destination={destination}
+              onRouteCalculated={() => {}}
+            />
+          )
+        }
         return (
           <div className="h-96 w-full rounded overflow-hidden bg-gray-100 flex items-center justify-center">
             <div className="text-center p-4">
@@ -481,13 +489,34 @@ const DistanceCalculator = () => {
             </div>
           )}
           
-          {distance && duration && price && (
+          {(distance || duration) && price && (
             <div className="mt-6 p-4 bg-gray-50 rounded-md">
               <h3 className="text-md font-medium text-gray-700 mb-2">Resultado</h3>
-              <p className="text-sm text-gray-600">Distancia: <span className="font-medium">{distance} millas</span></p>
-              <p className="text-sm text-gray-600">Duración: <span className="font-medium">{duration} minutos</span></p>
+              {distance && <p className="text-sm text-gray-600">Distancia: <span className="font-medium">{distance} millas</span></p>}
+              {duration && <p className="text-sm text-gray-600">Duración: <span className="font-medium">{duration} horas</span></p>}
               <p className="text-lg font-bold text-gray-800 mt-2">Precio: ${price}</p>
-              
+              {activeSurcharges.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600">Recargos aplicados:</p>
+                  <ul className="list-disc pl-5 text-sm text-gray-600">
+                    {activeSurcharges.map(id => {
+                      const factor = rateSettings.surchargeFactors.find(f => f.id === id);
+                      return factor ? <li key={id}>{factor.name}</li> : null;
+                    })}
+                  </ul>
+                </div>
+              )}
+              {activeDiscounts.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600">Descuentos aplicados:</p>
+                  <ul className="list-disc pl-5 text-sm text-gray-600">
+                    {activeDiscounts.map(id => {
+                      const discount = rateSettings.discounts.find(d => d.id === id);
+                      return discount ? <li key={id}>{discount.name}</li> : null;
+                    })}
+                  </ul>
+                </div>
+              )}
               <div className="mt-4 space-x-2">
                 <button
                   onClick={saveTrip}

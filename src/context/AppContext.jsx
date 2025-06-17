@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 
 // Crear el contexto
 const AppContext = createContext()
@@ -10,8 +10,8 @@ export const useAppContext = () => useContext(AppContext)
 export const AppProvider = ({ children }) => {
   // Estado para las tarifas y configuraciones
   const [rateSettings, setRateSettings] = useState({
-    baseMileRate: 1.5, // Tarifa base por milla
-    baseHourRate: 15,   // Tarifa base por hora
+    distanceRate: 1.5, // Tarifa por distancia
+    durationRate: 15, // Tarifa por duración
     surchargeFactors: [
       { id: 1, name: 'Lluvia', active: false, rate: 10, type: 'percentage' },
       { id: 2, name: 'Tráfico intenso', active: false, rate: 15, type: 'percentage' },
@@ -132,39 +132,50 @@ export const AppProvider = ({ children }) => {
     return newInvoice
   }
 
+  const rateSettingsRef = useRef(rateSettings);
+  
+  useEffect(() => {
+    rateSettingsRef.current = rateSettings;
+  }, [rateSettings]);
+
   // Función para calcular el precio de un viaje
   const calculateTripPrice = (distance, duration, activeSurcharges, activeDiscounts) => {
-    // Cálculo base por distancia y duración
-    const distancePrice = distance * rateSettings.baseMileRate
-    const durationPrice = (duration / 60) * rateSettings.baseHourRate // Convertir minutos a horas
+    const rs = rateSettingsRef.current;
+    console.log('Current rate settings:', rs);
+    // Start from 0
+    let basePrice = 0;
     
-    let totalPrice = distancePrice + durationPrice
+    // Apply distance rate
+    basePrice += distance * rs.distanceRate;
     
-    // Aplicar recargos
-    activeSurcharges.forEach(surchargeId => {
-      const surcharge = rateSettings.surchargeFactors.find(s => s.id === surchargeId)
-      if (surcharge) {
-        if (surcharge.type === 'percentage') {
-          totalPrice += totalPrice * (surcharge.rate / 100)
+    // Apply duration rate
+    basePrice += duration * rs.durationRate;
+    
+    // Apply surcharges
+    activeSurcharges.forEach(id => {
+      const factor = rs.surchargeFactors.find(f => f.id === id);
+      if (factor) {
+        if (factor.type === 'percentage') {
+          basePrice *= (1 + factor.rate / 100);
         } else {
-          totalPrice += surcharge.rate
+          basePrice += factor.rate;
         }
       }
-    })
+    });
     
-    // Aplicar descuentos
-    activeDiscounts.forEach(discountId => {
-      const discount = rateSettings.discounts.find(d => d.id === discountId)
+    // Apply discounts
+    activeDiscounts.forEach(id => {
+      const discount = rs.discounts.find(d => d.id === id);
       if (discount) {
         if (discount.type === 'percentage') {
-          totalPrice -= totalPrice * (discount.rate / 100)
+          basePrice *= (1 - discount.rate / 100);
         } else {
-          totalPrice -= discount.rate
+          basePrice -= discount.rate;
         }
       }
-    })
+    });
     
-    return Math.max(0, totalPrice).toFixed(2) // Asegurar que el precio no sea negativo
+    return basePrice.toFixed(2);
   }
 
   // Valor del contexto

@@ -1,88 +1,131 @@
-import { useState } from 'react'
+import React, { useState } from 'react';
+import OpenStreetPlaceSearch from './OpenStreetPlaceSearch';
+import OpenStreetMap from './OpenStreetMap';
 
 const ManualDistanceInput = ({ onCalculate }) => {
-  const [origin, setOrigin] = useState('')
-  const [destination, setDestination] = useState('')
-  const [distance, setDistance] = useState('')
-  const [duration, setDuration] = useState('')
-  const [errors, setErrors] = useState({})
+  const [origin, setOrigin] = useState(null); // { description, lat, lng, ... }
+  const [destination, setDestination] = useState(null);
+  const [distance, setDistance] = useState('');
+  const [duration, setDuration] = useState('');
+  const [inputMode, setInputMode] = useState('distance');
+  const [errors, setErrors] = useState({});
+  
+  // Reset non-active input when switching modes
+  const handleModeChange = (mode) => {
+    setInputMode(mode);
+    if (mode === 'distance') {
+      setDuration('');
+    } else {
+      setDistance('');
+    }
+    setErrors({});
+  };
 
-  const validate = () => {
-    const newErrors = {}
+  const validate = (fieldsOnly = false) => {
+    const newErrors = {};
+    if (!origin || !origin.lat || !origin.lng) newErrors.origin = 'El origen es obligatorio';
+    if (!destination || !destination.lat || !destination.lng) newErrors.destination = 'El destino es obligatorio';
     
-    if (!origin.trim()) {
-      newErrors.origin = 'El origen es obligatorio'
+    if (inputMode === 'distance') {
+      if (!distance) newErrors.distance = 'La distancia es obligatoria';
+      else if (isNaN(distance) || distance <= 0) newErrors.distance = 'Distancia inválida';
+    } else {
+      if (!duration) newErrors.duration = 'La duración es obligatoria';
+      else if (isNaN(duration) || duration <= 0) newErrors.duration = 'Duración inválida';
     }
-    
-    if (!destination.trim()) {
-      newErrors.destination = 'El destino es obligatorio'
+    if (!fieldsOnly) setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Auto-trigger calculation when all required fields are filled and valid
+  React.useEffect(() => {
+    // Always trigger when both places are selected, even if distance/duration is empty
+    if (
+      origin && origin.lat && origin.lng &&
+      destination && destination.lat && destination.lng
+    ) {
+      const calcData = {
+        origin,
+        destination,
+        distance: inputMode === 'distance' && distance && !isNaN(distance) && distance > 0 ? parseFloat(distance) : null,
+        duration: inputMode === 'duration' && duration && !isNaN(duration) && duration > 0 ? parseFloat(duration) : null,
+      };
+      onCalculate(calcData);
     }
-    
-    if (!distance) {
-      newErrors.distance = 'La distancia es obligatoria'
-    } else if (isNaN(distance) || parseFloat(distance) <= 0) {
-      newErrors.distance = 'Ingrese una distancia válida mayor a 0'
-    }
-    
-    if (!duration) {
-      newErrors.duration = 'La duración es obligatoria'
-    } else if (isNaN(duration) || parseFloat(duration) <= 0) {
-      newErrors.duration = 'Ingrese una duración válida mayor a 0'
-    }
-    
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origin, destination, distance, duration, inputMode]);
 
   const handleSubmit = (e) => {
-    e.preventDefault()
+    e.preventDefault();
+    if (!validate()) return;
     
-    if (validate()) {
-      // Convertir duración de horas a minutos para mantener consistencia con otros métodos
-      const durationInMinutes = parseFloat(duration) * 60
-      
-      onCalculate({
-        origin: { description: origin },
-        destination: { description: destination },
-        distance: parseFloat(distance),
-        duration: durationInMinutes
-      })
-    }
-  }
+    const calcData = {
+      origin: origin,
+      destination: destination,
+      distance: inputMode === 'distance' ? parseFloat(distance) : null,
+      duration: inputMode === 'duration' ? parseFloat(duration) : null,
+    };
+    
+    console.log('Submitting calculation with:', calcData);
+    
+    onCalculate(calcData);
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="origin" className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
           Origen
         </label>
-        <input
-          type="text"
-          id="origin"
-          value={origin}
-          onChange={(e) => setOrigin(e.target.value)}
-          className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${errors.origin ? 'border-red-500' : 'border-gray-300'}`}
+        <OpenStreetPlaceSearch
           placeholder="Ingrese el lugar de origen"
+          onPlaceSelected={setOrigin}
         />
         {errors.origin && <p className="mt-1 text-sm text-red-600">{errors.origin}</p>}
       </div>
 
       <div>
-        <label htmlFor="destination" className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
           Destino
         </label>
-        <input
-          type="text"
-          id="destination"
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-          className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${errors.destination ? 'border-red-500' : 'border-gray-300'}`}
+        <OpenStreetPlaceSearch
           placeholder="Ingrese el lugar de destino"
+          onPlaceSelected={setDestination}
         />
         {errors.destination && <p className="mt-1 text-sm text-red-600">{errors.destination}</p>}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="flex space-x-4">
+        <label className="block text-sm font-medium text-gray-700">Tipo de entrada:</label>
+        <div className="flex items-center">
+          <input
+            type="radio"
+            id="distanceMode"
+            value="distance"
+            checked={inputMode === 'distance'}
+            onChange={() => handleModeChange('distance')}
+            className="form-radio"
+          />
+          <label htmlFor="distanceMode" className="ml-2">
+            Distancia
+          </label>
+        </div>
+        <div className="flex items-center">
+          <input
+            type="radio"
+            id="durationMode"
+            value="duration"
+            checked={inputMode === 'duration'}
+            onChange={() => handleModeChange('duration')}
+            className="form-radio"
+          />
+          <label htmlFor="durationMode" className="ml-2">
+            Duración
+          </label>
+        </div>
+      </div>
+
+      {inputMode === 'distance' ? (
         <div>
           <label htmlFor="distance" className="block text-sm font-medium text-gray-700 mb-1">
             Distancia (millas)
@@ -92,14 +135,14 @@ const ManualDistanceInput = ({ onCalculate }) => {
             id="distance"
             value={distance}
             onChange={(e) => setDistance(e.target.value)}
-            step="0.1"
-            min="0.1"
             className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${errors.distance ? 'border-red-500' : 'border-gray-300'}`}
-            placeholder="Ingrese la distancia"
+            placeholder="Ingrese la distancia en millas"
+            min="0"
+            step="any"
           />
           {errors.distance && <p className="mt-1 text-sm text-red-600">{errors.distance}</p>}
         </div>
-
+      ) : (
         <div>
           <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
             Duración (horas)
@@ -109,25 +152,22 @@ const ManualDistanceInput = ({ onCalculate }) => {
             id="duration"
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
-            step="0.1"
-            min="0.1"
             className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${errors.duration ? 'border-red-500' : 'border-gray-300'}`}
-            placeholder="Ingrese la duración"
+            placeholder="Ingrese la duración en horas"
+            min="0"
+            step="any"
           />
           {errors.duration && <p className="mt-1 text-sm text-red-600">{errors.duration}</p>}
         </div>
-      </div>
-
-      <div className="pt-2">
-        <button
-          type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out"
-        >
-          Calcular
-        </button>
-      </div>
+      )}
+      {/* <button
+        type="submit"
+        className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+      >
+        Calcular
+      </button> */}
     </form>
-  )
-}
+  );
+};
 
-export default ManualDistanceInput
+export default ManualDistanceInput;

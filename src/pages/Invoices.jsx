@@ -39,7 +39,7 @@ const Invoices = () => {
       doc.text(`Origen: ${invoice.orderData.tripData.origin}`, 20, 90)
       doc.text(`Destino: ${invoice.orderData.tripData.destination}`, 20, 100)
       doc.text(`Distancia: ${invoice.orderData.tripData.distance} millas`, 20, 110)
-      doc.text(`Duración: ${invoice.orderData.tripData.duration} minutos`, 20, 120)
+      doc.text(`Duración: ${invoice.orderData.tripData.duration} horas`, 20, 120)
       
       // Tabla de costos
       doc.setFontSize(14)
