@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { authService } from '../services/authService'
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('')
@@ -6,7 +7,7 @@ const Login = ({ onLogin }) => {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setIsLoading(true)
@@ -18,10 +19,18 @@ const Login = ({ onLogin }) => {
       return
     }
     
-    // Intentar iniciar sesión
-    const success = onLogin(username, password)
-    
-    if (!success) {
+    try {
+      // Usar authService para iniciar sesión
+      const response = await authService.login(username, password)
+      
+      // Llamar a la función onLogin proporcionada por el componente padre
+      if (response && response.user) {
+        onLogin(response.user)
+      } else {
+        throw new Error('Respuesta de inicio de sesión inválida')
+      }
+    } catch (error) {
+      console.error('Error de inicio de sesión:', error)
       setError('Usuario o contraseña incorrectos')
       setIsLoading(false)
     }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
+import { tripService } from '../services/tripService'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js'
 import { Line, Bar, Pie } from 'react-chartjs-2'
 
@@ -7,7 +8,10 @@ import { Line, Bar, Pie } from 'react-chartjs-2'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement)
 
 const TripTracking = () => {
-  const { trips } = useAppContext()
+  const { currentUser } = useAppContext()
+  const [trips, setTrips] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [filter, setFilter] = useState('week') // 'day', 'week', 'month', 'all'
   const [filteredTrips, setFilteredTrips] = useState([])
   const [stats, setStats] = useState({
@@ -33,6 +37,27 @@ const TripTracking = () => {
     labels: [],
     datasets: []
   })
+
+  // Cargar viajes desde la API
+  useEffect(() => {
+    const fetchTrips = async () => {
+      if (!currentUser) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await tripService.getUserTrips(currentUser.id);
+        setTrips(response);
+      } catch (err) {
+        console.error('Error al cargar viajes:', err);
+        setError('Error al cargar los viajes. Por favor intente nuevamente.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchTrips();
+  }, [currentUser]);
 
   // Filtrar viajes según el período seleccionado
   useEffect(() => {

@@ -2,11 +2,25 @@ import { useState, useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
 
 const Settings = () => {
-  const { rateSettings, updateRateSettings, addSurchargeFactor, addDiscount } = useAppContext()
+  const { 
+    rateSettings, 
+    updateRateSettings, 
+    addSurchargeFactor, 
+    updateSurchargeFactor, 
+    addDiscount, 
+    updateDiscount, 
+    deleteSurchargeFactor, 
+    deleteDiscount, 
+    isLoading, 
+    error: contextError 
+  } = useAppContext()
   
-  // Estado local para editar configuraciones
+  // Estado local para editar configuraciones con valores por defecto seguros
   const [editedSettings, setEditedSettings] = useState({
-    ...rateSettings
+    distanceRate: 1.5,
+    durationRate: 15,
+    surchargeFactors: [],
+    discounts: []
   })
   
   // Estado para nuevos factores y descuentos
@@ -22,13 +36,28 @@ const Settings = () => {
     type: 'percentage'
   })
 
-  // Reset editedSettings when rateSettings change
-  useEffect(() => {
-    setEditedSettings({ ...rateSettings });
-  }, [rateSettings]);
-
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [localLoading, setLocalLoading] = useState(false)
+  
+  // Reset editedSettings when rateSettings change
+  useEffect(() => {
+    if (rateSettings) {
+      setEditedSettings({ 
+        distanceRate: rateSettings.distanceRate || 1.5,
+        durationRate: rateSettings.durationRate || 15,
+        surchargeFactors: rateSettings.surchargeFactors || [],
+        discounts: rateSettings.discounts || [] 
+      })
+    }
+  }, [rateSettings])
+
+  // Efecto para mostrar errores del contexto
+  useEffect(() => {
+    if (contextError) {
+      setErrorMessage(contextError)
+    }
+  }, [contextError])
 
   // Manejar cambios en las tarifas base
   const handleBaseRateChange = (e) => {
@@ -64,7 +93,7 @@ const Settings = () => {
     const { name, value } = e.target
     setNewSurchargeFactor(prev => ({
       ...prev,
-      [name]: name === 'rate' ? value : value
+      [name]: name === 'rate' ? parseFloat(value) || 0 : value
     }))
   }
 
@@ -73,36 +102,112 @@ const Settings = () => {
     const { name, value } = e.target
     setNewDiscount(prev => ({
       ...prev,
-      [name]: name === 'rate' ? value : value
+      [name]: name === 'rate' ? parseFloat(value) || 0 : value
     }))
   }
 
   // Guardar cambios en las configuraciones
-  const saveSettings = () => {
+  const saveSettings = async () => {
     try {
-      updateRateSettings(editedSettings)
-      setSuccessMessage('Configuraciones guardadas correctamente')
+      setLocalLoading(true)
       setErrorMessage('')
+      
+      // Guardar cambios de tarifas base
+      await updateRateSettings({
+        distanceRate: parseFloat(editedSettings.distanceRate) || 0,
+        durationRate: parseFloat(editedSettings.durationRate) || 0
+      }).catch(err => {
+        console.error('Error updating rate settings:', err)
+        throw new Error('Error al actualizar tarifas base')
+      })
+      
+      // Guardar cambios de factores de recargo
+      const surchargePromises = []
+      if (editedSettings.surchargeFactors && editedSettings.surchargeFactors.length > 0) {
+        for (const factor of editedSettings.surchargeFactors) {
+          if (factor && factor.id) {
+            try {
+              const surchargePromise = updateSurchargeFactor(factor.id, {
+                name: factor.name || '',
+                rate: parseFloat(factor.rate) || 0,
+                type: factor.type || 'percentage'
+              }).catch(err => {
+                console.error(`Error updating surcharge factor ${factor.id}:`, err)
+                throw new Error(`Error al actualizar el factor de recargo: ${factor.name}`)
+              })
+              surchargePromises.push(surchargePromise)
+            } catch (err) {
+              console.error(`Error preparing surcharge factor update for ${factor.id}:`, err)
+              // Continue with other factors even if one fails
+            }
+          }
+        }
+      }
+      
+      // Guardar cambios de descuentos
+      const discountPromises = []
+      if (editedSettings.discounts && editedSettings.discounts.length > 0) {
+        for (const discount of editedSettings.discounts) {
+          if (discount && discount.id) {
+            try {
+              const discountPromise = updateDiscount(discount.id, {
+                name: discount.name || '',
+                rate: parseFloat(discount.rate) || 0,
+                type: discount.type || 'percentage'
+              }).catch(err => {
+                console.error(`Error updating discount ${discount.id}:`, err)
+                throw new Error(`Error al actualizar el descuento: ${discount.name}`)
+              })
+              discountPromises.push(discountPromise)
+            } catch (err) {
+              console.error(`Error preparing discount update for ${discount.id}:`, err)
+              // Continue with other discounts even if one fails
+            }
+          }
+        }
+      }
+      
+      // Esperar a que todas las actualizaciones terminen y manejar errores
+      try {
+        const results = await Promise.allSettled([...surchargePromises, ...discountPromises])
+        
+        // Check if any promises failed
+        const failures = results.filter(r => r.status === 'rejected').map(r => r.reason)
+        if (failures.length > 0) {
+          console.error('Some settings updates failed:', failures)
+          throw new Error(`${failures.length} actualizaciones fallaron. Revise los datos e intente nuevamente.`)
+        }
+        
+        setSuccessMessage('Configuraciones guardadas correctamente')
+        setErrorMessage('')
+      } catch (promiseErr) {
+        console.error('Error in batch settings update:', promiseErr)
+        throw new Error('Error al procesar las actualizaciones: ' + (promiseErr.message || 'Error desconocido'))
+      }
       
       // Limpiar mensaje después de 3 segundos
       setTimeout(() => {
         setSuccessMessage('')
       }, 3000)
     } catch (error) {
-      setErrorMessage('Error al guardar las configuraciones')
+      console.error('Error al guardar configuraciones:', error)
+      setErrorMessage('Error al guardar las configuraciones: ' + (error.message || 'Error desconocido'))
       setSuccessMessage('')
+    } finally {
+      setLocalLoading(false)
     }
   }
 
   // Añadir nuevo factor de recargo
-  const handleAddSurchargeFactor = () => {
+  const handleAddSurchargeFactor = async () => {
     if (!newSurchargeFactor.name || !newSurchargeFactor.rate) {
       setErrorMessage('Por favor complete todos los campos del factor de recargo')
       return
     }
     
     try {
-      addSurchargeFactor({
+      setLocalLoading(true)
+      await addSurchargeFactor({
         name: newSurchargeFactor.name,
         rate: parseFloat(newSurchargeFactor.rate),
         type: newSurchargeFactor.type
@@ -123,20 +228,23 @@ const Settings = () => {
         setSuccessMessage('')
       }, 3000)
     } catch (error) {
-      setErrorMessage('Error al añadir el factor de recargo')
+      setErrorMessage('Error al añadir el factor de recargo: ' + (error.message || 'Error desconocido'))
       setSuccessMessage('')
+    } finally {
+      setLocalLoading(false)
     }
   }
 
   // Añadir nuevo descuento
-  const handleAddDiscount = () => {
+  const handleAddDiscount = async () => {
     if (!newDiscount.name || !newDiscount.rate) {
       setErrorMessage('Por favor complete todos los campos del descuento')
       return
     }
     
     try {
-      addDiscount({
+      setLocalLoading(true)
+      await addDiscount({
         name: newDiscount.name,
         rate: parseFloat(newDiscount.rate),
         type: newDiscount.type
@@ -157,25 +265,63 @@ const Settings = () => {
         setSuccessMessage('')
       }, 3000)
     } catch (error) {
-      setErrorMessage('Error al añadir el descuento')
+      setErrorMessage('Error al añadir el descuento: ' + (error.message || 'Error desconocido'))
       setSuccessMessage('')
+    } finally {
+      setLocalLoading(false)
     }
   }
 
   // Eliminar un factor de recargo
-  const handleRemoveSurchargeFactor = (id) => {
-    setEditedSettings(prev => ({
-      ...prev,
-      surchargeFactors: prev.surchargeFactors.filter(factor => factor.id !== id)
-    }))
+  const handleRemoveSurchargeFactor = async (id) => {
+    try {
+      setLocalLoading(true)
+      await deleteSurchargeFactor(id)
+      setSuccessMessage('Factor de recargo eliminado correctamente')
+      setErrorMessage('')
+      
+      // Actualizar estado local también
+      setEditedSettings(prev => ({
+        ...prev,
+        surchargeFactors: prev.surchargeFactors.filter(factor => factor.id !== id)
+      }))
+      
+      // Limpiar mensaje después de 3 segundos
+      setTimeout(() => {
+        setSuccessMessage('')
+      }, 3000)
+    } catch (error) {
+      setErrorMessage('Error al eliminar el factor de recargo: ' + (error.message || 'Error desconocido'))
+      setSuccessMessage('')
+    } finally {
+      setLocalLoading(false)
+    }
   }
 
   // Eliminar un descuento
-  const handleRemoveDiscount = (id) => {
-    setEditedSettings(prev => ({
-      ...prev,
-      discounts: prev.discounts.filter(discount => discount.id !== id)
-    }))
+  const handleRemoveDiscount = async (id) => {
+    try {
+      setLocalLoading(true)
+      await deleteDiscount(id)
+      setSuccessMessage('Descuento eliminado correctamente')
+      setErrorMessage('')
+      
+      // Actualizar estado local también
+      setEditedSettings(prev => ({
+        ...prev,
+        discounts: prev.discounts.filter(discount => discount.id !== id)
+      }))
+      
+      // Limpiar mensaje después de 3 segundos
+      setTimeout(() => {
+        setSuccessMessage('')
+      }, 3000)
+    } catch (error) {
+      setErrorMessage('Error al eliminar el descuento: ' + (error.message || 'Error desconocido'))
+      setSuccessMessage('')
+    } finally {
+      setLocalLoading(false)
+    }
   }
 
   return (
@@ -231,9 +377,10 @@ const Settings = () => {
             
             <button
               onClick={saveSettings}
+              disabled={localLoading || isLoading}
               className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              Guardar Cambios
+              {(localLoading || isLoading) ? 'Guardando...' : 'Guardar Cambios'}
             </button>
           </div>
         </div>
@@ -243,62 +390,67 @@ const Settings = () => {
           <h2 className="text-lg font-medium text-gray-900 mb-4">Factores de Recargo</h2>
           
           <div className="space-y-4">
-            {editedSettings.surchargeFactors.map((factor) => (
-              <div key={factor.id} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-md">
-                <div className="flex-grow">
-                  <input
-                    type="text"
-                    value={factor.name ?? ''}
-                    onChange={(e) => handleSurchargeChange(factor.id, 'name', e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Nombre"
-                  />
-                </div>
-                
-                <div className="w-24">
-                  <input
-                    type="number"
-                    value={factor.rate ?? ''}
-                    onChange={(e) => handleSurchargeChange(factor.id, 'rate', e.target.value)}
-                    min="0"
-                    step="0.01"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Valor"
-                  />
-                </div>
-                
-                <div className="w-32">
-                  <select
-                    value={factor.type ?? ''}
-                    onChange={(e) => handleSurchargeChange(factor.id, 'type', e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            {editedSettings.surchargeFactors && editedSettings.surchargeFactors.length > 0 ? (
+              editedSettings.surchargeFactors.map((factor) => (
+                <div key={factor.id || Math.random().toString()} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-md">
+                  <div className="flex-grow">
+                    <input
+                      type="text"
+                      value={factor.name ?? ''}
+                      onChange={(e) => handleSurchargeChange(factor.id, 'name', e.target.value)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="Nombre"
+                    />
+                  </div>
+                  
+                  <div className="w-24">
+                    <input
+                      type="number"
+                      value={factor.rate ?? ''}
+                      onChange={(e) => handleSurchargeChange(factor.id, 'rate', e.target.value)}
+                      min="0"
+                      step="0.01"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="Valor"
+                    />
+                  </div>
+                  
+                  <div className="w-32">
+                    <select
+                      value={factor.type ?? ''}
+                      onChange={(e) => handleSurchargeChange(factor.id, 'type', e.target.value)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="percentage">Porcentaje</option>
+                      <option value="fixed">Monto Fijo</option>
+                    </select>
+                  </div>
+                  
+                  <button
+                    onClick={() => handleRemoveSurchargeFactor(factor.id)}
+                    disabled={localLoading || isLoading}
+                    className="p-2 text-red-600 hover:text-red-900"
                   >
-                    <option value="percentage">Porcentaje</option>
-                    <option value="fixed">Monto Fijo</option>
-                  </select>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </button>
                 </div>
-                
-                <button
-                  onClick={() => handleRemoveSurchargeFactor(factor.id)}
-                  className="p-2 text-red-600 hover:text-red-900"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-gray-500">No hay factores de recargo configurados.</p>
+            )}
             
             <div className="mt-4 p-4 bg-gray-50 rounded-md">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Añadir Nuevo Factor</h3>
               
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <input
                   type="text"
                   name="name"
                   value={newSurchargeFactor.name}
                   onChange={handleNewSurchargeChange}
-                  className="col-span-3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="col-span-1 md:col-span-3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   placeholder="Nombre del factor"
                 />
                 
@@ -317,19 +469,20 @@ const Settings = () => {
                   name="type"
                   value={newSurchargeFactor.type}
                   onChange={handleNewSurchargeChange}
-                  className="col-span-2 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="col-span-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
                   <option value="percentage">Porcentaje</option>
                   <option value="fixed">Monto Fijo</option>
                 </select>
+                
+                <button
+                  onClick={handleAddSurchargeFactor}
+                  disabled={localLoading || isLoading}
+                  className="col-span-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  {(localLoading || isLoading) ? 'Añadiendo...' : 'Añadir'}
+                </button>
               </div>
-              
-              <button
-                onClick={handleAddSurchargeFactor}
-                className="mt-2 w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Añadir Factor
-              </button>
             </div>
           </div>
         </div>
@@ -339,62 +492,67 @@ const Settings = () => {
           <h2 className="text-lg font-medium text-gray-900 mb-4">Descuentos</h2>
           
           <div className="space-y-4">
-            {editedSettings.discounts.map((discount) => (
-              <div key={discount.id} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-md">
-                <div className="flex-grow">
-                  <input
-                    type="text"
-                    value={discount.name ?? ''}
-                    onChange={(e) => handleDiscountChange(discount.id, 'name', e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Nombre"
-                  />
-                </div>
-                
-                <div className="w-24">
-                  <input
-                    type="number"
-                    value={discount.rate ?? ''}
-                    onChange={(e) => handleDiscountChange(discount.id, 'rate', e.target.value)}
-                    min="0"
-                    step="0.01"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Valor"
-                  />
-                </div>
-                
-                <div className="w-32">
-                  <select
-                    value={discount.type ?? ''}
-                    onChange={(e) => handleDiscountChange(discount.id, 'type', e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            {editedSettings.discounts && editedSettings.discounts.length > 0 ? (
+              editedSettings.discounts.map((discount) => (
+                <div key={discount.id || Math.random().toString()} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-md">
+                  <div className="flex-grow">
+                    <input
+                      type="text"
+                      value={discount.name ?? ''}
+                      onChange={(e) => handleDiscountChange(discount.id, 'name', e.target.value)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="Nombre"
+                    />
+                  </div>
+                  
+                  <div className="w-24">
+                    <input
+                      type="number"
+                      value={discount.rate ?? ''}
+                      onChange={(e) => handleDiscountChange(discount.id, 'rate', e.target.value)}
+                      min="0"
+                      step="0.01"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="Valor"
+                    />
+                  </div>
+                  
+                  <div className="w-32">
+                    <select
+                      value={discount.type ?? ''}
+                      onChange={(e) => handleDiscountChange(discount.id, 'type', e.target.value)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="percentage">Porcentaje</option>
+                      <option value="fixed">Monto Fijo</option>
+                    </select>
+                  </div>
+                  
+                  <button
+                    onClick={() => handleRemoveDiscount(discount.id)}
+                    disabled={localLoading || isLoading}
+                    className="p-2 text-red-600 hover:text-red-900"
                   >
-                    <option value="percentage">Porcentaje</option>
-                    <option value="fixed">Monto Fijo</option>
-                  </select>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </button>
                 </div>
-                
-                <button
-                  onClick={() => handleRemoveDiscount(discount.id)}
-                  className="p-2 text-red-600 hover:text-red-900"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-gray-500">No hay descuentos configurados.</p>
+            )}
             
             <div className="mt-4 p-4 bg-gray-50 rounded-md">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Añadir Nuevo Descuento</h3>
               
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <input
                   type="text"
                   name="name"
                   value={newDiscount.name}
                   onChange={handleNewDiscountChange}
-                  className="col-span-3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="col-span-1 md:col-span-3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   placeholder="Nombre del descuento"
                 />
                 
@@ -413,38 +571,20 @@ const Settings = () => {
                   name="type"
                   value={newDiscount.type}
                   onChange={handleNewDiscountChange}
-                  className="col-span-2 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="col-span-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
                   <option value="percentage">Porcentaje</option>
                   <option value="fixed">Monto Fijo</option>
                 </select>
+                
+                <button
+                  onClick={handleAddDiscount}
+                  disabled={localLoading || isLoading}
+                  className="col-span-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  {(localLoading || isLoading) ? 'Añadiendo...' : 'Añadir'}
+                </button>
               </div>
-              
-              <button
-                onClick={handleAddDiscount}
-                className="mt-2 w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Añadir Descuento
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        {/* Configuración de API */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Configuración de API</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="googleMapsApiKey" className="block text-sm font-medium text-gray-700">Clave de API de Google Maps</label>
-              <input
-                type="text"
-                id="googleMapsApiKey"
-                value={import.meta.env.VITE_APP_GOOGLE_MAPS_API_KEY || ''}
-                disabled
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-500 sm:text-sm"
-              />
-              <p className="mt-1 text-sm text-gray-500">Para cambiar la clave de API, edite el archivo .env en la raíz del proyecto.</p>
             </div>
           </div>
         </div>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { AppProvider, useAppContext } from './context/AppContext'
+import { authService } from './services/authService'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import DistanceCalculator from './pages/DistanceCalculator'
@@ -8,36 +10,44 @@ import Invoices from './pages/Invoices'
 import Settings from './pages/Settings'
 import Layout from './components/Layout'
 
+// Componente principal de la aplicación
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  return (
+    <AppProvider>
+      <AppRoutes />
+    </AppProvider>
+  )
+}
+
+// Componente para gestionar rutas y autenticación
+function AppRoutes() {
+  const { currentUser, logout } = useAppContext()
+  const [isAuthenticated, setIsAuthenticated] = useState(authService.isLoggedIn())
   const navigate = useNavigate()
 
   // Verificar si el usuario ya está autenticado al cargar la aplicación
   useEffect(() => {
-    const auth = localStorage.getItem('isAuthenticated')
-    if (auth === 'true') {
-      setIsAuthenticated(true)
-    }
-  }, [])
+    setIsAuthenticated(!!currentUser)
+  }, [currentUser])
 
   // Función para manejar el inicio de sesión
-  const handleLogin = (username, password) => {
-    const validUsername = import.meta.env.VITE_APP_USERNAME
-    const validPassword = import.meta.env.VITE_APP_PASSWORD
-
-    if (username === validUsername && password === validPassword) {
+  const handleLogin = async (user) => {
+    try {
+      // El login ya fue procesado en el componente Login con authService
+      // Aquí solo necesitamos actualizar el estado y redirigir
       setIsAuthenticated(true)
-      localStorage.setItem('isAuthenticated', 'true')
       navigate('/dashboard')
       return true
+    } catch (error) {
+      console.error('Error en manejo de login:', error)
+      return false
     }
-    return false
   }
 
   // Función para manejar el cierre de sesión
   const handleLogout = () => {
+    logout()
     setIsAuthenticated(false)
-    localStorage.removeItem('isAuthenticated')
     navigate('/login')
   }
 

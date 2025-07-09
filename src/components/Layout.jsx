@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
+import ApiHealthIndicator from './ApiHealthIndicator'
 
 const Layout = ({ onLogout }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -96,6 +97,9 @@ const Layout = ({ onLogout }) => {
           </p>
         </div>
       </footer>
+      
+      {/* API Health Indicator */}
+      <ApiHealthIndicator />
     </div>
   )
 }
