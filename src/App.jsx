@@ -8,6 +8,7 @@ import DistanceCalculator from './pages/DistanceCalculator'
 import TripTracking from './pages/TripTracking'
 import Invoices from './pages/Invoices'
 import Settings from './pages/Settings'
+import TestOrderFlow from './pages/TestOrderFlow'
 import Layout from './components/Layout'
 
 // Componente principal de la aplicación
@@ -83,6 +84,10 @@ function AppRoutes() {
         <Route 
           path="/settings" 
           element={isAuthenticated ? <Settings /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/test-order-flow" 
+          element={isAuthenticated ? <TestOrderFlow /> : <Navigate to="/login" />} 
         />
       </Route>
     </Routes>

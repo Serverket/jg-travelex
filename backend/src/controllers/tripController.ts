@@ -1,5 +1,5 @@
-import { Request, Response } from 'express';
-import TripModel, { Trip } from '../models/trips';
+import type { Request, Response } from 'express';
+import TripModel, { type Trip } from '../models/trips';
 
 export const getAllTrips = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -41,6 +41,8 @@ export const getTripById = async (req: Request, res: Response): Promise<void> =>
 
 export const createTrip = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('Trip creation request body:', req.body);
+    
     const {
       user_id,
       origin,
@@ -52,8 +54,21 @@ export const createTrip = async (req: Request, res: Response): Promise<void> => 
       activeSurcharges
     } = req.body;
     
+    console.log('Extracted trip data:', { 
+      user_id, origin, destination, distance, duration, date, price,
+      activeSurcharges: activeSurcharges || []
+    });
+    
     // Basic validation
     if (!user_id || !origin || !destination || distance === undefined || !date || price === undefined) {
+      console.error('Validation error: Required fields missing', { 
+        user_id_present: !!user_id, 
+        origin_present: !!origin, 
+        destination_present: !!destination, 
+        distance_present: distance !== undefined,
+        date_present: !!date, 
+        price_present: price !== undefined 
+      });
       res.status(400).json({ message: 'Required fields are missing' });
       return;
     }
@@ -63,6 +78,8 @@ export const createTrip = async (req: Request, res: Response): Promise<void> => 
     const parsedPrice = parseFloat(price);
     const parsedDuration = duration ? parseFloat(duration) : undefined;
     const parsedUserId = parseInt(user_id);
+    
+    console.log('Parsed values:', { parsedDistance, parsedPrice, parsedDuration, parsedUserId });
     
     if (isNaN(parsedDistance) || parsedDistance < 0) {
       res.status(400).json({ message: 'Distance must be a valid non-negative number' });
@@ -74,8 +91,30 @@ export const createTrip = async (req: Request, res: Response): Promise<void> => 
       return;
     }
     
+    // Validate activeSurcharges if present
+    let sanitizedSurcharges = [];
+    if (activeSurcharges) {
+      if (!Array.isArray(activeSurcharges)) {
+        console.error('activeSurcharges is not an array:', activeSurcharges);
+        // Try to parse it if it's a string
+        try {
+          if (typeof activeSurcharges === 'string') {
+            sanitizedSurcharges = JSON.parse(activeSurcharges);
+            console.log('Parsed activeSurcharges from string:', sanitizedSurcharges);
+          }
+        } catch (e) {
+          console.error('Failed to parse activeSurcharges string:', e);
+          sanitizedSurcharges = [];
+        }
+      } else {
+        sanitizedSurcharges = activeSurcharges.filter(id => !isNaN(parseInt(id)));
+        console.log('Filtered activeSurcharges:', sanitizedSurcharges);
+      }
+    }
+    
     // Create new trip
-    const tripId = await TripModel.create({
+    console.log('Attempting to create trip in database');
+    const tripData = {
       user_id: parsedUserId,
       origin,
       destination,
@@ -83,15 +122,23 @@ export const createTrip = async (req: Request, res: Response): Promise<void> => 
       duration: parsedDuration,
       date,
       price: parsedPrice,
-      activeSurcharges: activeSurcharges || []
-    });
+      activeSurcharges: sanitizedSurcharges
+    };
+    console.log('Trip data being sent to model:', tripData);
     
+    const tripId = await TripModel.create(tripData);
+    
+    console.log('Trip created successfully with ID:', tripId);
     res.status(201).json({
       message: 'Trip created successfully',
       tripId
     });
   } catch (error) {
     console.error('Error creating trip:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     res.status(500).json({ message: 'Internal server error' });
   }
 };

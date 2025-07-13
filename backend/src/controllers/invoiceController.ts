@@ -65,26 +65,44 @@ export const getInvoiceByNumber = async (req: Request, res: Response): Promise<v
 
 export const createInvoice = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('Creating invoice with request body:', JSON.stringify(req.body, null, 2));
     const { order_id, issue_date, due_date, status } = req.body;
     
     // Basic validation
     if (!order_id) {
+      console.log('Validation failed: order_id is missing');
       res.status(400).json({ message: 'Order ID is required' });
       return;
     }
     
-    const orderId = parseInt(order_id);
-    
-    // Check if order exists
-    const order = await OrderModel.findById(orderId);
-    if (!order) {
-      res.status(404).json({ message: 'Order not found' });
+    // Make sure order_id is a valid number
+    let orderId: number;
+    try {
+      orderId = parseInt(order_id.toString());
+      if (isNaN(orderId)) {
+        throw new Error('Invalid order ID format');
+      }
+    } catch (error) {
+      console.log('Validation failed: order_id is not a valid number', order_id);
+      res.status(400).json({ message: 'Invalid order ID format' });
       return;
     }
     
+    console.log('Looking for order with ID:', orderId);
+    // Check if order exists
+    const order = await OrderModel.findById(orderId);
+    if (!order) {
+      console.log('Validation failed: Order not found with ID:', orderId);
+      res.status(404).json({ message: 'Order not found' });
+      return;
+    }
+    console.log('Order found:', order);
+    
     // Check if invoice already exists for this order
+    console.log('Checking for existing invoice for order ID:', orderId);
     const existingInvoice = await InvoiceModel.findByOrderId(orderId);
     if (existingInvoice) {
+      console.log('Validation failed: Invoice already exists for order ID:', orderId, 'Invoice:', existingInvoice);
       res.status(400).json({ message: 'Invoice already exists for this order' });
       return;
     }

@@ -42,6 +42,8 @@ export const apiService = {
   async post(endpoint, data) {
     try {
       const token = authService.getToken();
+      console.log(`Making POST request to ${API_BASE_URL}${endpoint} with data:`, JSON.stringify(data, null, 2));
+      
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -51,11 +53,23 @@ export const apiService = {
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      // Parse response even if it's an error
+      const responseText = await response.text();
+      let parsedResponse;
+      try {
+        parsedResponse = responseText ? JSON.parse(responseText) : {};
+      } catch (e) {
+        parsedResponse = { raw: responseText };
       }
 
-      return await response.json();
+      if (!response.ok) {
+        console.error(`API POST Error ${response.status}:`, parsedResponse);
+        const error = new Error(`Error ${response.status}: ${response.statusText}`);
+        error.response = { status: response.status, data: parsedResponse };
+        throw error;
+      }
+
+      return parsedResponse;
     } catch (error) {
       console.error('API POST Error:', error);
       throw error;

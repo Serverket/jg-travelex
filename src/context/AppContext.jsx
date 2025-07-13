@@ -41,6 +41,10 @@ export const AppProvider = ({ children }) => {
     const user = authService.getCurrentUser()
     if (user) {
       setCurrentUser(user)
+      // Also load the user's data when restoring session
+      loadUserData(user.id).catch(err => {
+        console.error('Error loading user data on session restore:', err)
+      })
     }
     
     // Create a storage listener to handle session changes across tabs/windows
@@ -213,20 +217,44 @@ export const AppProvider = ({ children }) => {
   // Función para añadir un nuevo viaje
   const addTrip = async (trip) => {
     try {
-      // Formato para el backend
+      // Ensure all required fields are present and properly formatted
+      if (!currentUser || !currentUser.id) {
+        throw new Error('Usuario no autenticado');
+      }
+      
+      // Format tripData with all required fields and proper data types
+      // Format the date as YYYY-MM-DD for MySQL DATE field
+      const formatDateForMySQL = (dateStr) => {
+        const date = dateStr ? new Date(dateStr) : new Date();
+        return date.toISOString().split('T')[0]; // Get YYYY-MM-DD part
+      };
+      
       const tripData = {
         user_id: currentUser.id,
-        origin: trip.origin,
-        destination: trip.destination,
-        distance: trip.distance,
-        duration: trip.duration || null,
-        date: trip.date || new Date().toISOString(),
-        price: trip.price,
-        activeSurcharges: trip.activeSurcharges || []
+        origin: trip.origin || 'Origen no especificado',
+        destination: trip.destination || 'Destino no especificado',
+        // Ensure distance is a valid number
+        distance: typeof trip.distance === 'number' ? trip.distance : parseFloat(trip.distance) || 0,
+        // Ensure duration is a valid number or null
+        duration: trip.duration ? (typeof trip.duration === 'number' ? trip.duration : parseFloat(trip.duration)) : null,
+        // Format date as YYYY-MM-DD for MySQL DATE field
+        date: formatDateForMySQL(trip.date),
+        // Ensure price is a valid number
+        price: typeof trip.price === 'number' ? trip.price : parseFloat(trip.price) || 0,
+        // Ensure activeSurcharges is a simple array of numbers (not objects)
+        // Backend expects surcharge IDs as integers
+        activeSurcharges: Array.isArray(trip.activeSurcharges) ?
+          trip.activeSurcharges
+            .map(id => typeof id === 'number' ? id : parseInt(id))
+            .filter(id => !isNaN(id)) : // Filter out any NaN values
+          []
       }
+      
+      console.log('Enviando datos de viaje al backend:', tripData);
       
       // Crear viaje en la API
       const response = await tripService.createTrip(tripData)
+      console.log('Respuesta de la API al crear viaje:', response);
       
       // Formato para frontend
       const newTrip = {
@@ -235,8 +263,21 @@ export const AppProvider = ({ children }) => {
         date: trip.date || new Date().toISOString()
       }
       
-      // Actualizar estado local
-      setTrips(prev => [...prev, newTrip])
+      console.log('Nuevo viaje creado:', newTrip);
+      
+      // Actualizar estado local - verificar si el viaje ya existe para evitar duplicados
+      setTrips(prev => {
+        // Check if this trip already exists (by ID)
+        const tripExists = prev.some(t => t.id === newTrip.id)
+        
+        if (tripExists) {
+          // If exists, replace it
+          return prev.map(t => t.id === newTrip.id ? newTrip : t)
+        } else {
+          // If new, append it
+          return [...prev, newTrip]
+        }
+      })
       return newTrip
     } catch (error) {
       console.error('Error al añadir viaje:', error)
@@ -247,6 +288,17 @@ export const AppProvider = ({ children }) => {
   // Función para crear una nueva orden
   const createOrder = async (tripData) => {
     try {
+      // Verificamos si el viaje ya está guardado en la base de datos
+      let tripId = tripData.id;
+      
+      // Si el viaje no tiene ID, creamos un nuevo viaje primero
+      if (!tripId) {
+        console.log('El viaje no tiene ID, creando un nuevo viaje primero...');
+        const savedTrip = await addTrip(tripData);
+        tripId = savedTrip.id;
+        console.log('Viaje guardado con ID:', tripId);
+      }
+      
       // Formato para el backend
       const orderData = {
         user_id: currentUser.id,
@@ -254,25 +306,41 @@ export const AppProvider = ({ children }) => {
         status: 'pending',
         items: [
           {
-            trip_id: tripData.id,
+            trip_id: tripId,
             amount: tripData.price
           }
         ]
       }
       
+      console.log('Enviando datos de orden al backend:', orderData);
+      
       // Crear orden en la API
       const response = await orderService.createOrder(orderData)
+      console.log('Respuesta de la API al crear orden:', response);
       
       // Formato para frontend
       const newOrder = {
         id: response.orderId,
         date: new Date().toISOString(),
-        tripData,
+        tripData: {...tripData, id: tripId}, // Aseguramos que tripData tenga el ID correcto
         status: 'pending'
       }
       
-      // Actualizar estado local
-      setOrders(prev => [...prev, newOrder])
+      console.log('Nueva orden creada:', newOrder);
+      
+      // Actualizar estado local con verificación de duplicados
+      setOrders(prev => {
+        // Check if this order already exists (by ID)
+        const orderExists = prev.some(o => o.id === newOrder.id)
+        
+        if (orderExists) {
+          // If exists, replace it
+          return prev.map(o => o.id === newOrder.id ? newOrder : o)
+        } else {
+          // If new, append it
+          return [...prev, newOrder]
+        }
+      })
       return newOrder
     } catch (error) {
       console.error('Error al crear orden:', error)
@@ -283,36 +351,106 @@ export const AppProvider = ({ children }) => {
   // Función para crear una nueva factura
   const createInvoice = async (orderId) => {
     try {
-      const order = orders.find(o => o.id === orderId)
-      if (!order) return null
+      console.log('Starting invoice creation for order ID:', orderId);
       
-      // Formato para el backend
+      // First check with the API if an invoice already exists for this order
+      try {
+        const existingInvoiceResponse = await invoiceService.getInvoiceByOrderId(orderId);
+        if (existingInvoiceResponse && existingInvoiceResponse.id) {
+          console.log('API check: Invoice already exists for this order:', existingInvoiceResponse);
+          // Add the found invoice to our local state if it's not there already
+          const invoiceExists = invoices.some(inv => inv.id === existingInvoiceResponse.id);
+          if (!invoiceExists) {
+            setInvoices(prev => [...prev, {
+              ...existingInvoiceResponse,
+              orderId: orderId,
+              orderData: orders.find(o => o.id === orderId)
+            }]);
+          }
+          return existingInvoiceResponse;
+        }
+      } catch (checkError) {
+        // Check if this is a 404 error (meaning no invoice exists yet)
+        if (checkError.message && checkError.message.includes('Error 404')) {
+          console.log('No existing invoice found for order ID:', orderId, '(404 response is expected)');
+          // This is normal - continue with creation
+        } else {
+          // For any other error type, log and throw
+          console.error('Error checking for existing invoice:', checkError);
+          throw checkError;
+        }
+      }
+      
+      // As a backup, also check local state
+      const localExistingInvoice = invoices.find(inv => inv.orderId === orderId);
+      if (localExistingInvoice) {
+        console.log('Local state check: Invoice already exists for this order:', localExistingInvoice);
+        return localExistingInvoice;
+      }
+
+      const order = orders.find(o => o.id === orderId);
+      if (!order) {
+        console.error('Order not found for ID:', orderId, 'in orders array:', orders);
+        return null;
+      }
+      
+      // Format dates properly for the backend
+      const currentDate = new Date();
+      const dueDate = new Date(currentDate);
+      dueDate.setDate(dueDate.getDate() + 30); // 30 days later
+      
+      // Format for the backend - use YYYY-MM-DD format to avoid timezone issues
       const invoiceData = {
         order_id: orderId,
-        issue_date: new Date().toISOString(),
-        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 días después
+        issue_date: currentDate.toISOString().split('T')[0],
+        due_date: dueDate.toISOString().split('T')[0],
         status: 'pending'
       }
       
-      // Crear factura en la API
-      const response = await invoiceService.createInvoice(invoiceData)
+      console.log('Creating invoice with data:', JSON.stringify(invoiceData, null, 2));
       
-      // Formato para frontend
-      const newInvoice = {
-        id: response.invoiceId,
-        invoiceNumber: response.invoiceNumber,
-        date: new Date().toISOString(),
-        orderId,
-        orderData: order,
-        status: 'issued' // issued, paid
+      try {
+        // Create invoice via API
+        const response = await invoiceService.createInvoice(invoiceData);
+        console.log('Invoice created successfully:', response);
+        
+        // Format for frontend
+        const newInvoice = {
+          id: response.invoiceId,
+          invoiceNumber: response.invoiceNumber,
+          date: currentDate.toISOString(),
+          orderId,
+          orderData: order,
+          status: 'issued' // issued, paid
+        }
+        
+        // Update local state
+        setInvoices(prev => [...prev, newInvoice]);
+        return newInvoice;
+      } catch (apiError) {
+        console.error('API Error details:', apiError);
+        console.error('API Error response:', apiError.response?.data || 'No response data');
+        
+        // Check for specific error: invoice already exists
+        if (apiError.response?.status === 400 && 
+            apiError.response?.data?.message?.includes('Invoice already exists')) {
+          // Try to fetch the existing invoice
+          try {
+            const existingInv = await invoiceService.getInvoiceByOrderId(orderId);
+            if (existingInv) {
+              console.log('Found existing invoice after 400 error:', existingInv);
+              return existingInv;
+            }
+          } catch (fetchError) {
+            console.error('Failed to fetch existing invoice after 400 error:', fetchError);
+          }
+        }
+        
+        throw apiError;
       }
-      
-      // Actualizar estado local
-      setInvoices(prev => [...prev, newInvoice])
-      return newInvoice
     } catch (error) {
-      console.error('Error al crear factura:', error)
-      throw error
+      console.error('Error al crear factura:', error);
+      throw error;
     }
   }
   
@@ -321,10 +459,45 @@ export const AppProvider = ({ children }) => {
     try {
       const response = await authService.login(username, password)
       setCurrentUser(response.user)
+      
+      // Load user data after successful login
+      if (response.user && response.user.id) {
+        await loadUserData(response.user.id)
+      }
+      
       return response.user
     } catch (error) {
       console.error('Error al iniciar sesión:', error)
       throw error
+    }
+  }
+  
+  // Función para cargar datos del usuario
+  const loadUserData = async (userId) => {
+    try {
+      console.log('Loading user data for ID:', userId)
+      
+      // Cargar viajes del usuario
+      const userTrips = await tripService.getTripsByUserId(userId)
+      console.log('User trips loaded:', userTrips)
+      setTrips(userTrips) // Replace, don't append
+      
+      // Cargar órdenes del usuario
+      const userOrders = await orderService.getOrdersByUserId(userId)
+      console.log('User orders loaded:', userOrders)
+      setOrders(userOrders) // Replace, don't append
+      
+      // Cargar todas las facturas (filtraremos las del usuario después)
+      const allInvoices = await invoiceService.getAllInvoices()
+      const orderIds = userOrders.map(order => order.id)
+      const userInvoices = allInvoices.filter(invoice => orderIds.includes(invoice.order_id))
+      console.log('User invoices loaded:', userInvoices)
+      setInvoices(userInvoices) // Replace, don't append
+      
+      return { trips: userTrips, orders: userOrders, invoices: userInvoices }
+    } catch (error) {
+      console.error('Error loading user data:', error)
+      return { trips: [], orders: [], invoices: [] }
     }
   }
   
@@ -507,7 +680,11 @@ export const AppProvider = ({ children }) => {
     createInvoice,
     calculateTripPrice,
     login,
-    logout
+    logout,
+    // Export state setters for direct updates from components
+    setOrders,
+    setInvoices,
+    setTrips
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

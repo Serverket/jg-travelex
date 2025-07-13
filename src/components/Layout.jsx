@@ -30,6 +30,7 @@ const Layout = ({ onLogout }) => {
               <NavLink to="/tracking" className={navLinkClass}>Seguimiento</NavLink>
               <NavLink to="/invoices" className={navLinkClass}>Facturas</NavLink>
               <NavLink to="/settings" className={navLinkClass}>Configuración</NavLink>
+              <NavLink to="/test-order-flow" className={navLinkClass}>Test Pedidos</NavLink>
               <button 
                 onClick={onLogout}
                 className="px-4 py-2 rounded-md text-red-600 hover:bg-red-50"
@@ -66,16 +67,17 @@ const Layout = ({ onLogout }) => {
         
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              <NavLink to="/dashboard" className={navLinkClass}>Dashboard</NavLink>
-              <NavLink to="/calculator" className={navLinkClass}>Calculadora</NavLink>
-              <NavLink to="/tracking" className={navLinkClass}>Seguimiento</NavLink>
-              <NavLink to="/invoices" className={navLinkClass}>Facturas</NavLink>
-              <NavLink to="/settings" className={navLinkClass}>Configuración</NavLink>
+          <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:hidden mt-2 bg-white shadow-lg rounded-md absolute right-0 left-0 z-20 mx-4`}>
+            <div className="py-2">
+              <NavLink to="/dashboard" className="block px-4 py-2 hover:bg-gray-100">Dashboard</NavLink>
+              <NavLink to="/calculator" className="block px-4 py-2 hover:bg-gray-100">Calculadora</NavLink>
+              <NavLink to="/tracking" className="block px-4 py-2 hover:bg-gray-100">Seguimiento</NavLink>
+              <NavLink to="/invoices" className="block px-4 py-2 hover:bg-gray-100">Facturas</NavLink>
+              <NavLink to="/settings" className="block px-4 py-2 hover:bg-gray-100">Configuración</NavLink>
+              <NavLink to="/test-order-flow" className="block px-4 py-2 hover:bg-gray-100">Test Pedidos</NavLink>
               <button 
                 onClick={onLogout}
-                className="w-full text-left px-4 py-2 rounded-md text-red-600 hover:bg-red-50"
+                className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
               >
                 Cerrar Sesión
               </button>

@@ -1,5 +1,5 @@
 import pool from '../config/db';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 export interface Trip {
   id?: number;
@@ -95,6 +95,8 @@ class TripModel {
     try {
       await connection.beginTransaction();
       
+      console.log('Creating trip with data:', trip);
+      
       // Insert trip
       const [result] = await connection.query<ResultSetHeader>(
         'INSERT INTO trips (user_id, origin, destination, distance, duration, date, price) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -102,19 +104,35 @@ class TripModel {
       );
       
       const tripId = result.insertId;
+      console.log(`Trip created successfully with ID: ${tripId}`);
       
-      // Insert surcharge factors if any
-      if (trip.activeSurcharges && trip.activeSurcharges.length > 0) {
-        const values = trip.activeSurcharges.map(surchargeId => [tripId, surchargeId]);
-        await connection.query(
-          'INSERT INTO trip_surcharges (trip_id, surcharge_id) VALUES ?',
-          [values]
-        );
+      // Safely handle the activeSurcharges array
+      const surcharges = Array.isArray(trip.activeSurcharges) ? 
+        trip.activeSurcharges.filter(id => typeof id === 'number' && !isNaN(id)) : [];
+      
+      console.log('Filtered surcharges to insert:', surcharges);
+      
+      // Insert surcharge factors if any, one by one to avoid bulk insert issues
+      if (surcharges.length > 0) {
+        try {
+          for (const surchargeId of surcharges) {
+            await connection.query(
+              'INSERT INTO trip_surcharges (trip_id, surcharge_id) VALUES (?, ?)',
+              [tripId, surchargeId]
+            );
+          }
+          console.log(`Added ${surcharges.length} surcharges to trip ${tripId}`);
+        } catch (surchargeError) {
+          console.error('Error inserting surcharges:', surchargeError);
+          // Continue execution even if surcharges fail
+          // Don't throw error here to allow trip creation to succeed
+        }
       }
       
       await connection.commit();
       return tripId;
     } catch (error) {
+      console.error('Error in trip creation:', error);
       await connection.rollback();
       throw error;
     } finally {
