@@ -6,14 +6,88 @@ import { tripService } from '../services/tripService'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
 
+// Helper function to format address for display, showing lot number and street name
+const formatAddress = (address, maxLength = 30) => {
+  if (!address) return 'No disponible';
+  
+  // For addresses like "8904, West Dallas Street, Menomonee River Hills"
+  // We want to show "8904, West Dallas Street..."
+  const parts = address.split(',');
+  
+  if (parts.length > 1) {
+    // Show first two parts (lot number + street name) if available
+    const displayPart = parts.length >= 2 ? 
+      `${parts[0].trim()}${parts[1] ? ', ' + parts[1].trim() : ''}` : 
+      parts[0].trim();
+      
+    if (displayPart.length > maxLength) {
+      return `${displayPart.substring(0, maxLength)}...`;
+    }
+    
+    return parts.length > 2 ? `${displayPart}...` : displayPart;
+  }
+  
+  // If no commas, just truncate if too long
+  return address.length > maxLength ? 
+    `${address.substring(0, maxLength)}...` : 
+    address;
+};
+
 const Invoices = () => {
   const { currentUser, orders, invoices, createInvoice, setOrders, setInvoices } = useAppContext()
-  const [activeTab, setActiveTab] = useState('orders') // 'orders' o 'invoices'
+  const [activeTab, setActiveTab] = useState('orders')
   const [selectedOrderId, setSelectedOrderId] = useState(null)
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  
+  // Sorting states
+  const [sortConfig, setSortConfig] = useState({
+    key: 'date',
+    direction: 'desc' // Newest first by default
+  })
 
+  // Sort function that works for both orders and invoices
+  const sortedItems = (items) => {
+    if (!items || items.length === 0) return [];
+    return [...items].sort((a, b) => {
+      if (sortConfig.key === 'date') {
+        // For orders and invoices, prioritize created_at for accurate creation time
+        const dateA = a.created_at || a.issue_date || new Date().toISOString();
+        const dateB = b.created_at || b.issue_date || new Date().toISOString();
+        return sortConfig.direction === 'asc' 
+          ? new Date(dateA) - new Date(dateB)
+          : new Date(dateB) - new Date(dateA);
+      } else if (sortConfig.key === 'price') {
+        // Price sorting needs to handle both orders and invoices differently
+        if (activeTab === 'orders') {
+          // For orders
+          const priceA = a.items && a.items[0]?.tripData?.price || a.total_amount || 0;
+          const priceB = b.items && b.items[0]?.tripData?.price || b.total_amount || 0;
+          return sortConfig.direction === 'asc' ? priceA - priceB : priceB - priceA;
+        } else {
+          // For invoices - use invoice-specific price path
+          const priceA = a.total_amount || (a.orderData?.items && a.orderData.items[0]?.tripData?.price) || 
+                        (a.orderData?.total_amount) || 0;
+          const priceB = b.total_amount || (b.orderData?.items && b.orderData.items[0]?.tripData?.price) || 
+                        (b.orderData?.total_amount) || 0;
+          return sortConfig.direction === 'asc' ? priceA - priceB : priceB - priceA;
+        }
+      }
+      return 0;
+    });
+  };
+
+  // Handle column header click for sorting
+  const handleSort = (key) => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: prevConfig.key === key 
+        ? prevConfig.direction === 'asc' ? 'desc' : 'asc'
+        : key === 'date' ? 'desc' : 'asc' // Default to newest first for dates
+    }));
+  };
+  
   // Load orders and invoices directly from API when component mounts or currentUser changes
   useEffect(() => {
     const fetchData = async () => {
@@ -285,18 +359,28 @@ const Invoices = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                      <th 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('date')}
+                      >
+                        Fecha {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origen</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destino</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
+                      <th 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('price')}
+                      >
+                        Precio {sortConfig.key === 'price' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {orders.map((order) => {
-                      // Verificar si ya existe una factura para esta orden
-                      const hasInvoice = invoices.some(invoice => invoice.orderId === order.id)
+                    {sortedItems(orders).map((order) => {
+                      // Check if order already has an invoice
+                      const hasInvoice = invoices.some(invoice => invoice.order_id === order.id || invoice.orderId === order.id);
                       
                       return (
                         <tr key={order.id} className={selectedOrderId === order.id ? 'bg-blue-50' : ''}>
@@ -304,13 +388,13 @@ const Invoices = () => {
                             {order.id}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}
+                            {order.created_at ? new Date(order.created_at).toLocaleDateString() + ' ' + new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {order.items && order.items[0]?.tripData?.origin || 'No origin'}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={order.items && order.items[0]?.tripData?.origin || 'No origin'}>
+                            {formatAddress(order.items && order.items[0]?.tripData?.origin)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {order.items && order.items[0]?.tripData?.destination || 'No destination'}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={order.items && order.items[0]?.tripData?.destination || 'No destination'}>
+                            {formatAddress(order.items && order.items[0]?.tripData?.destination)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             ${order.items && order.items[0]?.tripData?.price || order.total_amount || 0}
@@ -357,35 +441,41 @@ const Invoices = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Factura</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Orden</th>
+                      <th 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('date')}
+                      >
+                        Fecha {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origen</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destino</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                      <th 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('price')}
+                      >
+                        Monto {sortConfig.key === 'price' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {invoices.map((invoice) => (
+                    {sortedItems(invoices).map((invoice) => (
                       <tr key={invoice.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {invoice.id}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : (invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : 'N/A')}
+                          {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() + ' ' + new Date(invoice.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : (invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() + ' ' + new Date(invoice.issue_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin || 'No origin'}>
+                          {formatAddress(invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination || 'No destination'}>
+                          {formatAddress(invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {invoice.order_id || invoice.orderId}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin || 'No origin'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination || 'No destination'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          ${invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.price || invoice.orderData?.total_amount || 0}
+                          ${invoice.total_amount || (invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.price) || invoice.orderData?.total_amount || 0}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${invoice.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
