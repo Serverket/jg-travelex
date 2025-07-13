@@ -3,7 +3,8 @@
  */
 import { authService } from './authService';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+// Use environment variable with fallback to local development URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export const apiService = {
   /**

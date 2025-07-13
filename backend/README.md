@@ -112,5 +112,3 @@ The API server will be running at http://localhost:8000
 - Input validation on all incoming data
 - SQL injection protection through parameterized queries
 - Rate limiting for sensitive endpoints
-
-Developed with ❤️ using Bun and TypeScript
