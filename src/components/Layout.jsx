@@ -30,7 +30,6 @@ const Layout = ({ onLogout }) => {
               <NavLink to="/tracking" className={navLinkClass}>Seguimiento</NavLink>
               <NavLink to="/invoices" className={navLinkClass}>Facturas</NavLink>
               <NavLink to="/settings" className={navLinkClass}>Configuración</NavLink>
-              <NavLink to="/test-order-flow" className={navLinkClass}>Test Pedidos</NavLink>
               <button 
                 onClick={onLogout}
                 className="px-4 py-2 rounded-md text-red-600 hover:bg-red-50"
@@ -74,7 +73,6 @@ const Layout = ({ onLogout }) => {
               <NavLink to="/tracking" className="block px-4 py-2 hover:bg-gray-100">Seguimiento</NavLink>
               <NavLink to="/invoices" className="block px-4 py-2 hover:bg-gray-100">Facturas</NavLink>
               <NavLink to="/settings" className="block px-4 py-2 hover:bg-gray-100">Configuración</NavLink>
-              <NavLink to="/test-order-flow" className="block px-4 py-2 hover:bg-gray-100">Test Pedidos</NavLink>
               <button 
                 onClick={onLogout}
                 className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
