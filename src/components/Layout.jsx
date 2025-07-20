@@ -8,6 +8,10 @@ const Layout = ({ onLogout }) => {
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen)
   }
+  
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false)
+  }
 
   const navLinkClass = ({ isActive }) => {
     return `block px-4 py-2 rounded-md ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`
@@ -68,13 +72,16 @@ const Layout = ({ onLogout }) => {
         {isMobileMenuOpen && (
           <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:hidden mt-2 bg-white shadow-lg rounded-md absolute right-0 left-0 z-20 mx-4`}>
             <div className="py-2">
-              <NavLink to="/dashboard" className="block px-4 py-2 hover:bg-gray-100">Dashboard</NavLink>
-              <NavLink to="/calculator" className="block px-4 py-2 hover:bg-gray-100">Calculadora</NavLink>
-              <NavLink to="/tracking" className="block px-4 py-2 hover:bg-gray-100">Seguimiento</NavLink>
-              <NavLink to="/invoices" className="block px-4 py-2 hover:bg-gray-100">Facturas</NavLink>
-              <NavLink to="/settings" className="block px-4 py-2 hover:bg-gray-100">Configuración</NavLink>
+              <NavLink to="/dashboard" className="block px-4 py-2 hover:bg-gray-100" onClick={closeMobileMenu}>Dashboard</NavLink>
+              <NavLink to="/calculator" className="block px-4 py-2 hover:bg-gray-100" onClick={closeMobileMenu}>Calculadora</NavLink>
+              <NavLink to="/tracking" className="block px-4 py-2 hover:bg-gray-100" onClick={closeMobileMenu}>Seguimiento</NavLink>
+              <NavLink to="/invoices" className="block px-4 py-2 hover:bg-gray-100" onClick={closeMobileMenu}>Facturas</NavLink>
+              <NavLink to="/settings" className="block px-4 py-2 hover:bg-gray-100" onClick={closeMobileMenu}>Configuración</NavLink>
               <button 
-                onClick={onLogout}
+                onClick={(e) => {
+                  closeMobileMenu();
+                  onLogout(e);
+                }}
                 className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
               >
                 Cerrar Sesión
