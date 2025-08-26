@@ -21,13 +21,11 @@ export const authService = {
       // Store user data in localStorage
       if (response.user) {
         localStorage.setItem('user', JSON.stringify(response.user));
-        localStorage.setItem('username', response.user.username);
       }
       
       return response;
     } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+      throw error
     }
   },
 

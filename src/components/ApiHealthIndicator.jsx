@@ -2,31 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { supabaseService } from '../services/supabaseService';
 
 const ApiHealthIndicator = () => {
-  const [isHealthy, setIsHealthy] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [apiStatus, setApiStatus] = useState('checking');
 
   const checkApiHealth = async () => {
     try {
-      setLoading(true);
-      const response = await supabaseService.checkHealth();
-      setIsHealthy(true);
-      console.log('Supabase Health:', response);
+      await supabaseService.checkHealth();
+      setApiStatus('connected');
     } catch (error) {
-      setIsHealthy(false);
-      console.error('Supabase health check failed:', error);
-    } finally {
-      setLoading(false);
+      setApiStatus('disconnected');
     }
   };
 
   useEffect(() => {
-    // Check immediately on component mount
     checkApiHealth();
-
-    // Set up interval to check API health every 30 seconds
     const intervalId = setInterval(checkApiHealth, 30000);
-    
-    // Clean up interval on component unmount
     return () => clearInterval(intervalId);
   }, []);
   
