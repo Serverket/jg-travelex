@@ -41,7 +41,7 @@ export const getTripById = async (req: Request, res: Response): Promise<void> =>
 
 export const createTrip = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('Trip creation request body:', req.body);
+    console.log('Creating trip...');
     
     const {
       user_id,

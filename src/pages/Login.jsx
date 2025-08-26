@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { authService } from '../services/authService'
+import ApiHealthIndicator from '../components/ApiHealthIndicator'
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('')
@@ -95,6 +96,7 @@ const Login = ({ onLogin }) => {
           </div>
         </form>
       </div>
+      <ApiHealthIndicator />
     </div>
   )
 }

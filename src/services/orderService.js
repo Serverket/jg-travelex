@@ -1,4 +1,4 @@
-import { apiService } from './apiService';
+import { supabaseService } from './supabaseService';
 
 /**
  * Order service
@@ -9,7 +9,7 @@ export const orderService = {
    * @returns {Promise<Array>} - List of orders
    */
   async getAllOrders() {
-    return await apiService.get('/orders');
+    return await supabaseService.getOrders();
   },
 
   /**
@@ -18,7 +18,7 @@ export const orderService = {
    * @returns {Promise<Array>} - List of user orders
    */
   async getOrdersByUserId(userId) {
-    return await apiService.get(`/orders/user/${userId}`);
+    return await supabaseService.getOrdersByUserId(userId);
   },
 
   /**
@@ -27,7 +27,7 @@ export const orderService = {
    * @returns {Promise<object>} - Order data
    */
   async getOrderById(id) {
-    return await apiService.get(`/orders/${id}`);
+    return await supabaseService.getOrderById(id);
   },
 
   /**
@@ -36,7 +36,7 @@ export const orderService = {
    * @returns {Promise<object>} - Created order response
    */
   async createOrder(orderData) {
-    return await apiService.post('/orders', orderData);
+    return await supabaseService.createOrder(orderData);
   },
 
   /**
@@ -46,7 +46,7 @@ export const orderService = {
    * @returns {Promise<object>} - Update response
    */
   async updateOrder(id, orderData) {
-    return await apiService.put(`/orders/${id}`, orderData);
+    return await supabaseService.updateOrder(id, orderData);
   },
 
   /**
@@ -55,6 +55,6 @@ export const orderService = {
    * @returns {Promise<object>} - Delete response
    */
   async deleteOrder(id) {
-    return await apiService.delete(`/orders/${id}`);
+    return await supabaseService.deleteOrder(id);
   }
 };

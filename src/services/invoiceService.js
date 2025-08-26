@@ -1,4 +1,4 @@
-import { apiService } from './apiService';
+import { supabaseService } from './supabaseService';
 
 /**
  * Invoice service
@@ -9,7 +9,7 @@ export const invoiceService = {
    * @returns {Promise<Array>} - List of invoices
    */
   async getAllInvoices() {
-    return await apiService.get('/invoices');
+    return await supabaseService.getInvoices();
   },
 
   /**
@@ -18,7 +18,7 @@ export const invoiceService = {
    * @returns {Promise<object>} - Invoice data
    */
   async getInvoiceById(id) {
-    return await apiService.get(`/invoices/${id}`);
+    return await supabaseService.getInvoiceById(id);
   },
   
   /**
@@ -27,7 +27,7 @@ export const invoiceService = {
    * @returns {Promise<object>} - Invoice data
    */
   async getInvoiceByOrderId(orderId) {
-    return await apiService.get(`/invoices/order/${orderId}`);
+    return await supabaseService.getInvoiceByOrderId(orderId);
   },
   
   /**
@@ -36,7 +36,7 @@ export const invoiceService = {
    * @returns {Promise<object>} - Invoice data
    */
   async getInvoiceByNumber(invoiceNumber) {
-    return await apiService.get(`/invoices/number/${invoiceNumber}`);
+    return await supabaseService.getInvoiceByNumber(invoiceNumber);
   },
 
   /**
@@ -45,7 +45,7 @@ export const invoiceService = {
    * @returns {Promise<object>} - Created invoice response
    */
   async createInvoice(invoiceData) {
-    return await apiService.post('/invoices', invoiceData);
+    return await supabaseService.createInvoice(invoiceData);
   },
 
   /**
@@ -55,7 +55,7 @@ export const invoiceService = {
    * @returns {Promise<object>} - Update response
    */
   async updateInvoice(id, invoiceData) {
-    return await apiService.put(`/invoices/${id}`, invoiceData);
+    return await supabaseService.updateInvoice(id, invoiceData);
   },
 
   /**
@@ -64,6 +64,6 @@ export const invoiceService = {
    * @returns {Promise<object>} - Delete response
    */
   async deleteInvoice(id) {
-    return await apiService.delete(`/invoices/${id}`);
+    return await supabaseService.deleteInvoice(id);
   }
 };

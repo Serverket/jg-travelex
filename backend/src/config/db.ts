@@ -5,10 +5,15 @@ import { config } from 'dotenv';
 config();
 
 // Create Supabase client
-const supabaseUrl = process.env.SUPABASE_URL || 'https://puasatxwnzgvjftcxsef.supabase.co';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1YXNhdHh3bnpndmpmdGN4c2VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxNzU5OTUsImV4cCI6MjA3MTc1MTk5NX0.5e0-J-Xbw_Uow0sEZ19GpHHlMC2lmnQx1oMTDsUNhSc';
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing required Supabase environment variables: SUPABASE_URL and SUPABASE_SERVICE_KEY');
+}
+
+// Use service role key for backend operations (bypasses RLS)
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Test database connection
 export const testConnection = async (): Promise<boolean> => {

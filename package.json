@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@react-google-maps/api": "^2.19.2",
+    "@supabase/supabase-js": "^2.56.0",
     "chart.js": "^4.4.0",
+    "crypto-js": "^4.2.0",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.7.0",
     "leaflet": "^1.9.4",

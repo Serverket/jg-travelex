@@ -1,8 +1,8 @@
-# Jaimes Gamez Travel Experience (JG Travelex) &middot; ![Release Status](https://img.shields.io/badge/release-v1.1.0-brightgreen) [![GitHub license](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE) ![PWA Ready](https://img.shields.io/badge/PWA-Ready-9f7aea) ![React](https://img.shields.io/badge/React-18.0-61dafb) ![Bun](https://img.shields.io/badge/Bun-1.0-f9f1e1) ![MySQL](https://img.shields.io/badge/MySQL-8.0-00758f)
+# Jaimes Gamez Travel Experience (JG Travelex) &middot; ![Release Status](https://img.shields.io/badge/release-v2.0.0-brightgreen) [![GitHub license](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE) ![PWA Ready](https://img.shields.io/badge/PWA-Ready-9f7aea) ![React](https://img.shields.io/badge/React-18.0-61dafb) ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e)
 
-A full-stack web application for calculating trip distances, generating orders and invoices, and tracking trip statistics with an extensive backend for data persistence. Designed for transportation businesses to manage trip calculations, financial tracking, and reporting.
+A modern frontend-only web application powered by Supabase for calculating trip distances, generating orders and invoices, and tracking trip statistics. Designed for transportation businesses to manage trip calculations, financial tracking, and reporting with direct database integration.
 
-This project provides a comprehensive solution for transportation businesses looking for route calculation, pricing management, and invoice generation with a robust API backend.
+This project provides a comprehensive solution for transportation businesses looking for route calculation, pricing management, and invoice generation with seamless Supabase integration.
 
 </div>
 
@@ -16,7 +16,7 @@ This project provides a comprehensive solution for transportation businesses loo
 - 📊 **Trip tracking**: Real-time statistics and charts for daily, weekly, and monthly trips
 - 🧾 **Order management**: Create and manage orders from completed trips
 - 📄 **Invoice generation**: Generate PDF invoices with automatic calculations
-- 🗄️ **Data persistence**: Full MySQL database backend with API
+- 🗄️ **Data persistence**: Full Supabase PostgreSQL backend with API
 - 📱 **Responsive interface**: Optimized for all devices with Tailwind CSS
 - 🔄 **Real-time updates**: Automatic data refresh and state management
 - 🛡️ **Security**: Proper credential handling and API authentication
@@ -24,8 +24,8 @@ This project provides a comprehensive solution for transportation businesses loo
 ## :gear: Installation and Execution
 
 ### Prerequisites
-- 📦 Bun (preferred) or Node.js (version 16 or higher)
-- 🗃️ MySQL (version 8.0 or higher)
+- 📦 Node.js (version 16 or higher)
+- 🗃️ Supabase account (free tier available)
 - ☁️ Google Cloud Platform account to obtain a Google Maps API Key
 
 ### Installation Steps
@@ -36,51 +36,61 @@ git clone https://github.com/Serverket/jg-travelex
 cd jg-travelex
 ```
 
-**2. Install frontend dependencies:**
+**2. Install dependencies:**
 ```bash
-bun install
+npm install
 ```
 
-**3. Install backend dependencies:**
+## Database Setup
+
+### Supabase Setup
+
+1. **Create Supabase Project**:
+   - Visit [supabase.com](https://supabase.com) and create a new project
+   - Go to Settings → API to get your project URL and service role key
+
+2. **Setup Database**:
+   ```bash
+   # In Supabase Dashboard → SQL Editor, run:
+   # Copy and paste contents from backend/supabase-schema.sql
+   ```
+
+3. **Create Admin User**:
+   ```bash
+   cat > create-admin.js << 'EOF'
+   import { createClient } from '@supabase/supabase-js';
+   import crypto from 'crypto';
+
+   const supabase = createClient('YOUR_SUPABASE_URL', 'YOUR_SERVICE_ROLE_KEY');
+
+   const hashPassword = (password) => crypto.createHash('sha256').update(password).digest('hex');
+
+   await supabase.from('users').insert({
+     username: 'admin',
+     password: hashPassword('your_password'),
+     name: 'Admin User',
+     email: 'admin@company.com',
+     role: 'admin'
+   });
+   console.log('✅ Admin created');
+   EOF
+
+   node create-admin.js && rm create-admin.js
+   ```
+
+## Environment Setup
+
+**Environment Variables (.env):**
 ```bash
-cd backend
-bun install
-cd ..
-```
-
-**4. Set up the database:**
-```bash
-# Create a MySQL database named 'travelex'
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS travelex;"
-```
-
-**5. Configure environment variables:**
-
-Create a .env file in the project root:
-```
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 VITE_APP_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 ```
 
-Create a .env file in the backend directory:
-```
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASS=your_password
-DB_NAME=travelex
-PORT=8000
-```
+## Development
 
-**6. Start the backend server:**
 ```bash
-cd backend
-bun dev
-```
-
-**7. Start the frontend server in a new terminal:**
-```bash
-cd jg-travelex
-bun dev
+npm run dev
 ```
 
 Ready! 🎉 Open your browser at http://localhost:5173
@@ -96,25 +106,14 @@ Ready! 🎉 Open your browser at http://localhost:5173
   * jsPDF
   * Axios
 
-* **Backend**:
-  * Bun
-  * Express
-  * MySQL
-  * TypeScript
-  * JWT Authentication
+* **Database**:
+  * Supabase (PostgreSQL)
+  * Row Level Security (RLS)
+  * Real-time subscriptions
 
 ## :file_folder: Project Structure
 ```
 📂 jg-travelex/
-├── 📁 backend/              # Backend API
-│   ├── 📁 src/              # Backend source code
-│   │   ├── 📁 controllers/  # API controllers
-│   │   ├── 📁 models/       # Database models
-│   │   └── 📁 routes/       # API routes
-│   ├── 📄 index.ts          # Entry point
-│   ├── 📄 cleanup.js        # Database cleanup utility
-│   ├── 📄 .env              # Backend environment variables
-│   └── 📄 package.json      # Backend dependencies
 ├── 📁 public/               # Static files
 │   ├── 📁 icons/            # PWA icons
 │   ├── 📄 manifest.json     # PWA manifest
@@ -123,12 +122,12 @@ Ready! 🎉 Open your browser at http://localhost:5173
 │   ├── 📁 components/       # Reusable components
 │   ├── 📁 context/          # Global application context
 │   ├── 📁 pages/            # Main pages
-│   ├── 📁 services/         # API service integration
+│   ├── 📁 services/         # Supabase service integration
 │   ├── 📁 utils/            # Utility functions
 │   ├── 📄 App.jsx           # Main component
 │   ├── 📄 main.jsx          # Entry point
 │   └── 📄 index.css         # Global styles
-├── 📄 .env                  # Frontend environment variables
+├── 📄 .env                  # Environment variables
 ├── 📄 .env.template         # Template for environment variables
 ├── 📄 index.html            # HTML template
 ├── 📄 package.json          # Dependencies and scripts
@@ -145,11 +144,15 @@ All pricing configuration is managed through the Settings page after login:
 - Surcharge factors (fixed or percentage)
 - Discounts (fixed or percentage)
 
-### 🗃️ Database Setup
-The application uses MySQL for data persistence. Configure your database connection in `backend/.env`.
+### 🗃️ Database
+Uses Supabase PostgreSQL with Row Level Security. The application connects directly to Supabase from the frontend.
 
 ### 🔑 API Security
-Make sure to set strong credentials for your database in the backend .env file. For production, consider implementing proper JWT expiration and refresh mechanisms.
+The application uses Supabase's built-in security features:
+- Row Level Security (RLS) policies for data isolation
+- Environment-based credential management
+- No hardcoded secrets in source code
+- Admin user creation via secure scripts (not stored in repo)
 
 ### 🗺️ Google Maps API
 To obtain a Google Maps API Key:
@@ -174,8 +177,8 @@ Features we're considering for future versions:
 - [ ] API rate limiting: Enhanced security for API endpoints
 - [x] Order management: Create and manage orders from trips
 - [x] Invoice generation: PDF invoice creation with automatic calculations
-- [x] Database persistence: MySQL backend for all data
-- [x] API integration: Full REST API for all operations
+- [x] Database persistence: Supabase PostgreSQL for all data
+- [x] Direct database integration: Frontend connects directly to Supabase
 - [x] Trip analytics: Comprehensive trip statistics and visualizations
 - [x] Address truncation: Improved address display with ellipsis
 

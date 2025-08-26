@@ -65,7 +65,7 @@ export const getInvoiceByNumber = async (req: Request, res: Response): Promise<v
 
 export const createInvoice = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('Creating invoice with request body:', JSON.stringify(req.body, null, 2));
+    console.log('Creating invoice...');
     const { order_id, issue_date, due_date, status } = req.body;
     
     // Basic validation

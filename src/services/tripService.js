@@ -1,4 +1,4 @@
-import { apiService } from './apiService';
+import { supabaseService } from './supabaseService';
 
 /**
  * Trip service
@@ -8,8 +8,8 @@ export const tripService = {
    * Get all trips
    * @returns {Promise<Array>} - List of trips
    */
-  async getAllTrips() {
-    return await apiService.get('/trips');
+  async getTrips() {
+    return await supabaseService.getTrips();
   },
 
   /**
@@ -18,7 +18,7 @@ export const tripService = {
    * @returns {Promise<Array>} - List of user trips
    */
   async getTripsByUserId(userId) {
-    return await apiService.get(`/trips/user/${userId}`);
+    return await supabaseService.getTripsByUserId(userId);
   },
 
   /**
@@ -27,7 +27,7 @@ export const tripService = {
    * @returns {Promise<object>} - Trip data
    */
   async getTripById(id) {
-    return await apiService.get(`/trips/${id}`);
+    return await supabaseService.getTripById(id);
   },
 
   /**
@@ -36,7 +36,7 @@ export const tripService = {
    * @returns {Promise<object>} - Created trip response
    */
   async createTrip(tripData) {
-    return await apiService.post('/trips', tripData);
+    return await supabaseService.createTrip(tripData);
   },
 
   /**
@@ -46,7 +46,7 @@ export const tripService = {
    * @returns {Promise<object>} - Update response
    */
   async updateTrip(id, tripData) {
-    return await apiService.put(`/trips/${id}`, tripData);
+    return await supabaseService.updateTrip(id, tripData);
   },
 
   /**
@@ -55,6 +55,6 @@ export const tripService = {
    * @returns {Promise<object>} - Delete response
    */
   async deleteTrip(id) {
-    return await apiService.delete(`/trips/${id}`);
+    return await supabaseService.deleteTrip(id);
   }
 };

@@ -1,4 +1,4 @@
-import { apiService } from './apiService';
+import { supabaseService } from './supabaseService';
 
 /**
  * Settings service
@@ -9,7 +9,7 @@ export const settingsService = {
    * @returns {Promise<object>} - Settings data
    */
   async getSettings() {
-    return await apiService.get('/settings');
+    return await supabaseService.getSettings();
   },
 
   /**
@@ -18,7 +18,7 @@ export const settingsService = {
    * @returns {Promise<object>} - Updated settings data
    */
   async updateSettings(settings) {
-    return await apiService.put('/settings', settings);
+    return await supabaseService.updateSettings(settings);
   },
   
   /**
@@ -26,7 +26,7 @@ export const settingsService = {
    * @returns {Promise<Array>} - List of surcharge factors
    */
   async getSurchargeFactors() {
-    return await apiService.get('/surcharge-factors');
+    return await supabaseService.getSurchargeFactors();
   },
   
   /**
@@ -35,26 +35,26 @@ export const settingsService = {
    * @returns {Promise<object>} - Surcharge factor data
    */
   async getSurchargeFactorById(id) {
-    return await apiService.get(`/surcharge-factors/${id}`);
+    return await supabaseService.getSurchargeFactorById(id);
   },
   
   /**
    * Create surcharge factor
-   * @param {object} surchargeData - Surcharge factor data
+   * @param {object} factorData - Surcharge factor data
    * @returns {Promise<object>} - Created surcharge factor
    */
-  async createSurchargeFactor(surchargeData) {
-    return await apiService.post('/surcharge-factors', surchargeData);
+  async createSurchargeFactor(factorData) {
+    return await supabaseService.createSurchargeFactor(factorData);
   },
   
   /**
    * Update surcharge factor
    * @param {number} id - Surcharge factor ID
-   * @param {object} surchargeData - Updated surcharge factor data
+   * @param {object} factorData - Updated surcharge factor data
    * @returns {Promise<object>} - Updated surcharge factor
    */
-  async updateSurchargeFactor(id, surchargeData) {
-    return await apiService.put(`/surcharge-factors/${id}`, surchargeData);
+  async updateSurchargeFactor(id, factorData) {
+    return await supabaseService.updateSurchargeFactor(id, factorData);
   },
   
   /**
@@ -63,7 +63,7 @@ export const settingsService = {
    * @returns {Promise<object>} - Result
    */
   async deleteSurchargeFactor(id) {
-    return await apiService.delete(`/surcharge-factors/${id}`);
+    return await supabaseService.deleteSurchargeFactor(id);
   },
   
   /**
@@ -71,7 +71,7 @@ export const settingsService = {
    * @returns {Promise<Array>} - List of discounts
    */
   async getDiscounts() {
-    return await apiService.get('/discounts');
+    return await supabaseService.getDiscounts();
   },
   
   /**
@@ -80,7 +80,7 @@ export const settingsService = {
    * @returns {Promise<object>} - Discount data
    */
   async getDiscountById(id) {
-    return await apiService.get(`/discounts/${id}`);
+    return await supabaseService.getDiscountById(id);
   },
   
   /**
@@ -89,7 +89,7 @@ export const settingsService = {
    * @returns {Promise<object>} - Created discount
    */
   async createDiscount(discountData) {
-    return await apiService.post('/discounts', discountData);
+    return await supabaseService.createDiscount(discountData);
   },
   
   /**
@@ -99,7 +99,7 @@ export const settingsService = {
    * @returns {Promise<object>} - Updated discount
    */
   async updateDiscount(id, discountData) {
-    return await apiService.put(`/discounts/${id}`, discountData);
+    return await supabaseService.updateDiscount(id, discountData);
   },
   
   /**
@@ -108,6 +108,6 @@ export const settingsService = {
    * @returns {Promise<object>} - Result
    */
   async deleteDiscount(id) {
-    return await apiService.delete(`/discounts/${id}`);
+    return await supabaseService.deleteDiscount(id);
   }
 };

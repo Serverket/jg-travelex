@@ -1,34 +1,28 @@
-import { apiService } from './apiService';
+/**
+ * Authentication service for handling user login/logout
+ */
+import { supabaseService } from './supabaseService';
 
 // Session token key constants
 const TOKEN_KEY = 'jgex_token';
 const USER_KEY = 'jgex_user';
 
-/**
- * Authentication service
- */
 export const authService = {
   /**
-   * Login user
+   * Login user with username and password
    * @param {string} username - User's username
    * @param {string} password - User's password
-   * @returns {Promise<object>} - User data and token
+   * @returns {Promise<object>} - Login response with user data
    */
   async login(username, password) {
     try {
-      const response = await apiService.post('/users/login', { username, password });
+      const response = await supabaseService.login(username, password);
       
-      // Even if the API doesn't return a token, we'll create a session
-      // by storing user data and a timestamp as our session identifier
-      const sessionData = {
-        user: response.user || response,
-        token: response.token || `session_${Date.now()}`,
-        timestamp: Date.now()
-      };
-      
-      // Store session data in localStorage
-      localStorage.setItem(TOKEN_KEY, sessionData.token);
-      localStorage.setItem(USER_KEY, JSON.stringify(sessionData.user));
+      // Store user data in localStorage
+      if (response.user) {
+        localStorage.setItem('user', JSON.stringify(response.user));
+        localStorage.setItem('username', response.user.username);
+      }
       
       return response;
     } catch (error) {

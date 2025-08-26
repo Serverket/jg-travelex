@@ -226,3 +226,6 @@ INSERT INTO discounts (name, rate, type) VALUES
     ('Senior Discount', 10.00, 'percentage'),
     ('Loyalty Discount', 15.00, 'fixed'),
     ('Student Discount', 15.00, 'percentage');
+
+-- Admin user can be created using the create-admin.js script
+-- This keeps credentials out of version control
