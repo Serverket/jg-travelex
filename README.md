@@ -1,4 +1,6 @@
-# Jaimes Gamez Travel Experience (JG Travelex) &middot; ![Release Status](https://img.shields.io/badge/release-v2.0.0-brightgreen) [![GitHub license](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE) ![PWA Ready](https://img.shields.io/badge/PWA-Ready-9f7aea) ![React](https://img.shields.io/badge/React-18.0-61dafb) ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e)
+# JG Travelex - Sistema de Gestión de Viajes
+
+Aplicación web moderna para calcular distancias, gestionar viajes y generar facturas, construida con React + Vite y respaldada por Supabase.
 
 A modern frontend-only web application powered by Supabase for calculating trip distances, generating orders and invoices, and tracking trip statistics. Designed for transportation businesses to manage trip calculations, financial tracking, and reporting with direct database integration.
 
@@ -6,110 +8,86 @@ This project provides a comprehensive solution for transportation businesses loo
 
 </div>
 
-## :rocket: Key Features
+## :rocket: Características
 
-- 🔐 **User authentication**: Full user management system with session persistence
-- 📍 **Distance calculation**: Google Maps API integration for accurate distance and travel time determination
-- 💰 **Rate configuration**: Configurable base rates per mile and hour with persistence
-- ⚡ **Increment factors**: Manage surcharges with fixed amounts or percentages via API
-- 🎯 **Discounts**: Apply and manage discounts via an intuitive interface
-- 📊 **Trip tracking**: Real-time statistics and charts for daily, weekly, and monthly trips
-- 🧾 **Order management**: Create and manage orders from completed trips
-- 📄 **Invoice generation**: Generate PDF invoices with automatic calculations
-- 🗄️ **Data persistence**: Full Supabase PostgreSQL backend with API
-- 📱 **Responsive interface**: Optimized for all devices with Tailwind CSS
-- 🔄 **Real-time updates**: Automatic data refresh and state management
-- 🛡️ **Security**: Proper credential handling and API authentication
+- 🗺️ Cálculo de distancias usando Google Maps
+- 💰 Cálculo automático de precios con tarifas configurables
+- 📊 Dashboard con estadísticas en tiempo real
+- 📋 Gestión completa de órdenes
+- 📄 Generación de facturas PDF
+- 👤 Sistema de autenticación con Supabase Auth
+- ⚙️ Panel de configuración de tarifas, recargos y descuentos
+- 🔒 Control de acceso basado en roles (admin/usuario)
+- 📱 Diseño responsivo y moderno con Tailwind CSS
 
-## :gear: Installation and Execution
+## :gear: Instalación y Ejecución
 
-### Prerequisites
-- 📦 Node.js (version 16 or higher)
-- 🗃️ Supabase account (free tier available)
-- ☁️ Google Cloud Platform account to obtain a Google Maps API Key
+### Prerrequisitos
 
-### Installation Steps
+- Node.js 16+ y npm
+- Cuenta de Supabase (https://supabase.com)
+- Clave API de Google Maps (para el cálculo de distancias)
 
-**1. Clone the repository:**
+### Pasos de instalación
+
+1. Clonar el repositorio
 ```bash
-git clone https://github.com/Serverket/jg-travelex
+git clone <url-del-repositorio>
 cd jg-travelex
 ```
 
-**2. Install dependencies:**
+2. Instalar dependencias
 ```bash
 npm install
 ```
 
-## Database Setup
-
-### Supabase Setup
-
-1. **Create Supabase Project**:
-   - Visit [supabase.com](https://supabase.com) and create a new project
-   - Go to Settings → API to get your project URL and service role key
-
-2. **Setup Database**:
-   ```bash
-   # In Supabase Dashboard → SQL Editor, run:
-   # Copy and paste contents from backend/supabase-schema.sql
-   ```
-
-3. **Create Admin User**:
-   ```bash
-   cat > create-admin.js << 'EOF'
-   import { createClient } from '@supabase/supabase-js';
-   import crypto from 'crypto';
-
-   const supabase = createClient('YOUR_SUPABASE_URL', 'YOUR_SERVICE_ROLE_KEY');
-
-   const hashPassword = (password) => crypto.createHash('sha256').update(password).digest('hex');
-
-   await supabase.from('users').insert({
-     username: 'admin',
-     password: hashPassword('your_password'),
-     name: 'Admin User',
-     email: 'admin@company.com',
-     role: 'admin'
-   });
-   console.log('✅ Admin created');
-   EOF
-
-   node create-admin.js && rm create-admin.js
-   ```
-
-## Environment Setup
-
-**Environment Variables (.env):**
+3. Configurar variables de entorno
 ```bash
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_APP_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+cp .env.template .env
 ```
 
-## Development
+Editar `.env` con las siguientes variables:
+```env
+# Supabase Configuration
+VITE_SUPABASE_URL=tu_url_de_supabase
+VITE_SUPABASE_ANON_KEY=tu_anon_key
+VITE_SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
 
+# Google Maps API
+VITE_GOOGLE_MAPS_API_KEY=tu_google_maps_api_key
+```
+
+4. Configurar la base de datos en Supabase
+```bash
+# Ejecutar el script de esquema en tu proyecto de Supabase
+node scripts/create-admin-supabase.js
+```
+
+5. Ejecutar la aplicación
 ```bash
 npm run dev
 ```
 
-Ready! 🎉 Open your browser at http://localhost:5173
+La aplicación estará disponible en `http://localhost:5173`.
 
-## :hammer_and_wrench: Technologies Used
-* **Frontend**:
-  * React 18
-  * Vite
-  * TailwindCSS
-  * Chart.js
-  * React Router
-  * Google Maps API
-  * jsPDF
-  * Axios
+## :hammer_and_wrench: Tecnologías
 
-* **Database**:
-  * Supabase (PostgreSQL)
-  * Row Level Security (RLS)
-  * Real-time subscriptions
+### Frontend
+- **React 18** - Framework de UI
+- **Vite** - Build tool y dev server
+- **Tailwind CSS** - Framework de estilos utility-first
+- **React Router** - Navegación SPA
+- **Chart.js** - Visualización de datos
+- **jsPDF** - Generación de PDFs
+- **Google Maps API** - Cálculo de distancias y rutas
+
+### Backend
+- **Supabase** - Backend as a Service
+  - PostgreSQL Database
+  - Row Level Security (RLS)
+  - Realtime subscriptions
+  - Authentication
+- **Service Role Key** - Operaciones administrativas seguras
 
 ## :file_folder: Project Structure
 ```
@@ -136,55 +114,52 @@ Ready! 🎉 Open your browser at http://localhost:5173
 └── 📄 vite.config.js        # Vite configuration
 ```
 
-## :wrench: Customization and Configuration
+## :wrench: Uso
 
-### 💵 Rates and Surcharges
-All pricing configuration is managed through the Settings page after login:
-- Base rates per mile and hour
-- Surcharge factors (fixed or percentage)
-- Discounts (fixed or percentage)
+### Credenciales de administrador por defecto
+- Usuario: `jgam`
+- Contraseña: `jgampro777`
 
-### 🗃️ Database
-Uses Supabase PostgreSQL with Row Level Security. The application connects directly to Supabase from the frontend.
+### Funcionalidades principales
 
-### 🔑 API Security
-The application uses Supabase's built-in security features:
-- Row Level Security (RLS) policies for data isolation
-- Environment-based credential management
-- No hardcoded secrets in source code
-- Admin user creation via secure scripts (not stored in repo)
+#### Para Administradores:
+- Ver y gestionar todos los viajes y órdenes
+- Configurar tarifas base, recargos y descuentos
+- Actualizar estado de órdenes
+- Generar facturas para cualquier orden
+- Ver estadísticas globales del sistema
 
-### 🗺️ Google Maps API
-To obtain a Google Maps API Key:
+#### Para Usuarios:
+- Calcular distancias y precios de viajes
+- Crear y guardar viajes
+- Generar órdenes de viajes
+- Ver historial personal de viajes y órdenes
+- Descargar facturas en PDF
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Enable the following APIs:
-   - Directions API
-   - Distance Matrix API
-   - Maps JavaScript API
-4. Generate an API Key and restrict its usage according to your needs
-5. Add the API Key to your frontend .env file
+## :world_map: Despliegue
 
-## :world_map: Roadmap
-Features we're considering for future versions:
+### Despliegue en Vercel
 
-- [ ] Auto-estimation: AI for calculating rates based on historical patterns
-- [ ] Notifications: Email alerts for scheduled trips
-- [ ] Dark mode: Night-friendly theme
-- [ ] Multi-language support: Expand language options
-- [ ] User management system: Admin panel for user accounts
-- [ ] API rate limiting: Enhanced security for API endpoints
-- [x] Order management: Create and manage orders from trips
-- [x] Invoice generation: PDF invoice creation with automatic calculations
-- [x] Database persistence: Supabase PostgreSQL for all data
-- [x] Direct database integration: Frontend connects directly to Supabase
-- [x] Trip analytics: Comprehensive trip statistics and visualizations
-- [x] Address truncation: Improved address display with ellipsis
+1. Conectar el repositorio a Vercel
+2. Configurar las variables de entorno en Vercel:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_SUPABASE_SERVICE_ROLE_KEY`
+   - `VITE_GOOGLE_MAPS_API_KEY`
+3. Configurar el comando de build: `npm run build`
+4. Configurar el directorio de output: `dist`
+5. Desplegar
 
-## :scroll: Licensing
+## Seguridad
 
-This work is licensed under a [MIT License](LICENSE).
+- Las credenciales de Supabase se mantienen seguras usando variables de entorno
+- Service Role Key solo se usa para operaciones administrativas
+- Autenticación basada en SHA256 para compatibilidad con sistema legacy
+- Row Level Security (RLS) habilitado en tablas de Supabase
+
+## Licencia
+
+MIT
 
 ## :brain: Acknowledgments
 

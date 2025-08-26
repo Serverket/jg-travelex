@@ -1,4 +1,4 @@
-import { supabaseService } from './supabaseService';
+import { supabaseService } from './supabase';
 
 /**
  * Trip service
@@ -8,8 +8,8 @@ export const tripService = {
    * Get all trips
    * @returns {Promise<Array>} - List of trips
    */
-  async getTrips() {
-    return await supabaseService.getTrips();
+  async getTrips(filters = {}) {
+    return await supabaseService.getTrips(filters);
   },
 
   /**
@@ -42,11 +42,11 @@ export const tripService = {
   /**
    * Update trip
    * @param {number} id - Trip ID
-   * @param {object} tripData - Updated trip data
+   * @param {object} updates - Updated trip data
    * @returns {Promise<object>} - Update response
    */
-  async updateTrip(id, tripData) {
-    return await supabaseService.updateTrip(id, tripData);
+  async updateTrip(id, updates) {
+    return await supabaseService.updateTrip(id, updates);
   },
 
   /**
@@ -56,5 +56,22 @@ export const tripService = {
    */
   async deleteTrip(id) {
     return await supabaseService.deleteTrip(id);
+  },
+
+  // Trip surcharges and discounts
+  async addSurcharge(tripId, surchargeId, amount) {
+    return await supabaseService.addTripSurcharge(tripId, surchargeId, amount);
+  },
+
+  async removeSurcharge(tripId, surchargeId) {
+    return await supabaseService.removeTripSurcharge(tripId, surchargeId);
+  },
+
+  async addDiscount(tripId, discountId, amount) {
+    return await supabaseService.addTripDiscount(tripId, discountId, amount);
+  },
+
+  async removeDiscount(tripId, discountId) {
+    return await supabaseService.removeTripDiscount(tripId, discountId);
   }
 };

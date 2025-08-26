@@ -4,11 +4,17 @@ import { GoogleMap, useJsApiLoader, DirectionsRenderer } from '@react-google-map
 import PlaceSearch from '../components/PlaceSearch'
 import OpenStreetMap from '../components/OpenStreetMap'
 import ManualDistanceInput from '../components/ManualDistanceInput'
+import tripService from '../services/tripService'
+import orderService from '../services/orderService'
+import settingsService from '../services/settingsService'
 
 const libraries = ['places']
 
 const DistanceCalculator = () => {
-  const { rateSettings, addTrip, createOrder, calculateTripPrice } = useAppContext()
+  const { user } = useAppContext()
+  const [rateSettings, setRateSettings] = useState(null)
+  const [surchargeFactors, setSurchargeFactors] = useState([])
+  const [discounts, setDiscounts] = useState([])
   
   // Estado para el método de cálculo seleccionado
   const [calculationMethod, setCalculationMethod] = useState('manual') // 'manual', 'google'
@@ -31,12 +37,35 @@ const DistanceCalculator = () => {
 
   // Cargar la API de Google Maps
   const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_APP_GOOGLE_MAPS_API_KEY,
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     libraries,
   })
 
   // Verificar si la API key de Google Maps está disponible
-  const googleMapsApiKeyAvailable = Boolean(import.meta.env.VITE_APP_GOOGLE_MAPS_API_KEY)
+  const googleMapsApiKeyAvailable = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY)
+
+  // Load settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const [settings, surcharges, discountsList] = await Promise.all([
+          settingsService.getSettings(),
+          settingsService.getSurchargeFactors(),
+          settingsService.getDiscounts()
+        ])
+        
+        setRateSettings(settings?.[0] || { distance_rate: 2, duration_rate: 0.5 })
+        setSurchargeFactors(surcharges || [])
+        setDiscounts(discountsList || [])
+      } catch (error) {
+        console.error('Error loading settings:', error)
+        // Set default values if loading fails
+        setRateSettings({ distance_rate: 2, duration_rate: 0.5 })
+      }
+    }
+
+    loadSettings()
+  }, [])
 
   // Efecto para establecer el método de cálculo predeterminado según la disponibilidad de la API key
   useEffect(() => {
@@ -44,6 +73,51 @@ const DistanceCalculator = () => {
       setCalculationMethod('manual') // Default to manual calculation
     }
   }, [googleMapsApiKeyAvailable])
+
+  // Calculate price with surcharges and discounts
+  const calculatePrice = (distanceValue, durationValue) => {
+    if (!rateSettings) return 0
+    
+    let basePrice = (distanceValue * rateSettings.distance_rate) + 
+                    (durationValue * rateSettings.duration_rate)
+    
+    // Apply surcharges
+    activeSurcharges.forEach(surchargeId => {
+      const surcharge = surchargeFactors.find(s => s.id === surchargeId)
+      if (surcharge) {
+        if (surcharge.type === 'percentage') {
+          basePrice += basePrice * (surcharge.rate / 100)
+        } else {
+          basePrice += surcharge.rate
+        }
+      }
+    })
+    
+    // Apply discounts
+    activeDiscounts.forEach(discountId => {
+      const discount = discounts.find(d => d.id === discountId)
+      if (discount) {
+        if (discount.type === 'percentage') {
+          basePrice -= basePrice * (discount.rate / 100)
+        } else {
+          basePrice -= discount.rate
+        }
+      }
+    })
+    
+    return Math.max(0, basePrice).toFixed(2)
+  }
+
+  // Recalculate price when surcharges or discounts change
+  useEffect(() => {
+    if (distance || duration) {
+      const newPrice = calculatePrice(
+        parseFloat(distance || 0),
+        parseFloat(duration || 0)
+      )
+      setPrice(newPrice)
+    }
+  }, [activeSurcharges, activeDiscounts, distance, duration, rateSettings])
 
   // Manejar selección de origen en Google Maps
   const handleOriginSelect = (place) => {
@@ -88,7 +162,7 @@ const DistanceCalculator = () => {
       setDuration(durationInMinutes.toFixed(0))
 
       // Calcular precio
-      const calculatedPrice = calculateTripPrice(distanceInMiles, durationInMinutes, activeSurcharges, activeDiscounts)
+      const calculatedPrice = calculatePrice(distanceInMiles, durationInMinutes)
       setPrice(calculatedPrice)
 
       // Centrar el mapa en el punto medio de la ruta
@@ -117,11 +191,9 @@ const DistanceCalculator = () => {
     
     // Calcular precio solo si tenemos al menos distancia o duración
     if (data.distance || data.duration) {
-      const calculatedPrice = calculateTripPrice(
+      const calculatedPrice = calculatePrice(
         parseFloat(data.distance || 0), 
-        data.duration || 0, 
-        activeSurcharges, 
-        activeDiscounts
+        data.duration || 0
       )
       setPrice(calculatedPrice)
     }
@@ -134,17 +206,6 @@ const DistanceCalculator = () => {
         ? prev.filter(surchargeId => surchargeId !== id)
         : [...prev, id];
       
-      // Recalculate price immediately
-      if (distance || duration) {
-        const calculatedPrice = calculateTripPrice(
-          parseFloat(distance || 0), 
-          parseFloat(duration || 0), 
-          newSurcharges, 
-          activeDiscounts
-        );
-        setPrice(calculatedPrice);
-      }
-      
       return newSurcharges;
     });
   }
@@ -156,71 +217,97 @@ const DistanceCalculator = () => {
         ? prev.filter(discountId => discountId !== id)
         : [...prev, id];
       
-      // Recalculate price immediately
-      if (distance || duration) {
-        const calculatedPrice = calculateTripPrice(
-          parseFloat(distance || 0), 
-          parseFloat(duration || 0), 
-          activeSurcharges, 
-          newDiscounts
-        );
-        setPrice(calculatedPrice);
-      }
-      
       return newDiscounts;
     });
   }
 
   // Guardar el viaje
-  const saveTrip = () => {
+  const saveTrip = async () => {
     if (!distance && !duration) {
       setError('Primero debe ingresar distancia o duración')
       return
     }
 
-    const originDescription = origin?.description || 'Origen no especificado';
-    const destinationDescription = destination?.description || 'Destino no especificado';
+    const originDescription = typeof origin === 'string' ? origin : (origin?.description || 'Origen no especificado')
+    const destinationDescription = typeof destination === 'string' ? destination : (destination?.description || 'Destino no especificado')
 
-    const tripData = {
-      origin: originDescription,
-      destination: destinationDescription,
-      distance: distance || 0,
-      duration: duration || 0,
-      price,
-      activeSurcharges,
-      activeDiscounts,
-      calculationMethod
+    try {
+      const tripData = {
+        user_id: user.id,
+        origin: originDescription,
+        destination: destinationDescription,
+        distance: parseFloat(distance || 0),
+        duration: parseInt(duration || 0),
+        price: parseFloat(price || 0),
+        date: new Date().toISOString()
+      }
+
+      const savedTrip = await tripService.createTrip(tripData)
+      
+      // Save surcharges and discounts
+      if (activeSurcharges.length > 0) {
+        await tripService.addTripSurcharges(savedTrip.id, activeSurcharges)
+      }
+      if (activeDiscounts.length > 0) {
+        await tripService.addTripDiscounts(savedTrip.id, activeDiscounts)
+      }
+      
+      setError('')
+      alert('Viaje guardado correctamente')
+    } catch (error) {
+      console.error('Error saving trip:', error)
+      setError('Error al guardar el viaje')
     }
-
-    addTrip(tripData)
-    setError('')
-    alert('Viaje guardado correctamente')
   }
 
   // Crear una orden
-  const createTripOrder = () => {
+  const createTripOrder = async () => {
     if ((!distance && !duration) || !price) {
       setError('Primero debe calcular una ruta')
       return
     }
 
-    const originDescription = origin?.description || 'Origen no especificado';
-    const destinationDescription = destination?.description || 'Destino no especificado';
+    const originDescription = typeof origin === 'string' ? origin : (origin?.description || 'Origen no especificado')
+    const destinationDescription = typeof destination === 'string' ? destination : (destination?.description || 'Destino no especificado')
 
-    const tripData = {
-      origin: originDescription,
-      destination: destinationDescription,
-      distance: distance || 0,
-      duration: duration || 0,
-      price,
-      activeSurcharges,
-      activeDiscounts,
-      calculationMethod
+    try {
+      // First save the trip
+      const tripData = {
+        user_id: user.id,
+        origin: originDescription,
+        destination: destinationDescription,
+        distance: parseFloat(distance || 0),
+        duration: parseInt(duration || 0),
+        price: parseFloat(price || 0),
+        date: new Date().toISOString()
+      }
+
+      const savedTrip = await tripService.createTrip(tripData)
+      
+      // Save surcharges and discounts
+      if (activeSurcharges.length > 0) {
+        await tripService.addTripSurcharges(savedTrip.id, activeSurcharges)
+      }
+      if (activeDiscounts.length > 0) {
+        await tripService.addTripDiscounts(savedTrip.id, activeDiscounts)
+      }
+      
+      // Create order
+      const orderData = {
+        user_id: user.id,
+        status: 'pending',
+        total_amount: parseFloat(price),
+        trips: [savedTrip.id]
+      }
+      
+      await orderService.createOrder(orderData)
+      setOrderCreated(true)
+      setError('')
+      alert('Orden creada correctamente')
+    } catch (error) {
+      console.error('Error creating order:', error)
+      setError('Error al crear la orden')
     }
-
-    createOrder(tripData)
-    setOrderCreated(true)
-    setError('')
   }
 
   // Limpiar el formulario

@@ -1,4 +1,4 @@
-import { supabaseService } from './supabaseService';
+import { supabaseService } from './supabase';
 
 /**
  * Settings service
@@ -9,16 +9,16 @@ export const settingsService = {
    * @returns {Promise<object>} - Settings data
    */
   async getSettings() {
-    return await supabaseService.getSettings();
+    return await supabaseService.getCompanySettings();
   },
 
   /**
    * Update global settings
-   * @param {object} settings - Settings data to update
+   * @param {object} updates - Settings data to update
    * @returns {Promise<object>} - Updated settings data
    */
-  async updateSettings(settings) {
-    return await supabaseService.updateSettings(settings);
+  async updateSettings(updates) {
+    return await supabaseService.updateCompanySettings(updates);
   },
   
   /**

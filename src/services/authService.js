@@ -1,70 +1,181 @@
 /**
  * Authentication service for handling user login/logout
  */
-import { supabaseService } from './supabaseService';
+import { supabaseService } from './supabase';
 
-// Session token key constants
-const TOKEN_KEY = 'jgex_token';
+// Session storage key constants
 const USER_KEY = 'jgex_user';
+const SESSION_KEY = 'jgex_session';
 
-export const authService = {
+const authService = {
   /**
    * Login user with username and password
-   * @param {string} username - User's username
+   * @param {string} email - User's email
    * @param {string} password - User's password
    * @returns {Promise<object>} - Login response with user data
    */
-  async login(username, password) {
+  async login(email, password) {
     try {
-      const response = await supabaseService.login(username, password);
+      const response = await supabaseService.signIn(email, password);
       
-      // Store user data in localStorage
-      if (response.user) {
-        localStorage.setItem('user', JSON.stringify(response.user));
+      if (response.session) {
+        localStorage.setItem(SESSION_KEY, JSON.stringify(response.session));
+        localStorage.setItem(USER_KEY, JSON.stringify({
+          id: response.user.id,
+          email: response.user.email,
+          ...response.profile
+        }));
       }
       
-      return response;
+      return {
+        message: 'Login successful',
+        user: response.user,
+        profile: response.profile,
+        session: response.session
+      };
     } catch (error) {
-      throw error
+      throw error;
+    }
+  },
+
+  async register(email, password, fullName, username) {
+    try {
+      const response = await supabaseService.signUp(email, password, {
+        full_name: fullName,
+        username: username
+      });
+      
+      return {
+        message: 'Registration successful. Please check your email to verify your account.',
+        user: response.user
+      };
+    } catch (error) {
+      throw error;
     }
   },
 
   /**
    * Logout user
    */
-  logout() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+  async logout() {
+    try {
+      await supabaseService.signOut();
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(SESSION_KEY);
+    } catch (error) {
+      // Even if signOut fails, clear local storage
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(SESSION_KEY);
+      throw error;
+    }
   },
 
   /**
    * Get current user
    * @returns {object|null} - User data or null if not logged in
    */
-  getCurrentUser() {
-    const userStr = localStorage.getItem(USER_KEY);
-    if (!userStr) return null;
-    
+  async getCurrentUser() {
     try {
-      return JSON.parse(userStr);
-    } catch {
+      // First check if we have a session
+      const session = await supabaseService.getSession();
+      if (!session) {
+        localStorage.removeItem(USER_KEY);
+        localStorage.removeItem(SESSION_KEY);
+        return null;
+      }
+
+      // Get the current user from Supabase Auth
+      const user = await supabaseService.getUser();
+      if (!user) {
+        localStorage.removeItem(USER_KEY);
+        localStorage.removeItem(SESSION_KEY);
+        return null;
+      }
+
+      // Get the user profile
+      const profile = await supabaseService.getProfile(user.id);
+      
+      const userData = {
+        id: user.id,
+        email: user.email,
+        ...profile
+      };
+
+      // Update localStorage with fresh data
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+      
+      return userData;
+    } catch (error) {
+      console.error('Error getting current user:', error);
       return null;
     }
+  },
+
+  getCachedUser() {
+    const user = localStorage.getItem(USER_KEY);
+    return user ? JSON.parse(user) : null;
   },
 
   /**
    * Check if user is logged in
    * @returns {boolean} - True if user is logged in
    */
-  isLoggedIn() {
-    return !!localStorage.getItem(TOKEN_KEY);
+  isAuthenticated() {
+    return this.getCachedUser() !== null;
   },
-  
-  /**
-   * Get auth token
-   * @returns {string|null} - Auth token or null if not logged in
-   */
-  getToken() {
-    return localStorage.getItem(TOKEN_KEY);
+
+  async refreshSession() {
+    try {
+      const session = await supabaseService.getSession();
+      if (session) {
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error refreshing session:', error);
+      return false;
+    }
   },
+
+  async updateProfile(updates) {
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const updatedProfile = await supabaseService.updateProfile(user.id, updates);
+      
+      // Update cached user data
+      const userData = {
+        ...user,
+        ...updatedProfile
+      };
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+      
+      return updatedProfile;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async getAllProfiles() {
+    try {
+      return await supabaseService.getAllProfiles();
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async getProfile(userId) {
+    try {
+      return await supabaseService.getProfile(userId);
+    } catch (error) {
+      throw error;
+    }
+  }
 };
+
+export default authService;

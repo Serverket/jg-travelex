@@ -1,4 +1,4 @@
-import { supabaseService } from './supabaseService';
+import { supabaseService } from './supabase';
 
 /**
  * Invoice service
@@ -6,10 +6,11 @@ import { supabaseService } from './supabaseService';
 export const invoiceService = {
   /**
    * Get all invoices
+   * @param {object} filters - Filters for invoices
    * @returns {Promise<Array>} - List of invoices
    */
-  async getAllInvoices() {
-    return await supabaseService.getInvoices();
+  async getInvoices(filters = {}) {
+    return await supabaseService.getInvoices(filters);
   },
 
   /**

@@ -8,7 +8,7 @@ import { Line, Bar, Pie } from 'react-chartjs-2'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement)
 
 const TripTracking = () => {
-  const { currentUser, trips: contextTrips, setTrips: setContextTrips } = useAppContext()
+  const { user } = useAppContext()
   const [trips, setTrips] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -38,27 +38,29 @@ const TripTracking = () => {
     datasets: []
   })
 
-  // Usar viajes desde AppContext y cargar si es necesario
+  // Cargar viajes
   useEffect(() => {
-    if (contextTrips && contextTrips.length > 0) {
-      console.log('Using trips from context:', contextTrips);
-      setTrips(contextTrips);
-      setLoading(false);
-      return;
-    }
-    
     const fetchTrips = async () => {
-      if (!currentUser) return;
+      if (!user) return;
       
       try {
         setLoading(true);
         setError(null);
-        console.log('Fetching trips from API for user:', currentUser.id);
-        const response = await tripService.getTripsByUserId(currentUser.id);
+        console.log('Fetching trips for user:', user.id);
+        
+        let response = [];
+        if (user.role === 'admin') {
+          // Admin ve todos los viajes
+          response = await tripService.getTrips();
+        } else {
+          // Usuario normal ve solo sus viajes
+          response = await tripService.getTrips({
+            filters: { user_id: user.id }
+          });
+        }
+        
         console.log('Trips fetched:', response);
         setTrips(response);
-        // Also update the AppContext trips
-        setContextTrips(response);
       } catch (err) {
         console.error('Error al cargar viajes:', err);
         setError('Error al cargar los viajes. Por favor intente nuevamente.');
@@ -68,7 +70,7 @@ const TripTracking = () => {
     };
     
     fetchTrips();
-  }, [currentUser, contextTrips, setContextTrips]);
+  }, [user]);
 
   // Filtrar viajes según el período seleccionado
   useEffect(() => {

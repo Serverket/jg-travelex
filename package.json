@@ -7,13 +7,16 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "create-admin": "node scripts/create-admin-supabase.js",
+    "db:reset": "node scripts/reset-database.js"
   },
   "dependencies": {
     "@react-google-maps/api": "^2.19.2",
     "@supabase/supabase-js": "^2.56.0",
     "chart.js": "^4.4.0",
     "crypto-js": "^4.2.0",
+    "dotenv": "^17.2.1",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.7.0",
     "leaflet": "^1.9.4",

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabaseService } from '../services/supabaseService';
+import { supabaseService } from '../services/supabase';
 
 const ApiHealthIndicator = () => {
   const [apiStatus, setApiStatus] = useState('checking');

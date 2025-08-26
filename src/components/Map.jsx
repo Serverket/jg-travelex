@@ -18,7 +18,7 @@ const Map = ({ origin, destination, directions, setDirections }) => {
   const [center, setCenter] = useState(defaultCenter)
   
   const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_APP_GOOGLE_MAPS_API_KEY,
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     libraries
   })
 

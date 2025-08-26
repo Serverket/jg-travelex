@@ -1,4 +1,4 @@
-import { supabaseService } from './supabaseService';
+import { supabaseService } from './supabase';
 
 /**
  * Order service
@@ -17,8 +17,8 @@ export const orderService = {
    * @param {number} userId - User ID
    * @returns {Promise<Array>} - List of user orders
    */
-  async getOrdersByUserId(userId) {
-    return await supabaseService.getOrdersByUserId(userId);
+  async getOrders(filters = {}) {
+    return await supabaseService.getOrders(filters);
   },
 
   /**
@@ -42,11 +42,11 @@ export const orderService = {
   /**
    * Update order
    * @param {number} id - Order ID
-   * @param {object} orderData - Updated order data
+   * @param {object} updates - Updated order data
    * @returns {Promise<object>} - Update response
    */
-  async updateOrder(id, orderData) {
-    return await supabaseService.updateOrder(id, orderData);
+  async updateOrder(id, updates) {
+    return await supabaseService.updateOrder(id, updates);
   },
 
   /**

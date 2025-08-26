@@ -2,12 +2,19 @@ import { useState, useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend } from 'chart.js'
 import { Line, Bar } from 'react-chartjs-2'
+import tripService from '../services/tripService'
+import orderService from '../services/orderService'
+import invoiceService from '../services/invoiceService'
 
 // Registrar componentes de Chart.js
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend)
 
 const Dashboard = () => {
-  const { trips, orders, invoices } = useAppContext()
+  const { user } = useAppContext()
+  const [loading, setLoading] = useState(true)
+  const [trips, setTrips] = useState([])
+  const [orders, setOrders] = useState([])
+  const [invoices, setInvoices] = useState([])
   const [stats, setStats] = useState({
     totalTrips: 0,
     totalDistance: 0,
@@ -28,6 +35,34 @@ const Dashboard = () => {
     labels: [],
     datasets: []
   })
+
+  // Load data on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true)
+        const filters = user?.role === 'admin' ? {} : { userId: user?.id }
+        
+        const [tripsData, ordersData, invoicesData] = await Promise.all([
+          tripService.getTrips(filters),
+          orderService.getOrders(filters),
+          invoiceService.getInvoices(filters)
+        ])
+        
+        setTrips(tripsData || [])
+        setOrders(ordersData || [])
+        setInvoices(invoicesData || [])
+      } catch (error) {
+        console.error('Error loading dashboard data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (user) {
+      loadData()
+    }
+  }, [user])
 
   useEffect(() => {
     // Calcular estadísticas generales
@@ -107,6 +142,14 @@ const Dashboard = () => {
       ],
     })
   }, [trips, orders, invoices])
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

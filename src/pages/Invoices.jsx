@@ -34,7 +34,9 @@ const formatAddress = (address, maxLength = 30) => {
 };
 
 const Invoices = () => {
-  const { currentUser, orders, invoices, createInvoice, setOrders, setInvoices } = useAppContext()
+  const { user } = useAppContext()
+  const [orders, setOrders] = useState([])
+  const [invoices, setInvoices] = useState([])
   const [activeTab, setActiveTab] = useState('orders')
   const [selectedOrderId, setSelectedOrderId] = useState(null)
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false)
@@ -88,18 +90,24 @@ const Invoices = () => {
     }));
   };
   
-  // Load orders and invoices directly from API when component mounts or currentUser changes
+  // Load orders and invoices directly from API when component mounts or user changes
   useEffect(() => {
     const fetchData = async () => {
-      if (!currentUser) return;
+      if (!user) return;
 
       try {
         setLoading(true);
         setError(null);
 
-        // Fetch orders
-        console.log('Fetching orders for user:', currentUser.id);
-        const ordersResponse = await orderService.getOrdersByUserId(currentUser.id);
+        // Fetch orders based on user role
+        let ordersResponse = [];
+        if (user.role === 'admin') {
+          ordersResponse = await orderService.getOrders();
+        } else {
+          ordersResponse = await orderService.getOrders({
+            filters: { user_id: user.id }
+          });
+        }
         console.log('Orders fetched:', ordersResponse);
         
         // Process orders - make sure trip data is attached and accessible
@@ -113,12 +121,23 @@ const Invoices = () => {
             processedOrder.items = [];
           }
           
+          // Fetch order items and trip data
+          if (processedOrder.id) {
+            try {
+              const orderItems = await orderService.getOrderItems(processedOrder.id);
+              processedOrder.items = orderItems || [];
+            } catch (err) {
+              console.error('Error fetching order items:', err);
+              processedOrder.items = [];
+            }
+          }
+          
           // Fetch trip data for each order item if missing
           for (let i = 0; i < processedOrder.items.length; i++) {
             if (!processedOrder.items[i].tripData && processedOrder.items[i].trip_id) {
               try {
                 // Actually fetch trip data from API
-                const tripData = await tripService.getTripById(processedOrder.items[i].trip_id);
+                const tripData = await tripService.getTrip(processedOrder.items[i].trip_id);
                 if (tripData) {
                   console.log(`Fetched trip data for trip_id ${processedOrder.items[i].trip_id}:`, tripData);
                   processedOrder.items[i].tripData = tripData;
@@ -156,8 +175,18 @@ const Invoices = () => {
         // Update orders in context with processed data
         setOrders(processedOrders);
 
-        // Fetch all invoices
-        const invoicesResponse = await invoiceService.getAllInvoices();
+        // Fetch invoices based on user role
+        let invoicesResponse = [];
+        if (user.role === 'admin') {
+          invoicesResponse = await invoiceService.getInvoices();
+        } else {
+          // Filter invoices by user's orders
+          invoicesResponse = await invoiceService.getInvoices();
+          const userOrderIds = processedOrders.map(o => o.id);
+          invoicesResponse = invoicesResponse.filter(inv => 
+            userOrderIds.includes(inv.order_id)
+          );
+        }
         console.log('Invoices fetched:', invoicesResponse);
 
         // Process and link invoices with orders
@@ -191,17 +220,39 @@ const Invoices = () => {
 
     fetchData();
     
-    // Set up regular refresh interval (every 30 seconds)
-    const refreshInterval = setInterval(fetchData, 30000);
-    
-    // Clean up the interval on component unmount
-    return () => clearInterval(refreshInterval);
-  }, [currentUser, setOrders, setInvoices]);
+    // Clean up function (removed auto-refresh for now)
+    return () => {};
+  }, [user]);
 
   // Generar una nueva factura
-  const handleCreateInvoice = (orderId) => {
-    createInvoice(orderId)
-    setSelectedOrderId(null)
+  const handleCreateInvoice = async (orderId) => {
+    try {
+      const order = orders.find(o => o.id === orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+      
+      const invoiceData = {
+        order_id: orderId,
+        invoice_number: `INV-${Date.now()}`,
+        issue_date: new Date().toISOString(),
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        status: 'pending',
+        total_amount: order.total_amount || order.items?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0
+      };
+      
+      const newInvoice = await invoiceService.createInvoice(invoiceData);
+      
+      // Add the new invoice to the list with order data
+      const processedInvoice = { ...newInvoice, orderData: order };
+      setInvoices(prev => [...prev, processedInvoice]);
+      
+      setSelectedOrderId(null);
+      alert('Invoice created successfully');
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      alert('Error creating invoice. Please try again.');
+    }
   }
 
   // Generar PDF de la factura
@@ -220,7 +271,10 @@ const Invoices = () => {
         console.log('OrderData missing, fetching from API...');
         try {
           // First get the order
-          const fetchedOrder = await orderService.getOrderById(invoice.order_id || invoice.orderId);
+          const fetchedOrders = await orderService.getOrders({
+            filters: { id: invoice.order_id || invoice.orderId }
+          });
+          const fetchedOrder = fetchedOrders?.[0];
           if (fetchedOrder) {
             orderData = fetchedOrder;
             console.log('Fetched order data:', orderData);
@@ -242,7 +296,7 @@ const Invoices = () => {
         // If not, try to fetch it
         else if (orderItem.trip_id) {
           try {
-            tripData = await tripService.getTripById(orderItem.trip_id);
+            tripData = await tripService.getTrip(orderItem.trip_id);
             console.log(`Fetched trip data for trip_id ${orderItem.trip_id}:`, tripData);
           } catch (tripError) {
             console.error(`Error fetching trip data for trip_id ${orderItem.trip_id}:`, tripError);
