@@ -1,5 +1,4 @@
-import pool from '../config/db';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import supabase from '../config/db';
 
 export interface Invoice {
   id?: number;
@@ -15,11 +14,13 @@ export interface Invoice {
 class InvoiceModel {
   async findAll(): Promise<Invoice[]> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM invoices ORDER BY issue_date DESC'
-      );
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .order('issue_date', { ascending: false });
       
-      return rows as Invoice[];
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       throw error;
     }
@@ -27,14 +28,17 @@ class InvoiceModel {
   
   async findByOrderId(orderId: number): Promise<Invoice | null> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM invoices WHERE order_id = ?',
-        [orderId]
-      );
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('order_id', orderId)
+        .single();
       
-      if (!rows.length) return null;
-      
-      return rows[0] as Invoice;
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Not found
+        throw error;
+      }
+      return data;
     } catch (error) {
       throw error;
     }
@@ -42,14 +46,17 @@ class InvoiceModel {
 
   async findById(id: number): Promise<Invoice | null> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM invoices WHERE id = ?',
-        [id]
-      );
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('id', id)
+        .single();
       
-      if (!rows.length) return null;
-      
-      return rows[0] as Invoice;
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Not found
+        throw error;
+      }
+      return data;
     } catch (error) {
       throw error;
     }
@@ -57,14 +64,17 @@ class InvoiceModel {
 
   async findByInvoiceNumber(invoiceNumber: string): Promise<Invoice | null> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM invoices WHERE invoice_number = ?',
-        [invoiceNumber]
-      );
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('invoice_number', invoiceNumber)
+        .single();
       
-      if (!rows.length) return null;
-      
-      return rows[0] as Invoice;
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Not found
+        throw error;
+      }
+      return data;
     } catch (error) {
       throw error;
     }
@@ -72,19 +82,20 @@ class InvoiceModel {
 
   async create(invoice: Invoice): Promise<number> {
     try {
-      // Insert invoice
-      const [result] = await pool.query<ResultSetHeader>(
-        'INSERT INTO invoices (order_id, invoice_number, issue_date, due_date, status) VALUES (?, ?, ?, ?, ?)',
-        [
-          invoice.order_id,
-          invoice.invoice_number,
-          invoice.issue_date,
-          invoice.due_date,
-          invoice.status || 'pending'
-        ]
-      );
+      const { data, error } = await supabase
+        .from('invoices')
+        .insert({
+          order_id: invoice.order_id,
+          invoice_number: invoice.invoice_number,
+          issue_date: invoice.issue_date,
+          due_date: invoice.due_date,
+          status: invoice.status || 'pending'
+        })
+        .select('id')
+        .single();
       
-      return result.insertId;
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       throw error;
     }
@@ -101,15 +112,13 @@ class InvoiceModel {
       // Only update if there are fields to update
       const fields = Object.keys(fieldsToUpdate);
       if (fields.length > 0) {
-        const setClause = fields.map(field => `${field} = ?`).join(', ');
-        const values = fields.map(field => (fieldsToUpdate as any)[field]);
+        const { error } = await supabase
+          .from('invoices')
+          .update(fieldsToUpdate)
+          .eq('id', id);
         
-        const [result] = await pool.query<ResultSetHeader>(
-          `UPDATE invoices SET ${setClause} WHERE id = ?`,
-          [...values, id]
-        );
-        
-        return result.affectedRows > 0;
+        if (error) throw error;
+        return true;
       }
       
       return false;
@@ -120,13 +129,13 @@ class InvoiceModel {
 
   async delete(id: number): Promise<boolean> {
     try {
-      // Delete invoice
-      const [result] = await pool.query<ResultSetHeader>(
-        'DELETE FROM invoices WHERE id = ?',
-        [id]
-      );
+      const { error } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', id);
       
-      return result.affectedRows > 0;
+      if (error) throw error;
+      return true;
     } catch (error) {
       throw error;
     }
@@ -140,13 +149,15 @@ class InvoiceModel {
       const month = String(date.getMonth() + 1).padStart(2, '0');
       
       // Get count of invoices this month to generate sequential number
-      const [rows] = await pool.query<RowDataPacket[]>(
-        "SELECT COUNT(*) as count FROM invoices WHERE invoice_number LIKE ?",
-        [`INV-${year}${month}-%`]
-      );
+      const { count, error } = await supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true })
+        .like('invoice_number', `INV-${year}${month}-%`);
       
-      const count = rows[0].count + 1;
-      const sequentialNumber = String(count).padStart(4, '0');
+      if (error) throw error;
+      
+      const invoiceCount = (count || 0) + 1;
+      const sequentialNumber = String(invoiceCount).padStart(4, '0');
       
       return `INV-${year}${month}-${sequentialNumber}`;
     } catch (error) {

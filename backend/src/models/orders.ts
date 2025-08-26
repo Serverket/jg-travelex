@@ -1,5 +1,4 @@
-import pool from '../config/db';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import supabase from '../config/db';
 import TripModel from './trips';
 
 export interface OrderItem {
@@ -23,23 +22,26 @@ export interface Order {
 class OrderModel {
   async findAll(): Promise<Order[]> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM orders ORDER BY created_at DESC'
-      );
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            id,
+            trip_id,
+            amount,
+            created_at
+          )
+        `)
+        .order('created_at', { ascending: false });
       
-      const orders = rows as Order[];
+      if (ordersError) throw ordersError;
       
-      // Fetch order items for each order
-      for (const order of orders) {
-        const [items] = await pool.query<RowDataPacket[]>(
-          'SELECT * FROM order_items WHERE order_id = ?',
-          [order.id]
-        );
-        
-        order.items = items as OrderItem[];
-      }
-      
-      return orders;
+      // Transform the data to match our interface
+      return (orders || []).map(order => ({
+        ...order,
+        items: order.order_items || []
+      }));
     } catch (error) {
       throw error;
     }
@@ -47,24 +49,27 @@ class OrderModel {
 
   async findByUserId(userId: number): Promise<Order[]> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC',
-        [userId]
-      );
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            id,
+            trip_id,
+            amount,
+            created_at
+          )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
       
-      const orders = rows as Order[];
+      if (ordersError) throw ordersError;
       
-      // Fetch order items for each order
-      for (const order of orders) {
-        const [items] = await pool.query<RowDataPacket[]>(
-          'SELECT * FROM order_items WHERE order_id = ?',
-          [order.id]
-        );
-        
-        order.items = items as OrderItem[];
-      }
-      
-      return orders;
+      // Transform the data to match our interface
+      return (orders || []).map(order => ({
+        ...order,
+        items: order.order_items || []
+      }));
     } catch (error) {
       throw error;
     }
@@ -72,67 +77,75 @@ class OrderModel {
 
   async findById(id: number): Promise<Order | null> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM orders WHERE id = ?',
-        [id]
-      );
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            id,
+            trip_id,
+            amount,
+            created_at
+          )
+        `)
+        .eq('id', id)
+        .single();
       
-      if (!rows.length) return null;
+      if (orderError) {
+        if (orderError.code === 'PGRST116') return null; // Not found
+        throw orderError;
+      }
       
-      const order = rows[0] as Order;
-      
-      // Fetch order items
-      const [items] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM order_items WHERE order_id = ?',
-        [order.id]
-      );
-      
-      order.items = items as OrderItem[];
-      
-      return order;
+      // Transform the data to match our interface
+      return {
+        ...order,
+        items: order.order_items || []
+      };
     } catch (error) {
       throw error;
     }
   }
 
   async create(order: Order): Promise<number> {
-    const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-      
       // Insert order
-      const [orderResult] = await connection.query<ResultSetHeader>(
-        'INSERT INTO orders (user_id, status, total_amount) VALUES (?, ?, ?)',
-        [order.user_id, order.status || 'pending', order.total_amount]
-      );
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: order.user_id,
+          status: order.status || 'pending',
+          total_amount: order.total_amount
+        })
+        .select('id')
+        .single();
       
-      const orderId = orderResult.insertId;
+      if (orderError) throw orderError;
+      
+      const orderId = orderData.id;
       
       // Insert order items if any
       if (order.items && order.items.length > 0) {
-        for (const item of order.items) {
-          await connection.query<ResultSetHeader>(
-            'INSERT INTO order_items (order_id, trip_id, amount) VALUES (?, ?, ?)',
-            [orderId, item.trip_id, item.amount]
-          );
-        }
+        const orderItems = order.items.map(item => ({
+          order_id: orderId,
+          trip_id: item.trip_id,
+          amount: item.amount
+        }));
+        
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(orderItems);
+        
+        if (itemsError) throw itemsError;
       }
       
-      await connection.commit();
       return orderId;
     } catch (error) {
-      await connection.rollback();
       throw error;
-    } finally {
-      connection.release();
     }
   }
 
   async update(id: number, order: Partial<Order>): Promise<boolean> {
-    const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-      
       // Update order fields
       const fieldsToUpdate = {...order};
       delete fieldsToUpdate.id;
@@ -143,71 +156,85 @@ class OrderModel {
       // Only update if there are fields to update
       const fields = Object.keys(fieldsToUpdate);
       if (fields.length > 0) {
-        const setClause = fields.map(field => `${field} = ?`).join(', ');
-        const values = fields.map(field => (fieldsToUpdate as any)[field]);
+        const { error: orderError } = await supabase
+          .from('orders')
+          .update(fieldsToUpdate)
+          .eq('id', id);
         
-        await connection.query<ResultSetHeader>(
-          `UPDATE orders SET ${setClause} WHERE id = ?`,
-          [...values, id]
-        );
+        if (orderError) throw orderError;
       }
       
       // Update order items if provided
       if (order.items) {
         // Delete existing order items
-        await connection.query('DELETE FROM order_items WHERE order_id = ?', [id]);
+        const { error: deleteError } = await supabase
+          .from('order_items')
+          .delete()
+          .eq('order_id', id);
         
-        // Insert new order items
-        for (const item of order.items) {
-          await connection.query<ResultSetHeader>(
-            'INSERT INTO order_items (order_id, trip_id, amount) VALUES (?, ?, ?)',
-            [id, item.trip_id, item.amount]
-          );
+        if (deleteError) throw deleteError;
+        
+        // Insert new order items if any
+        if (order.items.length > 0) {
+          const orderItems = order.items.map(item => ({
+            order_id: id,
+            trip_id: item.trip_id,
+            amount: item.amount
+          }));
+          
+          const { error: itemsError } = await supabase
+            .from('order_items')
+            .insert(orderItems);
+          
+          if (itemsError) throw itemsError;
         }
       }
       
-      await connection.commit();
       return true;
     } catch (error) {
-      await connection.rollback();
       throw error;
-    } finally {
-      connection.release();
     }
   }
 
   async delete(id: number): Promise<boolean> {
-    const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-      
       // Delete order items
-      await connection.query('DELETE FROM order_items WHERE order_id = ?', [id]);
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', id);
+      
+      if (itemsError) throw itemsError;
       
       // Check if there's an invoice for this order
-      const [invoices] = await connection.query<RowDataPacket[]>(
-        'SELECT * FROM invoices WHERE order_id = ?',
-        [id]
-      );
+      const { data: invoices, error: invoiceCheckError } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('order_id', id);
+      
+      if (invoiceCheckError) throw invoiceCheckError;
       
       // Delete invoice if exists
-      if (invoices.length > 0) {
-        await connection.query('DELETE FROM invoices WHERE order_id = ?', [id]);
+      if (invoices && invoices.length > 0) {
+        const { error: invoiceDeleteError } = await supabase
+          .from('invoices')
+          .delete()
+          .eq('order_id', id);
+        
+        if (invoiceDeleteError) throw invoiceDeleteError;
       }
       
       // Delete order
-      const [result] = await connection.query<ResultSetHeader>(
-        'DELETE FROM orders WHERE id = ?',
-        [id]
-      );
+      const { error: orderError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', id);
       
-      await connection.commit();
-      return result.affectedRows > 0;
+      if (orderError) throw orderError;
+      
+      return true;
     } catch (error) {
-      await connection.rollback();
       throw error;
-    } finally {
-      connection.release();
     }
   }
 }

@@ -1,5 +1,4 @@
-import pool from '../config/db';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import supabase from '../config/db';
 
 export interface SurchargeFactor {
   id?: number;
@@ -13,10 +12,13 @@ export interface SurchargeFactor {
 class SurchargeFactorModel {
   async findAll(): Promise<SurchargeFactor[]> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM surcharge_factors ORDER BY name ASC'
-      );
-      return rows as SurchargeFactor[];
+      const { data, error } = await supabase
+        .from('surcharge_factors')
+        .select('*')
+        .order('name', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       throw error;
     }
@@ -24,11 +26,17 @@ class SurchargeFactorModel {
 
   async findById(id: number): Promise<SurchargeFactor | null> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM surcharge_factors WHERE id = ?',
-        [id]
-      );
-      return rows.length ? (rows[0] as SurchargeFactor) : null;
+      const { data, error } = await supabase
+        .from('surcharge_factors')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Not found
+        throw error;
+      }
+      return data;
     } catch (error) {
       throw error;
     }
@@ -36,11 +44,18 @@ class SurchargeFactorModel {
 
   async create(surchargeFactor: SurchargeFactor): Promise<number> {
     try {
-      const [result] = await pool.query<ResultSetHeader>(
-        'INSERT INTO surcharge_factors (name, rate, type) VALUES (?, ?, ?)',
-        [surchargeFactor.name, surchargeFactor.rate, surchargeFactor.type]
-      );
-      return result.insertId;
+      const { data, error } = await supabase
+        .from('surcharge_factors')
+        .insert({
+          name: surchargeFactor.name,
+          rate: surchargeFactor.rate,
+          type: surchargeFactor.type
+        })
+        .select('id')
+        .single();
+      
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       throw error;
     }
@@ -48,19 +63,25 @@ class SurchargeFactorModel {
 
   async update(id: number, surchargeFactor: Partial<SurchargeFactor>): Promise<boolean> {
     try {
-      // Build SET clause dynamically based on provided fields
-      const fields = Object.keys(surchargeFactor).filter(key => key !== 'id' && key !== 'created_at' && key !== 'updated_at');
-      if (fields.length === 0) return false;
-
-      const setClause = fields.map(field => `${field} = ?`).join(', ');
-      const values = fields.map(field => (surchargeFactor as any)[field]);
-      
-      const [result] = await pool.query<ResultSetHeader>(
-        `UPDATE surcharge_factors SET ${setClause} WHERE id = ?`,
-        [...values, id]
+      // Filter out fields that shouldn't be updated
+      const fieldsToUpdate = Object.keys(surchargeFactor).filter(
+        key => key !== 'id' && key !== 'created_at' && key !== 'updated_at'
       );
       
-      return result.affectedRows > 0;
+      if (fieldsToUpdate.length === 0) return false;
+
+      const updateData: any = {};
+      fieldsToUpdate.forEach(field => {
+        updateData[field] = (surchargeFactor as any)[field];
+      });
+      
+      const { error } = await supabase
+        .from('surcharge_factors')
+        .update(updateData)
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
     } catch (error) {
       throw error;
     }
@@ -68,11 +89,13 @@ class SurchargeFactorModel {
 
   async delete(id: number): Promise<boolean> {
     try {
-      const [result] = await pool.query<ResultSetHeader>(
-        'DELETE FROM surcharge_factors WHERE id = ?',
-        [id]
-      );
-      return result.affectedRows > 0;
+      const { error } = await supabase
+        .from('surcharge_factors')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
     } catch (error) {
       throw error;
     }

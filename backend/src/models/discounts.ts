@@ -1,5 +1,4 @@
-import pool from '../config/db';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import supabase from '../config/db';
 
 export interface Discount {
   id?: number;
@@ -13,10 +12,13 @@ export interface Discount {
 class DiscountModel {
   async findAll(): Promise<Discount[]> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM discounts ORDER BY name ASC'
-      );
-      return rows as Discount[];
+      const { data, error } = await supabase
+        .from('discounts')
+        .select('*')
+        .order('name', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       throw error;
     }
@@ -24,11 +26,17 @@ class DiscountModel {
 
   async findById(id: number): Promise<Discount | null> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM discounts WHERE id = ?',
-        [id]
-      );
-      return rows.length ? (rows[0] as Discount) : null;
+      const { data, error } = await supabase
+        .from('discounts')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Not found
+        throw error;
+      }
+      return data;
     } catch (error) {
       throw error;
     }
@@ -36,11 +44,18 @@ class DiscountModel {
 
   async create(discount: Discount): Promise<number> {
     try {
-      const [result] = await pool.query<ResultSetHeader>(
-        'INSERT INTO discounts (name, rate, type) VALUES (?, ?, ?)',
-        [discount.name, discount.rate, discount.type]
-      );
-      return result.insertId;
+      const { data, error } = await supabase
+        .from('discounts')
+        .insert({
+          name: discount.name,
+          rate: discount.rate,
+          type: discount.type
+        })
+        .select('id')
+        .single();
+      
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       throw error;
     }
@@ -48,19 +63,25 @@ class DiscountModel {
 
   async update(id: number, discount: Partial<Discount>): Promise<boolean> {
     try {
-      // Build SET clause dynamically based on provided fields
-      const fields = Object.keys(discount).filter(key => key !== 'id' && key !== 'created_at' && key !== 'updated_at');
-      if (fields.length === 0) return false;
-
-      const setClause = fields.map(field => `${field} = ?`).join(', ');
-      const values = fields.map(field => (discount as any)[field]);
-      
-      const [result] = await pool.query<ResultSetHeader>(
-        `UPDATE discounts SET ${setClause} WHERE id = ?`,
-        [...values, id]
+      // Filter out fields that shouldn't be updated
+      const fieldsToUpdate = Object.keys(discount).filter(
+        key => key !== 'id' && key !== 'created_at' && key !== 'updated_at'
       );
       
-      return result.affectedRows > 0;
+      if (fieldsToUpdate.length === 0) return false;
+
+      const updateData: any = {};
+      fieldsToUpdate.forEach(field => {
+        updateData[field] = (discount as any)[field];
+      });
+      
+      const { error } = await supabase
+        .from('discounts')
+        .update(updateData)
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
     } catch (error) {
       throw error;
     }
@@ -68,11 +89,13 @@ class DiscountModel {
 
   async delete(id: number): Promise<boolean> {
     try {
-      const [result] = await pool.query<ResultSetHeader>(
-        'DELETE FROM discounts WHERE id = ?',
-        [id]
-      );
-      return result.affectedRows > 0;
+      const { error } = await supabase
+        .from('discounts')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
     } catch (error) {
       throw error;
     }

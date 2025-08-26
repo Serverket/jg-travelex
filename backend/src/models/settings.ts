@@ -1,5 +1,4 @@
-import pool from '../config/db';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import supabase from '../config/db';
 
 export interface Settings {
   id?: number;
@@ -12,10 +11,18 @@ export interface Settings {
 class SettingsModel {
   async getSettings(): Promise<Settings | null> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM settings ORDER BY id DESC LIMIT 1'
-      );
-      return rows.length ? (rows[0] as Settings) : null;
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .order('id', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Not found
+        throw error;
+      }
+      return data;
     } catch (error) {
       throw error;
     }
@@ -23,11 +30,17 @@ class SettingsModel {
 
   async createSettings(settings: Settings): Promise<number> {
     try {
-      const [result] = await pool.query<ResultSetHeader>(
-        'INSERT INTO settings (distance_rate, duration_rate) VALUES (?, ?)',
-        [settings.distance_rate, settings.duration_rate]
-      );
-      return result.insertId;
+      const { data, error } = await supabase
+        .from('settings')
+        .insert({
+          distance_rate: settings.distance_rate,
+          duration_rate: settings.duration_rate
+        })
+        .select('id')
+        .single();
+      
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       throw error;
     }
@@ -44,12 +57,16 @@ class SettingsModel {
       }
 
       // Update existing settings
-      const [result] = await pool.query<ResultSetHeader>(
-        'UPDATE settings SET distance_rate = ?, duration_rate = ? WHERE id = ?',
-        [settings.distance_rate, settings.duration_rate, existingSettings.id]
-      );
+      const { error } = await supabase
+        .from('settings')
+        .update({
+          distance_rate: settings.distance_rate,
+          duration_rate: settings.duration_rate
+        })
+        .eq('id', existingSettings.id);
       
-      return result.affectedRows > 0;
+      if (error) throw error;
+      return true;
     } catch (error) {
       throw error;
     }

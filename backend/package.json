@@ -16,9 +16,9 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.39.3",
     "cors": "^2.8.5",
     "dotenv": "^17.1.0",
-    "express": "^5.1.0",
-    "mysql2": "^3.14.1"
+    "express": "^5.1.0"
   }
 }

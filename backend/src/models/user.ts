@@ -1,10 +1,9 @@
-import pool from '../config/db';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import supabase from '../config/db';
 
 export interface User {
   id?: number;
   username: string;
-  password: string;
+  password?: string; // Optional for public queries
   name?: string;
   email?: string;
   role?: 'admin' | 'user';
@@ -12,13 +11,19 @@ export interface User {
   updated_at?: Date;
 }
 
+export interface UserWithPassword extends User {
+  password: string; // Required for authentication
+}
+
 class UserModel {
   async findAll(): Promise<User[]> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT id, username, name, email, role, created_at, updated_at FROM users'
-      );
-      return rows as User[];
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, name, email, role, created_at, updated_at');
+      
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       throw error;
     }
@@ -26,11 +31,17 @@ class UserModel {
 
   async findById(id: number): Promise<User | null> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT id, username, name, email, role, created_at, updated_at FROM users WHERE id = ?',
-        [id]
-      );
-      return rows.length ? (rows[0] as User) : null;
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, name, email, role, created_at, updated_at')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Not found
+        throw error;
+      }
+      return data;
     } catch (error) {
       throw error;
     }
@@ -38,11 +49,17 @@ class UserModel {
 
   async findByUsername(username: string): Promise<User | null> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM users WHERE username = ?',
-        [username]
-      );
-      return rows.length ? (rows[0] as User) : null;
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Not found
+        throw error;
+      }
+      return data;
     } catch (error) {
       throw error;
     }
@@ -50,11 +67,20 @@ class UserModel {
 
   async create(user: User): Promise<number> {
     try {
-      const [result] = await pool.query<ResultSetHeader>(
-        'INSERT INTO users (username, password, name, email, role) VALUES (?, ?, ?, ?, ?)',
-        [user.username, user.password, user.name, user.email, user.role || 'user']
-      );
-      return result.insertId;
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          username: user.username,
+          password: user.password,
+          name: user.name,
+          email: user.email,
+          role: user.role || 'user'
+        })
+        .select('id')
+        .single();
+      
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       throw error;
     }
@@ -62,19 +88,25 @@ class UserModel {
 
   async update(id: number, user: Partial<User>): Promise<boolean> {
     try {
-      // Build SET clause dynamically based on provided fields
-      const fields = Object.keys(user).filter(key => key !== 'id' && key !== 'created_at' && key !== 'updated_at');
-      if (fields.length === 0) return false;
-
-      const setClause = fields.map(field => `${field} = ?`).join(', ');
-      const values = fields.map(field => (user as any)[field]);
-      
-      const [result] = await pool.query<ResultSetHeader>(
-        `UPDATE users SET ${setClause} WHERE id = ?`,
-        [...values, id]
+      // Filter out fields that shouldn't be updated
+      const fieldsToUpdate = Object.keys(user).filter(
+        key => key !== 'id' && key !== 'created_at' && key !== 'updated_at'
       );
       
-      return result.affectedRows > 0;
+      if (fieldsToUpdate.length === 0) return false;
+
+      const updateData: any = {};
+      fieldsToUpdate.forEach(field => {
+        updateData[field] = (user as any)[field];
+      });
+      
+      const { error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
     } catch (error) {
       throw error;
     }
@@ -82,11 +114,13 @@ class UserModel {
 
   async delete(id: number): Promise<boolean> {
     try {
-      const [result] = await pool.query<ResultSetHeader>(
-        'DELETE FROM users WHERE id = ?',
-        [id]
-      );
-      return result.affectedRows > 0;
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
     } catch (error) {
       throw error;
     }

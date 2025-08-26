@@ -1,32 +1,30 @@
-import mysql from 'mysql2/promise';
+import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
 
 // Load environment variables
 config();
 
-// Create connection pool
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASS || 'r00tr00t',
-  database: process.env.DB_NAME || 'travelex',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+// Create Supabase client
+const supabaseUrl = process.env.SUPABASE_URL || 'https://puasatxwnzgvjftcxsef.supabase.co';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1YXNhdHh3bnpndmpmdGN4c2VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxNzU5OTUsImV4cCI6MjA3MTc1MTk5NX0.5e0-J-Xbw_Uow0sEZ19GpHHlMC2lmnQx1oMTDsUNhSc';
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Test database connection
 export const testConnection = async (): Promise<boolean> => {
   try {
-    const connection = await pool.getConnection();
-    console.log('Database connection successful!');
-    connection.release();
+    const { data, error } = await supabase.from('settings').select('id').limit(1);
+    if (error) {
+      console.error('Supabase connection failed:', error);
+      return false;
+    }
+    console.log('Supabase connection successful!');
     return true;
   } catch (error) {
-    console.error('Database connection failed:', error);
+    console.error('Supabase connection failed:', error);
     return false;
   }
 };
 
-// Export pool for use in other files
-export default pool;
+// Export supabase client for use in other files
+export default supabase;

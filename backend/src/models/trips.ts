@@ -1,5 +1,4 @@
-import pool from '../config/db';
-import type { RowDataPacket, ResultSetHeader } from 'mysql2';
+import supabase from '../config/db';
 
 export interface Trip {
   id?: number;
@@ -18,23 +17,29 @@ export interface Trip {
 class TripModel {
   async findAll(): Promise<Trip[]> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM trips ORDER BY date DESC'
-      );
+      const { data: trips, error } = await supabase
+        .from('trips')
+        .select('*')
+        .order('date', { ascending: false });
       
-      const trips = rows as Trip[];
+      if (error) throw error;
       
       // Fetch surcharge factors for each trip
-      for (const trip of trips) {
-        const [surcharges] = await pool.query<RowDataPacket[]>(
-          'SELECT surcharge_id FROM trip_surcharges WHERE trip_id = ?',
-          [trip.id]
-        );
+      for (const trip of trips || []) {
+        const { data: surcharges, error: surchargeError } = await supabase
+          .from('trip_surcharges')
+          .select('surcharge_id')
+          .eq('trip_id', trip.id);
         
-        trip.activeSurcharges = surcharges.map(s => s.surcharge_id);
+        if (surchargeError) {
+          console.error('Error fetching surcharges:', surchargeError);
+          trip.activeSurcharges = [];
+        } else {
+          trip.activeSurcharges = surcharges?.map((s: any) => s.surcharge_id) || [];
+        }
       }
       
-      return trips;
+      return trips || [];
     } catch (error) {
       throw error;
     }
@@ -42,24 +47,30 @@ class TripModel {
   
   async findByUserId(userId: number): Promise<Trip[]> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM trips WHERE user_id = ? ORDER BY date DESC',
-        [userId]
-      );
+      const { data: trips, error } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
       
-      const trips = rows as Trip[];
+      if (error) throw error;
       
       // Fetch surcharge factors for each trip
-      for (const trip of trips) {
-        const [surcharges] = await pool.query<RowDataPacket[]>(
-          'SELECT surcharge_id FROM trip_surcharges WHERE trip_id = ?',
-          [trip.id]
-        );
+      for (const trip of trips || []) {
+        const { data: surcharges, error: surchargeError } = await supabase
+          .from('trip_surcharges')
+          .select('surcharge_id')
+          .eq('trip_id', trip.id);
         
-        trip.activeSurcharges = surcharges.map(s => s.surcharge_id);
+        if (surchargeError) {
+          console.error('Error fetching surcharges:', surchargeError);
+          trip.activeSurcharges = [];
+        } else {
+          trip.activeSurcharges = surcharges?.map((s: any) => s.surcharge_id) || [];
+        }
       }
       
-      return trips;
+      return trips || [];
     } catch (error) {
       throw error;
     }
@@ -67,22 +78,29 @@ class TripModel {
 
   async findById(id: number): Promise<Trip | null> {
     try {
-      const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT * FROM trips WHERE id = ?',
-        [id]
-      );
+      const { data: trip, error } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('id', id)
+        .single();
       
-      if (!rows.length) return null;
-      
-      const trip = rows[0] as Trip;
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Not found
+        throw error;
+      }
       
       // Fetch surcharge factors
-      const [surcharges] = await pool.query<RowDataPacket[]>(
-        'SELECT surcharge_id FROM trip_surcharges WHERE trip_id = ?',
-        [trip.id]
-      );
+      const { data: surcharges, error: surchargeError } = await supabase
+        .from('trip_surcharges')
+        .select('surcharge_id')
+        .eq('trip_id', trip.id);
       
-      trip.activeSurcharges = surcharges.map(s => s.surcharge_id);
+      if (surchargeError) {
+        console.error('Error fetching surcharges:', surchargeError);
+        trip.activeSurcharges = [];
+      } else {
+        trip.activeSurcharges = surcharges?.map((s: any) => s.surcharge_id) || [];
+      }
       
       return trip;
     } catch (error) {
@@ -91,19 +109,27 @@ class TripModel {
   }
 
   async create(trip: Trip): Promise<number> {
-    const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-      
       console.log('Creating trip with data:', trip);
       
       // Insert trip
-      const [result] = await connection.query<ResultSetHeader>(
-        'INSERT INTO trips (user_id, origin, destination, distance, duration, date, price) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [trip.user_id, trip.origin, trip.destination, trip.distance, trip.duration, trip.date, trip.price]
-      );
+      const { data, error } = await supabase
+        .from('trips')
+        .insert({
+          user_id: trip.user_id,
+          origin: trip.origin,
+          destination: trip.destination,
+          distance: trip.distance,
+          duration: trip.duration,
+          date: trip.date,
+          price: trip.price
+        })
+        .select('id')
+        .single();
       
-      const tripId = result.insertId;
+      if (error) throw error;
+      
+      const tripId = data.id;
       console.log(`Trip created successfully with ID: ${tripId}`);
       
       // Safely handle the activeSurcharges array
@@ -112,39 +138,37 @@ class TripModel {
       
       console.log('Filtered surcharges to insert:', surcharges);
       
-      // Insert surcharge factors if any, one by one to avoid bulk insert issues
+      // Insert surcharge factors if any
       if (surcharges.length > 0) {
         try {
-          for (const surchargeId of surcharges) {
-            await connection.query(
-              'INSERT INTO trip_surcharges (trip_id, surcharge_id) VALUES (?, ?)',
-              [tripId, surchargeId]
-            );
+          const surchargeInserts = surcharges.map(surchargeId => ({
+            trip_id: tripId,
+            surcharge_id: surchargeId
+          }));
+          
+          const { error: surchargeError } = await supabase
+            .from('trip_surcharges')
+            .insert(surchargeInserts);
+          
+          if (surchargeError) {
+            console.error('Error inserting surcharges:', surchargeError);
+          } else {
+            console.log(`Added ${surcharges.length} surcharges to trip ${tripId}`);
           }
-          console.log(`Added ${surcharges.length} surcharges to trip ${tripId}`);
         } catch (surchargeError) {
           console.error('Error inserting surcharges:', surchargeError);
-          // Continue execution even if surcharges fail
-          // Don't throw error here to allow trip creation to succeed
         }
       }
       
-      await connection.commit();
       return tripId;
     } catch (error) {
       console.error('Error in trip creation:', error);
-      await connection.rollback();
       throw error;
-    } finally {
-      connection.release();
     }
   }
 
   async update(id: number, trip: Partial<Trip>): Promise<boolean> {
-    const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-      
       // Update trip fields
       const fieldsToUpdate = {...trip};
       delete fieldsToUpdate.id;
@@ -155,64 +179,73 @@ class TripModel {
       // Only update if there are fields to update
       const fields = Object.keys(fieldsToUpdate);
       if (fields.length > 0) {
-        const setClause = fields.map(field => `${field} = ?`).join(', ');
-        const values = fields.map(field => (fieldsToUpdate as any)[field]);
+        const { error } = await supabase
+          .from('trips')
+          .update(fieldsToUpdate)
+          .eq('id', id);
         
-        await connection.query<ResultSetHeader>(
-          `UPDATE trips SET ${setClause} WHERE id = ?`,
-          [...values, id]
-        );
+        if (error) throw error;
       }
       
       // Update surcharge factors if provided
       if (trip.activeSurcharges !== undefined) {
         // Delete existing surcharge factors
-        await connection.query('DELETE FROM trip_surcharges WHERE trip_id = ?', [id]);
+        const { error: deleteError } = await supabase
+          .from('trip_surcharges')
+          .delete()
+          .eq('trip_id', id);
+        
+        if (deleteError) throw deleteError;
         
         // Insert new surcharge factors if any
         if (trip.activeSurcharges.length > 0) {
-          const values = trip.activeSurcharges.map(surchargeId => [id, surchargeId]);
-          await connection.query(
-            'INSERT INTO trip_surcharges (trip_id, surcharge_id) VALUES ?',
-            [values]
-          );
+          const surchargeInserts = trip.activeSurcharges.map(surchargeId => ({
+            trip_id: id,
+            surcharge_id: surchargeId
+          }));
+          
+          const { error: insertError } = await supabase
+            .from('trip_surcharges')
+            .insert(surchargeInserts);
+          
+          if (insertError) throw insertError;
         }
       }
       
-      await connection.commit();
       return true;
     } catch (error) {
-      await connection.rollback();
       throw error;
-    } finally {
-      connection.release();
     }
   }
 
   async delete(id: number): Promise<boolean> {
-    const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-      
       // Delete trip surcharges
-      await connection.query('DELETE FROM trip_surcharges WHERE trip_id = ?', [id]);
+      const { error: surchargeError } = await supabase
+        .from('trip_surcharges')
+        .delete()
+        .eq('trip_id', id);
+      
+      if (surchargeError) throw surchargeError;
       
       // Delete trip discounts
-      await connection.query('DELETE FROM trip_discounts WHERE trip_id = ?', [id]);
+      const { error: discountError } = await supabase
+        .from('trip_discounts')
+        .delete()
+        .eq('trip_id', id);
+      
+      if (discountError) throw discountError;
       
       // Delete trip
-      const [result] = await connection.query<ResultSetHeader>(
-        'DELETE FROM trips WHERE id = ?',
-        [id]
-      );
+      const { error } = await supabase
+        .from('trips')
+        .delete()
+        .eq('id', id);
       
-      await connection.commit();
-      return result.affectedRows > 0;
+      if (error) throw error;
+      return true;
     } catch (error) {
-      await connection.rollback();
       throw error;
-    } finally {
-      connection.release();
     }
   }
 }
