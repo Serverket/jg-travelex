@@ -35,6 +35,11 @@ let testsPassed = 0;
 let testsFailed = 0;
 let adminProfileId;
 
+// Temp variables for CRUD tests
+let testSurchargeId;
+let testDiscountId;
+let originalSettings;
+
 async function test(name, fn) {
   try {
     console.log(`${colors.blue}Testing: ${name}${colors.reset}`);
@@ -126,6 +131,127 @@ async function runTests() {
     const { data, error } = await supabase.from('discounts').select('*').limit(1);
     if (error) throw error;
   });
+
+  // Test 9b: Settings CRUD (update and restore)
+  await test('Settings CRUD: update and restore', async () => {
+    // Read current settings
+    const SETTINGS_ID = '11111111-1111-1111-1111-111111111111';
+    const { data: current, error: readErr } = await supabase
+      .from('company_settings')
+      .select('*')
+      .eq('id', SETTINGS_ID)
+      .single();
+    if (readErr) throw readErr;
+    originalSettings = current;
+
+    // Prepare updates
+    const updates = {
+      distance_rate: (current.distance_rate || 1.5) + 0.11,
+      duration_rate: (current.duration_rate || 15) + 1
+    };
+
+    // Update
+    const { data: updated, error: updErr } = await supabase
+      .from('company_settings')
+      .update(updates)
+      .eq('id', SETTINGS_ID)
+      .select('*')
+      .single();
+    if (updErr) throw updErr;
+    if (!updated) throw new Error('Settings update returned no data');
+    if (updated.distance_rate !== updates.distance_rate) throw new Error('distance_rate did not update');
+    if (updated.duration_rate !== updates.duration_rate) throw new Error('duration_rate did not update');
+
+    // Restore
+    const { error: restoreErr } = await supabase
+      .from('company_settings')
+      .update({
+        distance_rate: current.distance_rate,
+        duration_rate: current.duration_rate
+      })
+      .eq('id', SETTINGS_ID);
+    if (restoreErr) throw restoreErr;
+  });
+
+  // Test 9c: Surcharge Factor CRUD - Create
+  await test('Surcharge Factors: create', async () => {
+    const ts = Date.now();
+    const code = `TSUR-${ts}`;
+    const name = `Test Surcharge ${ts}`;
+    const { data, error } = await supabase
+      .from('surcharge_factors')
+      .insert({ code, name, type: 'percentage', rate: 5, is_active: true, apply_condition: 'always' })
+      .select('*')
+      .single();
+    if (error) throw error;
+    if (!data?.id) throw new Error('Surcharge create returned no id');
+    testSurchargeId = data.id;
+  });
+
+  // Test 9d: Surcharge Factor CRUD - Update
+  if (testSurchargeId) {
+    await test('Surcharge Factors: update', async () => {
+      const { data, error } = await supabase
+        .from('surcharge_factors')
+        .update({ rate: 7.5 })
+        .eq('id', testSurchargeId)
+        .select('*')
+        .single();
+      if (error) throw error;
+      if (data.rate !== 7.5) throw new Error('Surcharge rate did not update');
+    });
+  }
+
+  // Test 9e: Surcharge Factor CRUD - Delete
+  if (testSurchargeId) {
+    await test('Surcharge Factors: delete', async () => {
+      const { error } = await supabase
+        .from('surcharge_factors')
+        .delete()
+        .eq('id', testSurchargeId);
+      if (error) throw error;
+    });
+  }
+
+  // Test 9f: Discount CRUD - Create
+  await test('Discounts: create', async () => {
+    const ts = Date.now();
+    const code = `TDIS-${ts}`;
+    const name = `Test Discount ${ts}`;
+    const { data, error } = await supabase
+      .from('discounts')
+      .insert({ code, name, type: 'percentage', rate: 10, is_active: true, applicable_to: 'all' })
+      .select('*')
+      .single();
+    if (error) throw error;
+    if (!data?.id) throw new Error('Discount create returned no id');
+    testDiscountId = data.id;
+  });
+
+  // Test 9g: Discount CRUD - Update
+  if (testDiscountId) {
+    await test('Discounts: update', async () => {
+      const { data, error } = await supabase
+        .from('discounts')
+        .update({ rate: 12.5 })
+        .eq('id', testDiscountId)
+        .select('*')
+        .single();
+      if (error) throw error;
+      if (data.rate !== 12.5) throw new Error('Discount rate did not update');
+    });
+  }
+
+  // Test 9h: Discount CRUD - Delete
+  if (testDiscountId) {
+    await test('Discounts: delete', async () => {
+      const { error } = await supabase
+        .from('discounts')
+        .delete()
+        .eq('id', testDiscountId);
+      if (error) throw error;
+    });
+  }
 
   // Test 10: Admin Auth user check already performed above
 

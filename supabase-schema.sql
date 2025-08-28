@@ -207,6 +207,10 @@ ALTER TABLE trip_surcharges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trip_discounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
+-- Newly added: enable RLS for settings tables
+ALTER TABLE surcharge_factors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE discounts ENABLE ROW LEVEL SECURITY;
+
 -- RLS Policies for profiles
 CREATE POLICY "Public profiles are viewable by everyone" ON profiles
     FOR SELECT USING (true);
@@ -235,6 +239,56 @@ CREATE POLICY "Admins can delete trips" ON trips
     FOR DELETE USING (EXISTS (
         SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
     ));
+
+-- RLS Policies for surcharge_factors
+CREATE POLICY "Public can view surcharge factors" ON surcharge_factors
+    FOR SELECT USING (true);
+
+CREATE POLICY "Admins can insert surcharge factors" ON surcharge_factors
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can update surcharge factors" ON surcharge_factors
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can delete surcharge factors" ON surcharge_factors
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- RLS Policies for discounts
+CREATE POLICY "Public can view discounts" ON discounts
+    FOR SELECT USING (true);
+
+CREATE POLICY "Admins can insert discounts" ON discounts
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can update discounts" ON discounts
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can delete discounts" ON discounts
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
 
 -- RLS Policies for orders
 CREATE POLICY "Users can view their own orders" ON orders

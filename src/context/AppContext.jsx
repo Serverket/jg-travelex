@@ -150,15 +150,48 @@ export const AppProvider = ({ children }) => {
     }
   }
 
+  // Helper: generate a short, unique-ish code (<= 20 chars)
+  const generateCode = (name, fallbackPrefix) => {
+    const base = (name || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+    const prefix = (base.slice(0, 8) || (fallbackPrefix || 'ITEM'))
+    const random = Math.random().toString(36).toUpperCase().slice(2, 8) // 6 chars
+    const time = Date.now().toString(36).toUpperCase().slice(-4) // 4 chars
+    const code = `${prefix}${random}${time}`
+    return code.slice(0, 20)
+  }
+
   // Función para añadir un nuevo factor de recargo
   const addSurchargeFactor = async (factor) => {
     try {
-      // Crear factor de recargo en la API
-      const response = await settingsService.createSurchargeFactor({
-        name: factor.name,
-        rate: factor.rate,
-        type: factor.type
-      })
+      // Crear factor de recargo en la API con generación de código y reintentos por unicidad
+      let attempts = 0
+      let lastError = null
+      let response = null
+      while (attempts < 3) {
+        const code = generateCode(factor.name, 'SF')
+        try {
+          response = await settingsService.createSurchargeFactor({
+            name: factor.name,
+            rate: Number(factor.rate),
+            type: factor.type,
+            code
+          })
+          break
+        } catch (err) {
+          const msg = (err && (err.message || err.error || '')) + ''
+          // 23505 is Postgres unique_violation
+          if (err?.code === '23505' || /duplicate key|unique constraint/i.test(msg)) {
+            attempts++
+            if (attempts < 3) {
+              console.warn('Duplicate code detected for surcharge factor, retrying with a new code (attempt', attempts + 1, 'of 3)')
+            }
+            lastError = err
+            continue
+          }
+          throw err
+        }
+      }
+      if (!response) throw lastError || new Error('No se pudo crear el factor de recargo')
       
       // Actualizar estado local con ID real de la base de datos
       const newFactor = {
@@ -183,12 +216,34 @@ export const AppProvider = ({ children }) => {
   // Función para añadir un nuevo descuento
   const addDiscount = async (discount) => {
     try {
-      // Crear descuento en la API
-      const response = await settingsService.createDiscount({
-        name: discount.name,
-        rate: discount.rate,
-        type: discount.type
-      })
+      // Crear descuento en la API con generación de código y reintentos por unicidad
+      let attempts = 0
+      let lastError = null
+      let response = null
+      while (attempts < 3) {
+        const code = generateCode(discount.name, 'DS')
+        try {
+          response = await settingsService.createDiscount({
+            name: discount.name,
+            rate: Number(discount.rate),
+            type: discount.type,
+            code
+          })
+          break
+        } catch (err) {
+          const msg = (err && (err.message || err.error || '')) + ''
+          if (err?.code === '23505' || /duplicate key|unique constraint/i.test(msg)) {
+            attempts++
+            if (attempts < 3) {
+              console.warn('Duplicate code detected for discount, retrying with a new code (attempt', attempts + 1, 'of 3)')
+            }
+            lastError = err
+            continue
+          }
+          throw err
+        }
+      }
+      if (!response) throw lastError || new Error('No se pudo crear el descuento')
       
       // Actualizar estado local con ID real de la base de datos
       const newDiscount = {
