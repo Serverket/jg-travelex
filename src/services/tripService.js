@@ -1,4 +1,4 @@
-import { supabaseService } from './supabase';
+import { backendService } from './backendService';
 
 /**
  * Trip service
@@ -9,7 +9,7 @@ export const tripService = {
    * @returns {Promise<Array>} - List of trips
    */
   async getTrips(filters = {}) {
-    return await supabaseService.getTrips(filters);
+    return await backendService.getTrips(filters);
   },
 
   /**
@@ -18,7 +18,7 @@ export const tripService = {
    * @returns {Promise<Array>} - List of user trips
    */
   async getTripsByUserId(userId) {
-    return await supabaseService.getTrips({ userId });
+    return await backendService.getTrips({ userId });
   },
 
   /**
@@ -27,7 +27,7 @@ export const tripService = {
    * @returns {Promise<object>} - Trip data
    */
   async getTripById(id) {
-    return await supabaseService.getTripById(id);
+    return await backendService.getTripById(id);
   },
 
   /**
@@ -36,7 +36,7 @@ export const tripService = {
    * @returns {Promise<object>} - Created trip response
    */
   async createTrip(tripData) {
-    return await supabaseService.createTrip(tripData);
+    return await backendService.createTrip(tripData);
   },
 
   /**
@@ -46,7 +46,7 @@ export const tripService = {
    * @returns {Promise<object>} - Update response
    */
   async updateTrip(id, updates) {
-    return await supabaseService.updateTrip(id, updates);
+    return await backendService.updateTrip(id, updates);
   },
 
   /**
@@ -55,23 +55,23 @@ export const tripService = {
    * @returns {Promise<object>} - Delete response
    */
   async deleteTrip(id) {
-    return await supabaseService.deleteTrip(id);
+    return await backendService.deleteTrip(id);
   },
 
   // Trip surcharges and discounts
   async addSurcharge(tripId, surchargeId, amount) {
-    return await supabaseService.addTripSurcharge(tripId, surchargeId, amount);
+    return await backendService.addTripSurcharge(tripId, surchargeId, amount);
   },
 
   async removeSurcharge(tripId, surchargeId) {
-    return await supabaseService.removeTripSurcharge(tripId, surchargeId);
+    return await backendService.removeTripSurcharge(tripId, surchargeId);
   },
 
   async addDiscount(tripId, discountId, amount) {
-    return await supabaseService.addTripDiscount(tripId, discountId, amount);
+    return await backendService.addTripDiscount(tripId, discountId, amount);
   },
 
   async removeDiscount(tripId, discountId) {
-    return await supabaseService.removeTripDiscount(tripId, discountId);
+    return await backendService.removeTripDiscount(tripId, discountId);
   }
 };

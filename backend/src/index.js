@@ -56,6 +56,23 @@ async function requireAdmin(req, res, next) {
   }
 }
 
+async function requireAuth(req, res, next) {
+  try {
+    const user = await getUserFromAuthHeader(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('id', user.id)
+      .single();
+    if (error) return res.status(401).json({ error: 'Unauthorized' });
+    req.user = { id: user.id, role: profile?.role || 'user' };
+    return next();
+  } catch (e) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+}
+
 app.get('/health', async (req, res) => {
   try {
     const { error } = await supabase.from('company_settings').select('id').limit(1);
@@ -63,6 +80,378 @@ app.get('/health', async (req, res) => {
     res.json({ ok, supabase: ok, timestamp: new Date().toISOString() });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// -----------------------------
+// Trips API (auth required)
+// -----------------------------
+
+// GET /trips
+app.get('/trips', requireAuth, async (req, res) => {
+  try {
+    const { status, dateFrom, dateTo, all, userId } = req.query || {};
+    const isAdmin = req.user?.role === 'admin';
+
+    let query = supabase
+      .from('trips')
+      .select(`
+        *,
+        profiles:profiles!trips_user_id_fkey (
+          id,
+          full_name,
+          email
+        ),
+        trip_surcharges (*, surcharge_factors (*)),
+        trip_discounts (*, discounts (*))
+      `)
+      .order('trip_date', { ascending: false });
+
+    if (!(isAdmin && String(all).toLowerCase() === 'true')) {
+      query = query.eq('user_id', req.user.id);
+    }
+    if (status) query = query.eq('status', status);
+    if (isAdmin && userId) query = query.eq('user_id', userId);
+    if (dateFrom) query = query.gte('trip_date', dateFrom);
+    if (dateTo) query = query.lte('trip_date', dateTo);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Helper: ensure user can access a trip
+async function assertCanAccessTrip(user, tripId) {
+  const { data: trip, error } = await supabase
+    .from('trips')
+    .select('id, user_id')
+    .eq('id', tripId)
+    .single();
+  if (error) throw error;
+  if (!trip) throw new Error('Trip not found');
+  if (user.role !== 'admin' && trip.user_id !== user.id) {
+    const err = new Error('Forbidden');
+    err.status = 403;
+    throw err;
+  }
+  return trip;
+}
+
+// GET /trips/:id
+app.get('/trips/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessTrip(req.user, id);
+    const { data, error } = await supabase
+      .from('trips')
+      .select(`
+        *,
+        profiles:profiles!trips_user_id_fkey (
+          id,
+          full_name,
+          email
+        ),
+        trip_surcharges (*, surcharge_factors (*)),
+        trip_discounts (*, discounts (*))
+      `)
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+// POST /trips
+app.post('/trips', requireAuth, async (req, res) => {
+  try {
+    const tripNumber = `TRIP-${Date.now()}`;
+    const insert = { ...req.body, trip_number: tripNumber };
+    if (req.user.role !== 'admin') insert.user_id = req.user.id; // enforce ownership
+    const { data, error } = await supabase
+      .from('trips')
+      .insert(insert)
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// PATCH /trips/:id
+app.patch('/trips/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessTrip(req.user, id);
+    const { data, error } = await supabase
+      .from('trips')
+      .update(req.body || {})
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+// DELETE /trips/:id
+app.delete('/trips/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessTrip(req.user, id);
+    const { error } = await supabase.from('trips').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+// Trip surcharges
+app.post('/trips/:id/surcharges', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessTrip(req.user, id);
+    const { surcharge_id, amount } = req.body || {};
+    const { data, error } = await supabase
+      .from('trip_surcharges')
+      .insert({ trip_id: id, surcharge_id, amount: Number(amount || 0) })
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+app.delete('/trips/:id/surcharges/:surchargeId', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessTrip(req.user, id);
+    const surchargeId = req.params.surchargeId;
+    const { error } = await supabase
+      .from('trip_surcharges')
+      .delete()
+      .eq('trip_id', id)
+      .eq('surcharge_id', surchargeId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+// Trip discounts
+app.post('/trips/:id/discounts', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessTrip(req.user, id);
+    const { discount_id, amount } = req.body || {};
+    const { data, error } = await supabase
+      .from('trip_discounts')
+      .insert({ trip_id: id, discount_id, amount: Number(amount || 0) })
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+app.delete('/trips/:id/discounts/:discountId', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessTrip(req.user, id);
+    const discountId = req.params.discountId;
+    const { error } = await supabase
+      .from('trip_discounts')
+      .delete()
+      .eq('trip_id', id)
+      .eq('discount_id', discountId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+// -----------------------------
+// Invoices API (auth required)
+// -----------------------------
+
+// Helper: get invoice with joins
+function invoiceSelect() {
+  return `
+    *,
+    orders (
+      *,
+      profiles:profiles!orders_user_id_fkey (
+        id,
+        full_name,
+        email
+      ),
+      order_items (
+        *,
+        trips (*)
+      )
+    )
+  `;
+}
+
+// Ensure requester can access invoice via owning order or admin
+async function assertCanAccessInvoice(user, invoiceId) {
+  const { data: inv, error } = await supabase
+    .from('invoices')
+    .select('id, order_id')
+    .eq('id', invoiceId)
+    .single();
+  if (error) throw error;
+  if (!inv) throw new Error('Invoice not found');
+  if (user.role === 'admin') return inv;
+  const { data: order, error: oErr } = await supabase
+    .from('orders')
+    .select('id, user_id')
+    .eq('id', inv.order_id)
+    .single();
+  if (oErr) throw oErr;
+  if (!order || order.user_id !== user.id) {
+    const err = new Error('Forbidden');
+    err.status = 403;
+    throw err;
+  }
+  return inv;
+}
+
+// GET /invoices
+app.get('/invoices', requireAuth, async (req, res) => {
+  try {
+    const { status, overdue, orderId, invoiceNumber, all, userId } = req.query || {};
+    const isAdmin = req.user?.role === 'admin';
+    let query = supabase
+      .from('invoices')
+      .select(invoiceSelect())
+      .order('invoice_date', { ascending: false });
+
+    if (!(isAdmin && String(all).toLowerCase() === 'true')) {
+      // Restrict to invoices for the authenticated user's orders
+      query = query.eq('orders.user_id', req.user.id);
+    }
+    if (status) query = query.eq('status', status);
+    if (String(overdue).toLowerCase() === 'true') {
+      query = query.lt('due_date', new Date().toISOString());
+      query = query.in('status', ['pending', 'partial']);
+    }
+    if (orderId) query = query.eq('order_id', orderId);
+    if (invoiceNumber) query = query.eq('invoice_number', invoiceNumber);
+    if (isAdmin && userId) query = query.eq('orders.user_id', userId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// GET /invoices/:id
+app.get('/invoices/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessInvoice(req.user, id);
+    const { data, error } = await supabase
+      .from('invoices')
+      .select(invoiceSelect())
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+// POST /invoices
+app.post('/invoices', requireAuth, async (req, res) => {
+  try {
+    const { order_id, invoice_date, due_date, status } = req.body || {};
+    if (!order_id) return res.status(400).json({ error: 'order_id is required' });
+    // Ownership check
+    const { data: order, error: oErr } = await supabase
+      .from('orders')
+      .select('id, user_id')
+      .eq('id', order_id)
+      .single();
+    if (oErr) throw oErr;
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (req.user.role !== 'admin' && order.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const year = new Date().getFullYear();
+    const month = String(new Date().getMonth() + 1).padStart(2, '0');
+    const invoice_number = `INV-${year}${month}-${Date.now().toString().slice(-6)}`;
+
+    const insert = { order_id, invoice_date, due_date, status: status || 'pending', invoice_number };
+    const { data, error } = await supabase
+      .from('invoices')
+      .insert(insert)
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// PATCH /invoices/:id
+app.patch('/invoices/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessInvoice(req.user, id);
+    const { data, error } = await supabase
+      .from('invoices')
+      .update(req.body || {})
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+// DELETE /invoices/:id
+app.delete('/invoices/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessInvoice(req.user, id);
+    const { error } = await supabase.from('invoices').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
   }
 });
 

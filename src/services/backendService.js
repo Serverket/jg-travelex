@@ -151,5 +151,184 @@ export const backendService = {
       throw new Error(err.error || `Delete discount failed (${res.status})`);
     }
     return res.json();
+  },
+
+  // ---------------------
+  // Trips (auth required)
+  // ---------------------
+  async getTrips(filters = {}) {
+    const params = new URLSearchParams();
+    const { status, dateFrom, dateTo, all, userId } = filters;
+    if (status) params.set('status', status);
+    if (dateFrom) params.set('dateFrom', dateFrom);
+    if (dateTo) params.set('dateTo', dateTo);
+    if (all != null) params.set('all', String(all));
+    if (userId) params.set('userId', userId);
+    const url = `${baseUrl}/trips${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await fetch(url, { headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Get trips failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async getTripById(id) {
+    const res = await fetch(`${baseUrl}/trips/${id}`, { headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Get trip failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async createTrip(tripData) {
+    const res = await fetch(`${baseUrl}/trips`, {
+      method: 'POST',
+      headers: await buildAuthHeaders({}),
+      body: JSON.stringify(tripData)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Create trip failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async updateTrip(id, updates) {
+    const res = await fetch(`${baseUrl}/trips/${id}`, {
+      method: 'PATCH',
+      headers: await buildAuthHeaders({}),
+      body: JSON.stringify(updates)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Update trip failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async deleteTrip(id) {
+    const res = await fetch(`${baseUrl}/trips/${id}`, { method: 'DELETE', headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Delete trip failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async addTripSurcharge(tripId, surchargeId, amount) {
+    const res = await fetch(`${baseUrl}/trips/${tripId}/surcharges`, {
+      method: 'POST',
+      headers: await buildAuthHeaders({}),
+      body: JSON.stringify({ surcharge_id: surchargeId, amount })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Add trip surcharge failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async removeTripSurcharge(tripId, surchargeId) {
+    const res = await fetch(`${baseUrl}/trips/${tripId}/surcharges/${surchargeId}`, {
+      method: 'DELETE',
+      headers: await buildAuthHeaders({})
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Remove trip surcharge failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async addTripDiscount(tripId, discountId, amount) {
+    const res = await fetch(`${baseUrl}/trips/${tripId}/discounts`, {
+      method: 'POST',
+      headers: await buildAuthHeaders({}),
+      body: JSON.stringify({ discount_id: discountId, amount })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Add trip discount failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async removeTripDiscount(tripId, discountId) {
+    const res = await fetch(`${baseUrl}/trips/${tripId}/discounts/${discountId}`, {
+      method: 'DELETE',
+      headers: await buildAuthHeaders({})
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Remove trip discount failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  // ---------------------
+  // Invoices (auth required)
+  // ---------------------
+  async getInvoices(filters = {}) {
+    const params = new URLSearchParams();
+    const { status, overdue, orderId, invoiceNumber, all, userId } = filters;
+    if (status) params.set('status', status);
+    if (overdue != null) params.set('overdue', String(overdue));
+    if (orderId) params.set('orderId', orderId);
+    if (invoiceNumber) params.set('invoiceNumber', invoiceNumber);
+    if (all != null) params.set('all', String(all));
+    if (userId) params.set('userId', userId);
+    const url = `${baseUrl}/invoices${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await fetch(url, { headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Get invoices failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async getInvoiceById(id) {
+    const res = await fetch(`${baseUrl}/invoices/${id}`, { headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Get invoice failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async createInvoice(invoiceData) {
+    const res = await fetch(`${baseUrl}/invoices`, {
+      method: 'POST',
+      headers: await buildAuthHeaders({}),
+      body: JSON.stringify(invoiceData)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Create invoice failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async updateInvoice(id, invoiceData) {
+    const res = await fetch(`${baseUrl}/invoices/${id}`, {
+      method: 'PATCH',
+      headers: await buildAuthHeaders({}),
+      body: JSON.stringify(invoiceData)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Update invoice failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async deleteInvoice(id) {
+    const res = await fetch(`${baseUrl}/invoices/${id}`, { method: 'DELETE', headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Delete invoice failed (${res.status})`);
+    }
+    return res.json();
   }
 };

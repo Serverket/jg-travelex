@@ -1,4 +1,4 @@
-import { supabaseService } from './supabase';
+import { backendService } from './backendService';
 
 /**
  * Invoice service
@@ -10,7 +10,7 @@ export const invoiceService = {
    * @returns {Promise<Array>} - List of invoices
    */
   async getInvoices(filters = {}) {
-    return await supabaseService.getInvoices(filters);
+    return await backendService.getInvoices(filters);
   },
 
   /**
@@ -18,7 +18,7 @@ export const invoiceService = {
    * @returns {Promise<Array>} - List of all invoices
    */
   async getAllInvoices() {
-    return await supabaseService.getInvoices();
+    return await backendService.getInvoices();
   },
 
   /**
@@ -27,7 +27,7 @@ export const invoiceService = {
    * @returns {Promise<object>} - Invoice data
    */
   async getInvoiceById(id) {
-    return await supabaseService.getInvoiceById(id);
+    return await backendService.getInvoiceById(id);
   },
   
   /**
@@ -36,7 +36,7 @@ export const invoiceService = {
    * @returns {Promise<object>} - Invoice data
    */
   async getInvoiceByOrderId(orderId) {
-    const list = await supabaseService.getInvoices({ orderId });
+    const list = await backendService.getInvoices({ orderId });
     if (list && list.length > 0) return list[0];
     throw new Error('Error 404: Invoice not found');
   },
@@ -47,7 +47,7 @@ export const invoiceService = {
    * @returns {Promise<object>} - Invoice data
    */
   async getInvoiceByNumber(invoiceNumber) {
-    const list = await supabaseService.getInvoices({ invoiceNumber });
+    const list = await backendService.getInvoices({ invoiceNumber });
     if (list && list.length > 0) return list[0];
     throw new Error('Error 404: Invoice not found');
   },
@@ -58,7 +58,7 @@ export const invoiceService = {
    * @returns {Promise<object>} - Created invoice response
    */
   async createInvoice(invoiceData) {
-    return await supabaseService.createInvoice(invoiceData);
+    return await backendService.createInvoice(invoiceData);
   },
 
   /**
@@ -68,7 +68,7 @@ export const invoiceService = {
    * @returns {Promise<object>} - Update response
    */
   async updateInvoice(id, invoiceData) {
-    return await supabaseService.updateInvoice(id, invoiceData);
+    return await backendService.updateInvoice(id, invoiceData);
   },
 
   /**
@@ -77,6 +77,6 @@ export const invoiceService = {
    * @returns {Promise<object>} - Delete response
    */
   async deleteInvoice(id) {
-    return await supabaseService.deleteInvoice(id);
+    return await backendService.deleteInvoice(id);
   }
 };
