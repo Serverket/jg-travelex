@@ -7,7 +7,7 @@ import { supabaseService } from './supabase';
 const USER_KEY = 'jgex_user';
 const SESSION_KEY = 'jgex_session';
 
-const authService = {
+export const authService = {
   /**
    * Login user with username and password
    * @param {string} email - User's email
@@ -178,4 +178,3 @@ const authService = {
   }
 };
 
-export default authService;

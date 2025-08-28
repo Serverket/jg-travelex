@@ -8,8 +8,12 @@
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:start": "npm --prefix backend start",
+    "dev:all": "npm run backend:dev & npm run dev",
     "create-admin": "node scripts/create-admin-supabase.js",
-    "db:reset": "node scripts/reset-database.js"
+    "db:reset": "node scripts/reset-database.js",
+    "test:api": "node scripts/test-api.js"
   },
   "dependencies": {
     "@react-google-maps/api": "^2.19.2",

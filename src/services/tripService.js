@@ -18,7 +18,7 @@ export const tripService = {
    * @returns {Promise<Array>} - List of user trips
    */
   async getTripsByUserId(userId) {
-    return await supabaseService.getTripsByUserId(userId);
+    return await supabaseService.getTrips({ userId });
   },
 
   /**

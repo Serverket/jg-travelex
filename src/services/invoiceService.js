@@ -14,6 +14,14 @@ export const invoiceService = {
   },
 
   /**
+   * Get all invoices (alias without filters)
+   * @returns {Promise<Array>} - List of all invoices
+   */
+  async getAllInvoices() {
+    return await supabaseService.getInvoices();
+  },
+
+  /**
    * Get invoice by ID
    * @param {number} id - Invoice ID
    * @returns {Promise<object>} - Invoice data
@@ -28,7 +36,9 @@ export const invoiceService = {
    * @returns {Promise<object>} - Invoice data
    */
   async getInvoiceByOrderId(orderId) {
-    return await supabaseService.getInvoiceByOrderId(orderId);
+    const list = await supabaseService.getInvoices({ orderId });
+    if (list && list.length > 0) return list[0];
+    throw new Error('Error 404: Invoice not found');
   },
   
   /**
@@ -37,7 +47,9 @@ export const invoiceService = {
    * @returns {Promise<object>} - Invoice data
    */
   async getInvoiceByNumber(invoiceNumber) {
-    return await supabaseService.getInvoiceByNumber(invoiceNumber);
+    const list = await supabaseService.getInvoices({ invoiceNumber });
+    if (list && list.length > 0) return list[0];
+    throw new Error('Error 404: Invoice not found');
   },
 
   /**

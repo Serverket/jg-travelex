@@ -19,7 +19,7 @@ const projectRoot = join(__dirname, '..');
 config({ path: join(projectRoot, '.env') });
 
 // Configuration
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY; // Service role key needed for admin operations
 
 /**
@@ -32,7 +32,7 @@ async function resetDatabase() {
 
   // Validate environment variables
   if (!SUPABASE_URL) {
-    console.error('❌ Error: VITE_SUPABASE_URL is not set in .env file');
+    console.error('❌ Error: SUPABASE_URL is not set in .env file');
     process.exit(1);
   }
 
@@ -59,34 +59,9 @@ async function resetDatabase() {
       DROP TABLE IF EXISTS trips CASCADE;
       DROP TABLE IF EXISTS discounts CASCADE;
       DROP TABLE IF EXISTS surcharge_factors CASCADE;
-      DROP TABLE IF EXISTS settings CASCADE;
-      DROP TABLE IF EXISTS users CASCADE;
-      
-      -- Drop any existing policies
-      DROP POLICY IF EXISTS "Users can view own profile" ON users;
-      DROP POLICY IF EXISTS "Users can update own profile" ON users;
-      DROP POLICY IF EXISTS "Users can view own trips" ON trips;
-      DROP POLICY IF EXISTS "Users can insert own trips" ON trips;
-      DROP POLICY IF EXISTS "Users can update own trips" ON trips;
-      DROP POLICY IF EXISTS "Users can delete own trips" ON trips;
-      DROP POLICY IF EXISTS "Users can view own orders" ON orders;
-      DROP POLICY IF EXISTS "Users can insert own orders" ON orders;
-      DROP POLICY IF EXISTS "Users can update own orders" ON orders;
-      DROP POLICY IF EXISTS "Users can delete own orders" ON orders;
-      DROP POLICY IF EXISTS "Users can view own invoices" ON invoices;
-      DROP POLICY IF EXISTS "Users can insert own invoices" ON invoices;
-      DROP POLICY IF EXISTS "Users can update own invoices" ON invoices;
-      DROP POLICY IF EXISTS "Users can delete own invoices" ON invoices;
-      DROP POLICY IF EXISTS "Users can view own trip surcharges" ON trip_surcharges;
-      DROP POLICY IF EXISTS "Users can insert own trip surcharges" ON trip_surcharges;
-      DROP POLICY IF EXISTS "Users can delete own trip surcharges" ON trip_surcharges;
-      DROP POLICY IF EXISTS "Users can view own trip discounts" ON trip_discounts;
-      DROP POLICY IF EXISTS "Users can insert own trip discounts" ON trip_discounts;
-      DROP POLICY IF EXISTS "Users can delete own trip discounts" ON trip_discounts;
-      DROP POLICY IF EXISTS "Users can view own order items" ON order_items;
-      DROP POLICY IF EXISTS "Users can insert own order items" ON order_items;
-      DROP POLICY IF EXISTS "Users can update own order items" ON order_items;
-      DROP POLICY IF EXISTS "Users can delete own order items" ON order_items;
+      DROP TABLE IF EXISTS audit_logs CASCADE;
+      DROP TABLE IF EXISTS company_settings CASCADE;
+      DROP TABLE IF EXISTS profiles CASCADE;
     `;
 
     const { error: dropError } = await supabase.rpc('exec_sql', { 
@@ -129,7 +104,7 @@ async function resetDatabase() {
 
     console.log('✅ Database schema created successfully!\n');
     console.log('📋 Next steps:');
-    console.log('1. Run "node scripts/create-admin.js" to create an admin user');
+    console.log('1. Run "npm run create-admin" to create an admin user');
     console.log('2. Start your application with "npm run dev"');
     console.log('3. Login with your admin credentials\n');
 

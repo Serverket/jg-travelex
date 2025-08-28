@@ -1,17 +1,18 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { GoogleMap, useJsApiLoader, DirectionsRenderer } from '@react-google-maps/api'
 import PlaceSearch from '../components/PlaceSearch'
 import OpenStreetMap from '../components/OpenStreetMap'
 import ManualDistanceInput from '../components/ManualDistanceInput'
-import tripService from '../services/tripService'
-import orderService from '../services/orderService'
-import settingsService from '../services/settingsService'
+import { tripService } from '../services/tripService'
+import { orderService } from '../services/orderService'
+import { settingsService } from '../services/settingsService'
+import { backendService } from '../services/backendService'
 
 const libraries = ['places']
 
 const DistanceCalculator = () => {
-  const { user } = useAppContext()
+  const { currentUser } = useAppContext()
   const [rateSettings, setRateSettings] = useState(null)
   const [surchargeFactors, setSurchargeFactors] = useState([])
   const [discounts, setDiscounts] = useState([])
@@ -28,6 +29,7 @@ const DistanceCalculator = () => {
   const [distance, setDistance] = useState(null)
   const [duration, setDuration] = useState(null)
   const [price, setPrice] = useState(null)
+  const [quoteBreakdown, setQuoteBreakdown] = useState(null)
   const [activeSurcharges, setActiveSurcharges] = useState([])
   const [activeDiscounts, setActiveDiscounts] = useState([])
   const [isLoading, setIsLoading] = useState(false)
@@ -54,7 +56,7 @@ const DistanceCalculator = () => {
           settingsService.getDiscounts()
         ])
         
-        setRateSettings(settings?.[0] || { distance_rate: 2, duration_rate: 0.5 })
+        setRateSettings(settings || { distance_rate: 2, duration_rate: 0.5 })
         setSurchargeFactors(surcharges || [])
         setDiscounts(discountsList || [])
       } catch (error) {
@@ -74,50 +76,28 @@ const DistanceCalculator = () => {
     }
   }, [googleMapsApiKeyAvailable])
 
-  // Calculate price with surcharges and discounts
-  const calculatePrice = (distanceValue, durationValue) => {
-    if (!rateSettings) return 0
-    
-    let basePrice = (distanceValue * rateSettings.distance_rate) + 
-                    (durationValue * rateSettings.duration_rate)
-    
-    // Apply surcharges
-    activeSurcharges.forEach(surchargeId => {
-      const surcharge = surchargeFactors.find(s => s.id === surchargeId)
-      if (surcharge) {
-        if (surcharge.type === 'percentage') {
-          basePrice += basePrice * (surcharge.rate / 100)
-        } else {
-          basePrice += surcharge.rate
-        }
-      }
-    })
-    
-    // Apply discounts
-    activeDiscounts.forEach(discountId => {
-      const discount = discounts.find(d => d.id === discountId)
-      if (discount) {
-        if (discount.type === 'percentage') {
-          basePrice -= basePrice * (discount.rate / 100)
-        } else {
-          basePrice -= discount.rate
-        }
-      }
-    })
-    
-    return Math.max(0, basePrice).toFixed(2)
-  }
-
-  // Recalculate price when surcharges or discounts change
+  // Recalculate price via backend when inputs change
   useEffect(() => {
-    if (distance || duration) {
-      const newPrice = calculatePrice(
-        parseFloat(distance || 0),
-        parseFloat(duration || 0)
-      )
-      setPrice(newPrice)
+    const fetchQuote = async () => {
+      try {
+        const { price: quotedPrice, breakdown } = await backendService.getQuote({
+          distance: parseFloat(distance || 0),
+          duration: parseFloat(duration || 0),
+          surcharges: activeSurcharges,
+          discounts: activeDiscounts,
+        });
+        setPrice(quotedPrice)
+        setQuoteBreakdown(breakdown)
+        setError('')
+      } catch (err) {
+        console.error('Error fetching quote:', err)
+        setError('Error al calcular el precio')
+      }
     }
-  }, [activeSurcharges, activeDiscounts, distance, duration, rateSettings])
+    if (distance || duration) {
+      fetchQuote()
+    }
+  }, [activeSurcharges, activeDiscounts, distance, duration])
 
   // Manejar selección de origen en Google Maps
   const handleOriginSelect = (place) => {
@@ -156,14 +136,11 @@ const DistanceCalculator = () => {
 
       // Extraer distancia y duración
       const distanceInMiles = results.routes[0].legs[0].distance.value / 1609.34 // Convertir metros a millas
-      const durationInMinutes = results.routes[0].legs[0].duration.value / 60 // Convertir segundos a minutos
+      const durationInSeconds = results.routes[0].legs[0].duration.value
+      const durationInHours = durationInSeconds / 3600 // Convertir segundos a horas
 
       setDistance(distanceInMiles.toFixed(2))
-      setDuration(durationInMinutes.toFixed(0))
-
-      // Calcular precio
-      const calculatedPrice = calculatePrice(distanceInMiles, durationInMinutes)
-      setPrice(calculatedPrice)
+      setDuration(durationInHours.toFixed(2))
 
       // Centrar el mapa en el punto medio de la ruta
       const bounds = results.routes[0].bounds
@@ -182,21 +159,10 @@ const DistanceCalculator = () => {
 
   // Manejar entrada manual de distancia y duración
   const handleManualCalculation = (data) => {
-    console.log('Manual calculation with:', data);
-    console.log('Current rateSettings:', rateSettings);
     setOrigin(data.origin)
     setDestination(data.destination)
     setDistance(data.distance)
     setDuration(data.duration)
-    
-    // Calcular precio solo si tenemos al menos distancia o duración
-    if (data.distance || data.duration) {
-      const calculatedPrice = calculatePrice(
-        parseFloat(data.distance || 0), 
-        data.duration || 0
-      )
-      setPrice(calculatedPrice)
-    }
   }
 
   // Manejar cambios en los recargos
@@ -232,24 +198,36 @@ const DistanceCalculator = () => {
     const destinationDescription = typeof destination === 'string' ? destination : (destination?.description || 'Destino no especificado')
 
     try {
+      if (!currentUser || !currentUser.id) {
+        setError('Debe iniciar sesión para guardar el viaje')
+        return
+      }
       const tripData = {
-        user_id: user.id,
+        user_id: currentUser.id,
         origin: originDescription,
         destination: destinationDescription,
         distance: parseFloat(distance || 0),
-        duration: parseInt(duration || 0),
+        duration: parseFloat(duration || 0),
         price: parseFloat(price || 0),
-        date: new Date().toISOString()
+        trip_date: new Date().toISOString()
       }
 
       const savedTrip = await tripService.createTrip(tripData)
       
-      // Save surcharges and discounts
-      if (activeSurcharges.length > 0) {
-        await tripService.addTripSurcharges(savedTrip.id, activeSurcharges)
+      // Save surcharges and discounts with amounts from backend breakdown
+      if (quoteBreakdown?.surcharges?.length) {
+        await Promise.all(
+          quoteBreakdown.surcharges.map(s =>
+            tripService.addSurcharge(savedTrip.id, s.id, s.amount)
+          )
+        )
       }
-      if (activeDiscounts.length > 0) {
-        await tripService.addTripDiscounts(savedTrip.id, activeDiscounts)
+      if (quoteBreakdown?.discounts?.length) {
+        await Promise.all(
+          quoteBreakdown.discounts.map(d =>
+            tripService.addDiscount(savedTrip.id, d.id, d.amount)
+          )
+        )
       }
       
       setError('')
@@ -273,34 +251,47 @@ const DistanceCalculator = () => {
     try {
       // First save the trip
       const tripData = {
-        user_id: user.id,
+        user_id: (currentUser && currentUser.id) ? currentUser.id : null,
         origin: originDescription,
         destination: destinationDescription,
         distance: parseFloat(distance || 0),
-        duration: parseInt(duration || 0),
+        duration: parseFloat(duration || 0),
         price: parseFloat(price || 0),
-        date: new Date().toISOString()
+        trip_date: new Date().toISOString()
       }
 
       const savedTrip = await tripService.createTrip(tripData)
       
-      // Save surcharges and discounts
-      if (activeSurcharges.length > 0) {
-        await tripService.addTripSurcharges(savedTrip.id, activeSurcharges)
+      // Save surcharges and discounts with amounts from backend breakdown
+      if (quoteBreakdown?.surcharges?.length) {
+        await Promise.all(
+          quoteBreakdown.surcharges.map(s =>
+            tripService.addSurcharge(savedTrip.id, s.id, s.amount)
+          )
+        )
       }
-      if (activeDiscounts.length > 0) {
-        await tripService.addTripDiscounts(savedTrip.id, activeDiscounts)
+      if (quoteBreakdown?.discounts?.length) {
+        await Promise.all(
+          quoteBreakdown.discounts.map(d =>
+            tripService.addDiscount(savedTrip.id, d.id, d.amount)
+          )
+        )
       }
       
       // Create order
       const orderData = {
-        user_id: user.id,
+        user_id: currentUser?.id,
         status: 'pending',
-        total_amount: parseFloat(price),
-        trips: [savedTrip.id]
+        total_amount: parseFloat(price)
       }
       
-      await orderService.createOrder(orderData)
+      const createdOrder = await orderService.createOrder(orderData)
+      // Create order item linked to the trip
+      await orderService.createOrderItem({
+        order_id: createdOrder.id,
+        trip_id: savedTrip.id,
+        amount: parseFloat(price)
+      })
       setOrderCreated(true)
       setError('')
       alert('Orden creada correctamente')
@@ -314,16 +305,16 @@ const DistanceCalculator = () => {
   const clearForm = () => {
     setOrigin(null);
     setDestination(null);
-    setOsmOrigin(null)
-    setOsmDestination(null)
     setDirections(null);
     setDistance(null);
     setDuration(null);
     setPrice(null);
+    setQuoteBreakdown(null);
     setActiveSurcharges([]);
     setActiveDiscounts([]);
     setError('');
     setOrderCreated(false);
+    setCalculationMethod('manual');
   }
 
   // Renderizar el método de cálculo seleccionado
@@ -507,7 +498,7 @@ const DistanceCalculator = () => {
                   <p className="text-sm text-gray-600">Recargos aplicados:</p>
                   <ul className="list-disc pl-5 text-sm text-gray-600">
                     {activeSurcharges.map(id => {
-                      const factor = rateSettings.surchargeFactors.find(f => f.id === id);
+                      const factor = surchargeFactors.find(f => f.id === id);
                       return factor ? <li key={id}>{factor.name}</li> : null;
                     })}
                   </ul>
@@ -518,7 +509,7 @@ const DistanceCalculator = () => {
                   <p className="text-sm text-gray-600">Descuentos aplicados:</p>
                   <ul className="list-disc pl-5 text-sm text-gray-600">
                     {activeDiscounts.map(id => {
-                      const discount = rateSettings.discounts.find(d => d.id === id);
+                      const discount = discounts.find(d => d.id === id);
                       return discount ? <li key={id}>{discount.name}</li> : null;
                     })}
                   </ul>
@@ -557,7 +548,7 @@ const DistanceCalculator = () => {
           <h2 className="text-lg font-medium text-gray-700 mb-4">Factores de Recargo</h2>
           
           <div className="space-y-2">
-            {rateSettings.surchargeFactors.map((factor) => (
+            {surchargeFactors.map((factor) => (
               <div key={factor.id} className="flex items-center">
                 <input
                   type="checkbox"
@@ -579,7 +570,7 @@ const DistanceCalculator = () => {
           <h2 className="text-lg font-medium text-gray-700 mb-4">Descuentos Aplicables</h2>
           
           <div className="space-y-2">
-            {rateSettings.discounts.map((discount) => (
+            {discounts.map((discount) => (
               <div key={discount.id} className="flex items-center">
                 <input
                   type="checkbox"

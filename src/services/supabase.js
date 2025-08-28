@@ -417,6 +417,24 @@ export const supabaseService = {
     }
   },
 
+  async getOrderItems(orderId) {
+    try {
+      const { data, error } = await supabase
+        .from('order_items')
+        .select(`
+          *,
+          trips (*)
+        `)
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(`Get order items failed: ${error.message}`);
+    }
+  },
+
   // Invoices
   async getInvoices(filters = {}) {
     try {
@@ -445,6 +463,12 @@ export const supabaseService = {
       if (filters.overdue) {
         query = query.lt('due_date', new Date().toISOString());
         query = query.in('status', ['pending', 'partial']);
+      }
+      if (filters.orderId) {
+        query = query.eq('order_id', filters.orderId);
+      }
+      if (filters.invoiceNumber) {
+        query = query.eq('invoice_number', filters.invoiceNumber);
       }
 
       const { data, error } = await query;

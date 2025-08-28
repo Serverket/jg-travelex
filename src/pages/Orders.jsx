@@ -87,13 +87,13 @@ const Orders = () => {
       if (newStatus === 'completed') {
         const order = orders.find(o => o.id === orderId);
         if (order) {
+          const currentDate = new Date();
+          const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
           const invoiceData = {
             order_id: orderId,
-            invoice_number: `INV-${Date.now()}`,
-            issue_date: new Date().toISOString(),
-            due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-            status: 'pending',
-            total_amount: order.total_amount
+            invoice_date: currentDate.toISOString().split('T')[0],
+            due_date: dueDate.toISOString().split('T')[0],
+            status: 'pending'
           };
           await invoiceService.createInvoice(invoiceData);
         }

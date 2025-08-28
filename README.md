@@ -1,85 +1,131 @@
-# JG Travelex - Sistema de Gestión de Viajes
+# JG Travelex - Trip Management System
 
-Aplicación web moderna para calcular distancias, gestionar viajes y generar facturas, construida con React + Vite y respaldada por Supabase.
+A modern full‑stack web application built with React + Vite (frontend) and an Express backend connected to Supabase.
 
-A modern frontend-only web application powered by Supabase for calculating trip distances, generating orders and invoices, and tracking trip statistics. Designed for transportation businesses to manage trip calculations, financial tracking, and reporting with direct database integration.
+This app calculates trip distances, generates orders and invoices, and tracks statistics. It is designed for transportation businesses to manage trip calculations, financial tracking, and reporting with seamless Supabase integration.
 
-This project provides a comprehensive solution for transportation businesses looking for route calculation, pricing management, and invoice generation with seamless Supabase integration.
+## Features
 
-</div>
+- 🗺️ Distance calculation using Google Maps
+- 💰 Automatic pricing with configurable rates
+- 📊 Real-time dashboard
+- 📋 Order management
+- 📄 PDF invoice generation
+- 👤 Authentication with Supabase Auth
+- ⚙️ Configurable rates, surcharges, and discounts
+- 🔒 Role-based access control (admin/user)
+- 📱 Modern responsive design with Tailwind CSS
 
-## :rocket: Características
+## Installation and Running
 
-- 🗺️ Cálculo de distancias usando Google Maps
-- 💰 Cálculo automático de precios con tarifas configurables
-- 📊 Dashboard con estadísticas en tiempo real
-- 📋 Gestión completa de órdenes
-- 📄 Generación de facturas PDF
-- 👤 Sistema de autenticación con Supabase Auth
-- ⚙️ Panel de configuración de tarifas, recargos y descuentos
-- 🔒 Control de acceso basado en roles (admin/usuario)
-- 📱 Diseño responsivo y moderno con Tailwind CSS
+### Prerequisites
 
-## :gear: Instalación y Ejecución
+- Node.js 16+ and npm
+- Supabase account (https://supabase.com)
+- Google Maps API key (for distance calculations)
 
-### Prerrequisitos
+### Installation steps
 
-- Node.js 16+ y npm
-- Cuenta de Supabase (https://supabase.com)
-- Clave API de Google Maps (para el cálculo de distancias)
-
-### Pasos de instalación
-
-1. Clonar el repositorio
+1. Clone the repository
 ```bash
-git clone <url-del-repositorio>
+git clone <repository-url>
 cd jg-travelex
 ```
 
-2. Instalar dependencias
+2. Install dependencies
 ```bash
 npm install
 ```
 
-3. Configurar variables de entorno
+3. Configure environment variables
 ```bash
 cp .env.template .env
 ```
 
-Editar `.env` con las siguientes variables:
+Edit `.env` with the following variables:
 ```env
-# Supabase Configuration
-VITE_SUPABASE_URL=tu_url_de_supabase
-VITE_SUPABASE_ANON_KEY=tu_anon_key
-VITE_SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
+# Frontend (Vite)
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_BACKEND_URL=http://localhost:8000
+
+# Backend (Express)
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_SERVICE_KEY=your_supabase_service_role_key
+CORS_ORIGIN=http://localhost:5173
+# Optional (default 8000)
+PORT=8000
 
 # Google Maps API
-VITE_GOOGLE_MAPS_API_KEY=tu_google_maps_api_key
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 ```
 
-4. Configurar la base de datos en Supabase
+4. Initialize the database in Supabase (schema + defaults)
+- Option A (recommended first time): Open Supabase Dashboard → SQL Editor and run the contents of `supabase-schema.sql`.
+- Option B (scripted): Ensure an RPC function `exec_sql(sql text)` exists in your database, then run:
 ```bash
-# Ejecutar el script de esquema en tu proyecto de Supabase
-node scripts/create-admin-supabase.js
+npm run db:reset
 ```
 
-5. Ejecutar la aplicación
+If `exec_sql` does not exist, create it in Supabase SQL Editor first (security: service role only runs this in scripts):
+```sql
+create or replace function public.exec_sql(sql text)
+returns void
+language plpgsql
+security definer
+as $$
+begin
+  execute sql;
+end;
+$$;
+
+revoke all on function public.exec_sql(text) from public;
+grant execute on function public.exec_sql(text) to service_role;
+```
+
+5. Create the admin user
 ```bash
+npm run create-admin
+```
+
+Legacy note: Do not use `scripts/create-admin.js`. It is deprecated and incompatible with the current schema (no `password` column in `profiles`). Always use `npm run create-admin` which runs `scripts/create-admin-supabase.js`.
+
+6. Start the app (backend and frontend)
+```bash
+# Start backend (Express on :8000)
+npm run backend:dev
+
+# In another terminal, start frontend (Vite on :5173)
 npm run dev
+
+# Or run both concurrently (local dev convenience)
+npm run dev:all
 ```
 
-La aplicación estará disponible en `http://localhost:5173`.
+Backend endpoints:
+- `GET /health` on `http://localhost:8000` – checks Supabase connectivity
+- `POST /pricing/quote` – server-side pricing calculation using DB-configured rates
+  - Request body:
+    ```json
+    { "distance": 12.3, "duration": 25, "surcharges": ["<uuid>"], "discounts": ["<uuid>"] }
+    ```
+  - Response:
+    ```json
+    { "price": "32.75", "breakdown": { "base": 25.5, "surcharges": [], "discounts": [] } }
+    ```
 
-## :hammer_and_wrench: Tecnologías
+Note: `CORS_ORIGIN` supports multiple origins separated by commas (e.g., `https://yourapp.vercel.app,http://localhost:5173`).
+
+## Tech Stack
 
 ### Frontend
-- **React 18** - Framework de UI
-- **Vite** - Build tool y dev server
-- **Tailwind CSS** - Framework de estilos utility-first
-- **React Router** - Navegación SPA
-- **Chart.js** - Visualización de datos
-- **jsPDF** - Generación de PDFs
-- **Google Maps API** - Cálculo de distancias y rutas
+- **React 18** - UI framework
+- **Vite** - Build tool and dev server
+- **Tailwind CSS** - Utility-first CSS framework
+- **React Router** - SPA navigation
+- **Chart.js** - Data visualization
+- **jsPDF** - PDF generation
+- **Google Maps API** - Distance and routing
 
 ### Backend
 - **Supabase** - Backend as a Service
@@ -87,15 +133,22 @@ La aplicación estará disponible en `http://localhost:5173`.
   - Row Level Security (RLS)
   - Realtime subscriptions
   - Authentication
-- **Service Role Key** - Operaciones administrativas seguras
+- **Service Role Key** - Secure administrative operations
 
 ## :file_folder: Project Structure
 ```
 📂 jg-travelex/
+├── 📁 backend/              # Express backend (Supabase-powered API)
+│   ├── 📄 package.json      # Backend scripts (dev/start)
+│   └── 📁 src/              # Backend source (Express app)
 ├── 📁 public/               # Static files
 │   ├── 📁 icons/            # PWA icons
 │   ├── 📄 manifest.json     # PWA manifest
 │   └── 📄 sw.js             # Service Worker
+├── 📁 scripts/              # Maintenance scripts
+│   ├── 📄 create-admin-supabase.js  # Recommended: creates Auth user + admin profile
+│   ├── 📄 reset-database.js         # Resets DB via exec_sql and seeds schema
+│   └── 📄 create-admin.js           # Legacy (deprecated) script; not compatible with current schema
 ├── 📁 src/                  # Frontend source code
 │   ├── 📁 components/       # Reusable components
 │   ├── 📁 context/          # Global application context
@@ -114,53 +167,74 @@ La aplicación estará disponible en `http://localhost:5173`.
 └── 📄 vite.config.js        # Vite configuration
 ```
 
-## :wrench: Uso
+## Usage
 
-### Credenciales de administrador por defecto
-- Usuario: `jgam`
-- Contraseña: `jgampro777`
+### Admin user
+- Create an admin with: `npm run create-admin` (interactive). The script provisions a Supabase Auth user and a matching row in `profiles` with role `admin`. You choose the email/username/password during the prompt.
 
-### Funcionalidades principales
+- Legacy: `scripts/create-admin.js` is deprecated and incompatible with the current schema (it assumes a `password` column in `profiles`). Use `npm run create-admin` instead.
 
-#### Para Administradores:
-- Ver y gestionar todos los viajes y órdenes
-- Configurar tarifas base, recargos y descuentos
-- Actualizar estado de órdenes
-- Generar facturas para cualquier orden
-- Ver estadísticas globales del sistema
+### Core features
 
-#### Para Usuarios:
-- Calcular distancias y precios de viajes
-- Crear y guardar viajes
-- Generar órdenes de viajes
-- Ver historial personal de viajes y órdenes
-- Descargar facturas en PDF
+#### For Administrators:
+- View and manage all trips and orders
+- Configure base rates, surcharges, and discounts
+- Update order statuses
+- Generate invoices for any order
+- View global system statistics
 
-## :world_map: Despliegue
+#### For Users:
+- Calculate trip distances and pricing
+- Create and save trips
+- Generate trip orders
+- View personal history of trips and orders
+- Download invoices as PDF
 
-### Despliegue en Vercel
+## Testing
 
-1. Conectar el repositorio a Vercel
-2. Configurar las variables de entorno en Vercel:
+Run the automated Supabase/API checks:
+```bash
+node scripts/test-api.js
+```
+
+This suite verifies DB access, admin presence, CRUD basics, and that invoices use `invoice_date` (not `issue_date`). Ensure you have created an admin first.
+
+## Deployment
+
+### Frontend (Vercel)
+
+1. Connect the repo to Vercel
+2. Set environment variables in Vercel (Frontend only):
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-   - `VITE_SUPABASE_SERVICE_ROLE_KEY`
+   - `VITE_BACKEND_URL` (your deployed backend URL)
    - `VITE_GOOGLE_MAPS_API_KEY`
-3. Configurar el comando de build: `npm run build`
-4. Configurar el directorio de output: `dist`
-5. Desplegar
+3. Build command: `npm run build`
+4. Output directory: `dist`
+5. Deploy
 
-## Seguridad
+### Backend (Render or similar)
 
-- Las credenciales de Supabase se mantienen seguras usando variables de entorno
-- Service Role Key solo se usa para operaciones administrativas
-- Autenticación basada en SHA256 para compatibilidad con sistema legacy
-- Row Level Security (RLS) habilitado en tablas de Supabase
+Use `backend/` with your preferred host (Render example):
+- Required env vars:
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_KEY`
+  - `CORS_ORIGIN` (e.g., your Vercel frontend URL)
+- Expose port `8000`
+- Health path: `/health`
 
-## Licencia
+## Security
+
+- Supabase credentials are kept secure using environment variables
+- Service Role Key is only used for secure administrative operations
+- Authentication managed by Supabase Auth (email/password)
+- Row Level Security (RLS) enabled on Supabase tables
+
+Note: the app expects a singleton row in `company_settings` with id `11111111-1111-1111-1111-111111111111` (seeded by `supabase-schema.sql`).
+
+## License
 
 MIT
 
 ## :brain: Acknowledgments
-
 _"Whoever loves discipline loves knowledge, but whoever hates correction is stupid."_

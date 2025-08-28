@@ -17,8 +17,18 @@ const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..');
 config({ path: join(projectRoot, '.env') });
 
+// DEPRECATION WARNING: This legacy script is incompatible with the current schema
+// It assumes a `password` column in `profiles`, which no longer exists.
+// Use `npm run create-admin` (scripts/create-admin-supabase.js) instead.
+if (!process.env.ALLOW_LEGACY_ADMIN && !process.argv.includes('--force-legacy')) {
+  console.error('\n[DEPRECATED] scripts/create-admin.js is no longer supported.');
+  console.error('Use: npm run create-admin  (runs scripts/create-admin-supabase.js)');
+  console.error('If you really need to run this legacy script, set ALLOW_LEGACY_ADMIN=true or pass --force-legacy.');
+  process.exit(1);
+}
+
 // Configuration - Update these values or use environment variables
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY; // Service role key needed for admin operations
 
 // Admin user configuration
@@ -45,7 +55,7 @@ async function createAdminUser() {
 
   // Validate environment variables
   if (!SUPABASE_URL) {
-    console.error('❌ Error: VITE_SUPABASE_URL is not set in .env file');
+    console.error('❌ Error: SUPABASE_URL is not set in .env file');
     process.exit(1);
   }
 

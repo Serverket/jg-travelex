@@ -22,6 +22,15 @@ export const orderService = {
   },
 
   /**
+   * Get orders by user ID (helper wrapper)
+   * @param {string} userId - User ID
+   * @returns {Promise<Array>} - List of user orders
+   */
+  async getOrdersByUserId(userId) {
+    return await supabaseService.getOrders({ userId });
+  },
+
+  /**
    * Get order by ID
    * @param {number} id - Order ID
    * @returns {Promise<object>} - Order data
@@ -37,6 +46,24 @@ export const orderService = {
    */
   async createOrder(orderData) {
     return await supabaseService.createOrder(orderData);
+  },
+
+  /**
+   * Create order item
+   * @param {object} itemData - { order_id, trip_id, amount }
+   * @returns {Promise<object>} - Created order_item row
+   */
+  async createOrderItem(itemData) {
+    return await supabaseService.createOrderItem(itemData);
+  },
+
+  /**
+   * Get order items by order ID
+   * @param {string} orderId - Order ID
+   * @returns {Promise<Array>} - List of order items
+   */
+  async getOrderItems(orderId) {
+    return await supabaseService.getOrderItems(orderId);
   },
 
   /**

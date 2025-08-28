@@ -22,7 +22,7 @@ function App() {
 // Componente para gestionar rutas y autenticación
 function AppRoutes() {
   const { currentUser, logout } = useAppContext()
-  const [isAuthenticated, setIsAuthenticated] = useState(authService.isLoggedIn())
+  const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated())
   const navigate = useNavigate()
 
   // Verificar si el usuario ya está autenticado al cargar la aplicación

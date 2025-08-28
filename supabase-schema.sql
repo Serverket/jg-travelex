@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS discounts (
 CREATE TABLE IF NOT EXISTS trips (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-    trip_number VARCHAR(20) UNIQUE NOT NULL,
+    trip_number VARCHAR(50) UNIQUE NOT NULL,
     origin_address VARCHAR(255) NOT NULL,
     origin_lat DECIMAL(10, 8),
     origin_lng DECIMAL(11, 8),
@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 -- Orders table with enhanced tracking
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    order_number VARCHAR(20) UNIQUE NOT NULL,
+    order_number VARCHAR(50) UNIQUE NOT NULL,
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'pending', 'approved', 'processing', 'completed', 'cancelled', 'refunded')),
     subtotal DECIMAL(10, 2) NOT NULL,
@@ -250,17 +250,6 @@ CREATE POLICY "Users can update their own orders" ON orders
         SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
     ));
 
--- RLS Policies for invoices
-CREATE POLICY "Users can view their own invoices" ON invoices
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM orders o 
-            WHERE o.id = invoices.order_id 
-            AND (o.user_id = auth.uid() OR EXISTS (
-                SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
-            ))
-        )
-    );
 
 -- Trigger functions for updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -334,81 +323,211 @@ INSERT INTO discounts (code, name, description, rate, type, is_active, applicabl
     ('LOYALTY10', 'Loyalty Discount', '10% off for regular customers', 10.00, 'percentage', true, 'loyalty')
 ON CONFLICT (code) DO NOTHING;
 
--- RLS Policies for users table (users can only see their own data)
-CREATE POLICY "Users can view own profile" ON users
-    FOR SELECT USING (true);
+-- Secure RLS Policies (user-scoped with admin override)
 
-CREATE POLICY "Users can update own profile" ON users  
-    FOR UPDATE USING (true);
-
--- RLS Policies for trips table (users can only see their own trips)
-CREATE POLICY "Users can view own trips" ON trips
-    FOR SELECT USING (true);
-
-CREATE POLICY "Users can insert own trips" ON trips
-    FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Users can update own trips" ON trips
-    FOR UPDATE USING (true);
-
-CREATE POLICY "Users can delete own trips" ON trips
-    FOR DELETE USING (true);
-
--- RLS Policies for orders table (users can only see their own orders)
-CREATE POLICY "Users can view own orders" ON orders
-    FOR SELECT USING (true);
-
-CREATE POLICY "Users can insert own orders" ON orders
-    FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Users can update own orders" ON orders
-    FOR UPDATE USING (true);
-
-CREATE POLICY "Users can delete own orders" ON orders
-    FOR DELETE USING (true);
-
--- RLS Policies for invoices table (users can only see invoices for their orders)
+-- Invoices
 CREATE POLICY "Users can view own invoices" ON invoices
-    FOR SELECT USING (true);
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM orders o 
+            WHERE o.id = invoices.order_id 
+              AND (
+                  o.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
 CREATE POLICY "Users can insert own invoices" ON invoices
-    FOR INSERT WITH CHECK (true);
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM orders o 
+            WHERE o.id = invoices.order_id 
+              AND (
+                  o.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
 CREATE POLICY "Users can update own invoices" ON invoices
-    FOR UPDATE USING (true);
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM orders o 
+            WHERE o.id = invoices.order_id 
+              AND (
+                  o.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
-CREATE POLICY "Users can delete own invoices" ON invoices
-    FOR DELETE USING (true);
+CREATE POLICY "Admins can delete invoices" ON invoices
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
 
--- RLS Policies for trip_surcharges table
+-- Trip Surcharges
 CREATE POLICY "Users can view own trip surcharges" ON trip_surcharges
-    FOR SELECT USING (true);
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM trips t 
+            WHERE t.id = trip_surcharges.trip_id 
+              AND (
+                  t.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
 CREATE POLICY "Users can insert own trip surcharges" ON trip_surcharges
-    FOR INSERT WITH CHECK (true);
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM trips t 
+            WHERE t.id = trip_surcharges.trip_id 
+              AND (
+                  t.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
 CREATE POLICY "Users can delete own trip surcharges" ON trip_surcharges
-    FOR DELETE USING (true);
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM trips t 
+            WHERE t.id = trip_surcharges.trip_id 
+              AND (
+                  t.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
--- RLS Policies for trip_discounts table
+-- Trip Discounts
 CREATE POLICY "Users can view own trip discounts" ON trip_discounts
-    FOR SELECT USING (true);
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM trips t 
+            WHERE t.id = trip_discounts.trip_id 
+              AND (
+                  t.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
 CREATE POLICY "Users can insert own trip discounts" ON trip_discounts
-    FOR INSERT WITH CHECK (true);
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM trips t 
+            WHERE t.id = trip_discounts.trip_id 
+              AND (
+                  t.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
 CREATE POLICY "Users can delete own trip discounts" ON trip_discounts
-    FOR DELETE USING (true);
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM trips t 
+            WHERE t.id = trip_discounts.trip_id 
+              AND (
+                  t.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
--- RLS Policies for order_items table
+-- Order Items
 CREATE POLICY "Users can view own order items" ON order_items
-    FOR SELECT USING (true);
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM orders o 
+            WHERE o.id = order_items.order_id 
+              AND (
+                  o.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
 CREATE POLICY "Users can insert own order items" ON order_items
-    FOR INSERT WITH CHECK (true);
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM orders o 
+            WHERE o.id = order_items.order_id 
+              AND (
+                  o.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
 CREATE POLICY "Users can update own order items" ON order_items
-    FOR UPDATE USING (true);
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM orders o 
+            WHERE o.id = order_items.order_id 
+              AND (
+                  o.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
 
 CREATE POLICY "Users can delete own order items" ON order_items
-    FOR DELETE USING (true);
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM orders o 
+            WHERE o.id = order_items.order_id 
+              AND (
+                  o.user_id = auth.uid() OR EXISTS (
+                      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+                  )
+              )
+        )
+    );
+
+-- Audit Logs
+CREATE POLICY "Users can view own audit logs" ON audit_logs
+    FOR SELECT USING (
+        audit_logs.user_id = auth.uid() OR EXISTS (
+            SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Users can create own audit logs" ON audit_logs
+    FOR INSERT WITH CHECK (
+        audit_logs.user_id = auth.uid()
+    );
+
+CREATE POLICY "Admins can modify audit logs" ON audit_logs
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can delete audit logs" ON audit_logs
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+        )
+    );

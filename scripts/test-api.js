@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -12,7 +11,7 @@ const __dirname = dirname(__filename);
 // Load environment variables
 dotenv.config({ path: join(__dirname, '..', '.env') });
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -21,11 +20,6 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-
-// Helper function to hash password (matching the app's method)
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
 
 // Color codes for output
 const colors = {
@@ -39,6 +33,7 @@ const colors = {
 
 let testsPassed = 0;
 let testsFailed = 0;
+let adminProfileId;
 
 async function test(name, fn) {
   try {
@@ -57,7 +52,7 @@ async function runTests() {
 
   // Test 1: Database Connection
   await test('Database Connection', async () => {
-    const { data, error } = await supabase.from('profiles').select('count').limit(1);
+    const { error } = await supabase.from('profiles').select('id').limit(1);
     if (error) throw error;
   });
 
@@ -68,21 +63,32 @@ async function runTests() {
   });
 
   // Test 3: Admin User Exists
-  await test('Admin User Exists', async () => {
+  await test('Admin Profile Exists', async () => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
-      .eq('username', 'jgam')
+      .select('id, role, email, username')
+      .eq('role', 'admin')
+      .limit(1)
       .single();
-    
+
     if (error && error.code === 'PGRST116') {
-      throw new Error('Admin user not found. Run: npm run create-admin');
+      throw new Error('No admin profile found. Run: npm run create-admin');
     }
     if (error) throw error;
-    
-    if (data.role !== 'admin') {
-      throw new Error('User exists but is not admin');
+    if (!data || data.role !== 'admin') {
+      throw new Error('Admin profile not found or role mismatch');
     }
+    adminProfileId = data.id;
+  });
+
+  // Test 3b: Admin Auth user exists in Supabase Auth
+  await test('Admin Auth user exists', async () => {
+    if (!adminProfileId) throw new Error('Admin profile id not resolved');
+    const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
+    if (error) throw error;
+    const users = data?.users || [];
+    const found = users.some(u => u.id === adminProfileId);
+    if (!found) throw new Error('Admin auth user not found. Run: npm run create-admin');
   });
 
   // Test 4: Trips Table
@@ -121,44 +127,39 @@ async function runTests() {
     if (error) throw error;
   });
 
-  // Test 10: Authentication (Sign In with Admin)
-  await test('Admin Authentication', async () => {
-    const hashedPassword = hashPassword('jgampro777');
-    
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('username', 'jgam')
-      .eq('password', hashedPassword)
-      .single();
-    
-    if (error) throw new Error('Authentication failed');
-    if (!profile) throw new Error('Invalid credentials');
-  });
+  // Test 10: Admin Auth user check already performed above
 
   // Test 11: Create Test Trip
   let testTripId;
   await test('Create Test Trip', async () => {
-    const { data: admin } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', 'jgam')
-      .single();
+    if (!adminProfileId) throw new Error('Admin profile id not resolved');
+    const tripNumber = `TRIP-TEST-${Date.now()}`;
+    const today = new Date().toISOString().split('T')[0];
+    const distanceKm = 10.5;
+    const distanceMiles = Number((distanceKm * 0.621371).toFixed(2));
+    const basePrice = 25.5;
+    const finalPrice = 25.5;
 
     const { data, error } = await supabase
       .from('trips')
       .insert({
-        user_id: admin.id,
-        origin: 'Test Origin',
-        destination: 'Test Destination',
-        distance: 10.5,
-        duration: 15,
-        date: new Date().toISOString().split('T')[0],
-        price: 25.50
+        user_id: adminProfileId,
+        trip_number: tripNumber,
+        origin_address: 'Test Origin Address',
+        destination_address: 'Test Destination Address',
+        distance_km: distanceKm,
+        distance_miles: distanceMiles,
+        duration_minutes: 15,
+        trip_date: today,
+        base_price: basePrice,
+        surcharges: 0,
+        discounts: 0,
+        final_price: finalPrice,
+        status: 'completed'
       })
       .select()
       .single();
-    
+
     if (error) throw error;
     testTripId = data.id;
   });
@@ -168,7 +169,7 @@ async function runTests() {
     await test('Update Test Trip', async () => {
       const { data, error } = await supabase
         .from('trips')
-        .update({ price: 30.00 })
+        .update({ final_price: 30.00 })
         .eq('id', testTripId)
         .select();
       
@@ -210,6 +211,111 @@ async function runTests() {
   await test('Order Items Table', async () => {
     const { data, error } = await supabase.from('order_items').select('*').limit(1);
     if (error && error.code !== 'PGRST116') throw error; // OK if no data
+  });
+
+  // Test 18: Invoice creation uses invoice_date and persists correctly
+  await test('Invoice creation uses invoice_date', async () => {
+    let invTripId;
+    let invOrderId;
+    let invInvoiceId;
+    try {
+      if (!adminProfileId) throw new Error('Admin profile id not resolved');
+
+      // Prepare dates
+      const invoiceDate = new Date().toISOString().split('T')[0];
+      const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      // Create a trip for this test (minimal required fields)
+      const tripNumber = `TRIP-INV-${Date.now()}`;
+      const { data: trip, error: tripErr } = await supabase
+        .from('trips')
+        .insert({
+          user_id: adminProfileId,
+          trip_number: tripNumber,
+          origin_address: 'Invoice Test Origin',
+          destination_address: 'Invoice Test Destination',
+          distance_km: 1.0,
+          distance_miles: 0.62,
+          duration_minutes: 1,
+          trip_date: invoiceDate,
+          base_price: 10.0,
+          surcharges: 0,
+          discounts: 0,
+          final_price: 10.0
+        })
+        .select()
+        .single();
+      if (tripErr) throw tripErr;
+      invTripId = trip.id;
+
+      // Create an order for the trip (required fields)
+      const orderNumber = `ORDER-TEST-${Date.now()}`;
+      const { data: order, error: orderErr } = await supabase
+        .from('orders')
+        .insert({
+          order_number: orderNumber,
+          user_id: adminProfileId,
+          status: 'completed',
+          subtotal: trip.final_price,
+          tax_amount: 0,
+          discount_amount: 0,
+          total_amount: trip.final_price,
+          currency: 'USD',
+          payment_status: 'paid'
+        })
+        .select()
+        .single();
+      if (orderErr) throw orderErr;
+      invOrderId = order.id;
+
+      // Link trip to order via order_items
+      const { error: oiErr } = await supabase
+        .from('order_items')
+        .insert({ 
+          order_id: invOrderId, 
+          trip_id: invTripId, 
+          description: 'Test trip item',
+          quantity: 1,
+          unit_price: trip.final_price,
+          amount: trip.final_price 
+        });
+      if (oiErr) throw oiErr;
+
+      // Create invoice with invoice_date
+      const invoiceNumber = `INV-TEST-${Date.now()}`;
+      const { data: invoice, error: invErr } = await supabase
+        .from('invoices')
+        .insert({
+          order_id: invOrderId,
+          invoice_number: invoiceNumber,
+          invoice_date: invoiceDate,
+          due_date: dueDate,
+          status: 'pending'
+        })
+        .select('*')
+        .single();
+      if (invErr) throw invErr;
+      invInvoiceId = invoice.id;
+
+      // Assertions
+      if (!invoice.invoice_date) throw new Error('invoice_date missing on created invoice');
+      if ('issue_date' in invoice) throw new Error('issue_date should not exist on created invoice');
+
+      // Fetch to verify persistence
+      const { data: fetched, error: fetchErr } = await supabase
+        .from('invoices')
+        .select('id, order_id, invoice_date, due_date, invoice_number')
+        .eq('id', invInvoiceId)
+        .single();
+      if (fetchErr) throw fetchErr;
+      if (!fetched.invoice_date) throw new Error('invoice_date missing on fetched invoice');
+    } finally {
+      // Cleanup created records
+      if (invInvoiceId) await supabase.from('invoices').delete().eq('id', invInvoiceId);
+      if (invOrderId) await supabase.from('order_items').delete().eq('order_id', invOrderId);
+      if (invOrderId) await supabase.from('orders').delete().eq('id', invOrderId);
+      if (invTripId) await supabase.from('trips').delete().eq('id', invTripId);
+    }
   });
 
   // Summary

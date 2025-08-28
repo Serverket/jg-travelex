@@ -6,7 +6,7 @@ import { invoiceService } from '../services/invoiceService'
 import { authService } from '../services/authService'
 
 // Crear el contexto
-const AppContext = createContext()
+export const AppContext = createContext()
 
 // Hook personalizado para usar el contexto
 export const useAppContext = () => useContext(AppContext)
@@ -38,7 +38,7 @@ export const AppProvider = ({ children }) => {
   // Cargar usuario desde localStorage al iniciar y suscribirse a cambios de autenticación
   useEffect(() => {
     // Check if we have a saved session and restore it
-    const user = authService.getCurrentUser()
+    const user = authService.getCachedUser()
     if (user) {
       setCurrentUser(user)
       // Also load the user's data when restoring session
@@ -377,7 +377,7 @@ export const AppProvider = ({ children }) => {
       // Format for the backend - use YYYY-MM-DD format to avoid timezone issues
       const invoiceData = {
         order_id: orderId,
-        issue_date: currentDate.toISOString().split('T')[0],
+        invoice_date: currentDate.toISOString().split('T')[0],
         due_date: dueDate.toISOString().split('T')[0],
         status: 'pending'
       }
@@ -624,6 +624,8 @@ export const AppProvider = ({ children }) => {
   // Valor del contexto
   const value = {
     currentUser,
+    // Backward/compat aliases
+    user: currentUser,
     rateSettings,
     trips,
     orders,
@@ -646,7 +648,9 @@ export const AppProvider = ({ children }) => {
     // Export state setters for direct updates from components
     setOrders,
     setInvoices,
-    setTrips
+    setTrips,
+    // Allow components like Login to set user directly
+    setUser: setCurrentUser
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

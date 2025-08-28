@@ -1,6 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import authService from '../services/authService';
+import { authService } from '../services/authService';
 import { AppContext } from '../context/AppContext';
 import ApiHealthIndicator from '../components/ApiHealthIndicator';
 

@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend } from 'chart.js'
 import { Line, Bar } from 'react-chartjs-2'
-import tripService from '../services/tripService'
-import orderService from '../services/orderService'
-import invoiceService from '../services/invoiceService'
+import { tripService } from '../services/tripService'
+import { orderService } from '../services/orderService'
+import { invoiceService } from '../services/invoiceService'
 
 // Registrar componentes de Chart.js
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend)

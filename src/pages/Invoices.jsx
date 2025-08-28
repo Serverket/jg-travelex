@@ -54,9 +54,13 @@ const Invoices = () => {
     if (!items || items.length === 0) return [];
     return [...items].sort((a, b) => {
       if (sortConfig.key === 'date') {
-        // For orders and invoices, prioritize created_at for accurate creation time
-        const dateA = a.created_at || a.issue_date || new Date().toISOString();
-        const dateB = b.created_at || b.issue_date || new Date().toISOString();
+        // For invoices, prioritize invoice_date; for orders, prioritize created_at
+        const dateA = activeTab === 'invoices'
+          ? (a.invoice_date || a.created_at || new Date().toISOString())
+          : (a.created_at || a.invoice_date || new Date().toISOString());
+        const dateB = activeTab === 'invoices'
+          ? (b.invoice_date || b.created_at || new Date().toISOString())
+          : (b.created_at || b.invoice_date || new Date().toISOString());
         return sortConfig.direction === 'asc' 
           ? new Date(dateA) - new Date(dateB)
           : new Date(dateB) - new Date(dateA);
@@ -232,13 +236,14 @@ const Invoices = () => {
         throw new Error('Order not found');
       }
       
+      const currentDate = new Date();
+      const dueDate = new Date(currentDate);
+      dueDate.setDate(dueDate.getDate() + 30);
       const invoiceData = {
         order_id: orderId,
-        invoice_number: `INV-${Date.now()}`,
-        issue_date: new Date().toISOString(),
-        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        status: 'pending',
-        total_amount: order.total_amount || order.items?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0
+        invoice_date: currentDate.toISOString().split('T')[0],
+        due_date: dueDate.toISOString().split('T')[0],
+        status: 'pending'
       };
       
       const newInvoice = await invoiceService.createInvoice(invoiceData);
@@ -320,8 +325,8 @@ const Invoices = () => {
       
       doc.setFontSize(12)
       doc.text(`Factura #: ${invoice.id || invoice.invoice_number || 'N/A'}`, 20, 40)
-      doc.text(`Fecha: ${invoice.date ? new Date(invoice.date).toLocaleDateString() : 
-               invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : 'N/A'}`, 20, 50)
+      doc.text(`Fecha: ${invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : 
+               invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : invoice.date ? new Date(invoice.date).toLocaleDateString() : 'N/A'}`, 20, 50)
       doc.text(`Orden #: ${invoice.order_id || invoice.orderId || 'N/A'}`, 20, 60)
       
       // Información del viaje
@@ -520,7 +525,7 @@ const Invoices = () => {
                           {invoice.id}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() + ' ' + new Date(invoice.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : (invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() + ' ' + new Date(invoice.issue_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A')}
+                          {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() + ' ' + new Date(invoice.invoice_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : (invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() + ' ' + new Date(invoice.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin || 'No origin'}>
                           {formatAddress(invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin)}
