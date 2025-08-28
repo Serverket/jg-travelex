@@ -25,7 +25,9 @@ const Orders = () => {
         let fetchedOrders = [];
         if (user.role === 'admin') {
           // Admin sees all orders
-          fetchedOrders = await orderService.getOrders();
+          fetchedOrders = await orderService.getOrders({
+            filters: { all: true }
+          });
         } else {
           // Regular users see only their orders
           fetchedOrders = await orderService.getOrders({
@@ -40,7 +42,7 @@ const Orders = () => {
               // Get order items to find associated trips
               const orderItems = await orderService.getOrderItems(order.id);
               const trips = await Promise.all(
-                orderItems.map(item => tripService.getTrip(item.trip_id))
+                orderItems.map(item => tripService.getTripById(item.trip_id))
               );
               return { ...order, trips, orderItems };
             } catch (err) {

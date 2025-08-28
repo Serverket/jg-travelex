@@ -106,7 +106,9 @@ const Invoices = () => {
         // Fetch orders based on user role
         let ordersResponse = [];
         if (user.role === 'admin') {
-          ordersResponse = await orderService.getOrders();
+          ordersResponse = await orderService.getOrders({
+            filters: { all: true }
+          });
         } else {
           ordersResponse = await orderService.getOrders({
             filters: { user_id: user.id }
@@ -141,7 +143,7 @@ const Invoices = () => {
             if (!processedOrder.items[i].tripData && processedOrder.items[i].trip_id) {
               try {
                 // Actually fetch trip data from API
-                const tripData = await tripService.getTrip(processedOrder.items[i].trip_id);
+                const tripData = await tripService.getTripById(processedOrder.items[i].trip_id);
                 if (tripData) {
                   console.log(`Fetched trip data for trip_id ${processedOrder.items[i].trip_id}:`, tripData);
                   processedOrder.items[i].tripData = tripData;
@@ -276,10 +278,7 @@ const Invoices = () => {
         console.log('OrderData missing, fetching from API...');
         try {
           // First get the order
-          const fetchedOrders = await orderService.getOrders({
-            filters: { id: invoice.order_id || invoice.orderId }
-          });
-          const fetchedOrder = fetchedOrders?.[0];
+          const fetchedOrder = await orderService.getOrderById(invoice.order_id || invoice.orderId);
           if (fetchedOrder) {
             orderData = fetchedOrder;
             console.log('Fetched order data:', orderData);
@@ -301,7 +300,7 @@ const Invoices = () => {
         // If not, try to fetch it
         else if (orderItem.trip_id) {
           try {
-            tripData = await tripService.getTrip(orderItem.trip_id);
+            tripData = await tripService.getTripById(orderItem.trip_id);
             console.log(`Fetched trip data for trip_id ${orderItem.trip_id}:`, tripData);
           } catch (tripError) {
             console.error(`Error fetching trip data for trip_id ${orderItem.trip_id}:`, tripError);

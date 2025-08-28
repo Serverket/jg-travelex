@@ -87,6 +87,82 @@ app.get('/health', async (req, res) => {
 // Trips API (auth required)
 // -----------------------------
 
+// Whitelist of allowed trip fields to protect against schema mismatches
+const ALLOWED_TRIP_FIELDS = [
+  'origin_address',
+  'origin_lat',
+  'origin_lng',
+  'destination_address',
+  'destination_lat',
+  'destination_lng',
+  'distance_km',
+  'distance_miles',
+  'duration_minutes',
+  'trip_date',
+  'trip_time',
+  'base_price',
+  'surcharges',
+  'discounts',
+  'final_price',
+  'status',
+  'driver_name',
+  'vehicle_number',
+  'payment_method',
+  'notes',
+  'user_id'
+];
+
+function sanitizeTripPayload(body, { forUpdate = false } = {}) {
+  const b = { ...(body || {}) };
+
+  // Backward-compat: map nested/legacy fields if present
+  if (!b.origin_address && b.origin) {
+    if (typeof b.origin === 'string') b.origin_address = b.origin;
+    else if (b.origin?.address) b.origin_address = b.origin.address;
+    else if (b.origin?.description) b.origin_address = b.origin.description;
+  }
+  if (!b.destination_address && b.destination) {
+    if (typeof b.destination === 'string') b.destination_address = b.destination;
+    else if (b.destination?.address) b.destination_address = b.destination.address;
+    else if (b.destination?.description) b.destination_address = b.destination.description;
+  }
+
+  const numericFields = new Set([
+    'origin_lat', 'origin_lng', 'destination_lat', 'destination_lng',
+    'distance_km', 'distance_miles', 'duration_minutes', 'base_price',
+    'surcharges', 'discounts', 'final_price'
+  ]);
+
+  const out = {};
+  ALLOWED_TRIP_FIELDS.forEach((k) => {
+    if (b[k] !== undefined && b[k] !== null) {
+      if (numericFields.has(k)) {
+        const n = Number(b[k]);
+        out[k] = Number.isNaN(n) ? null : n;
+      } else {
+        out[k] = typeof b[k] === 'string' ? b[k] : String(b[k]);
+      }
+    }
+  });
+
+  // For PATCH we don't enforce required fields
+  if (forUpdate) return out;
+
+  // Validate minimally required fields for INSERT to avoid DB errors
+  const required = [
+    'origin_address',
+    'destination_address',
+    'distance_km',
+    'distance_miles',
+    'duration_minutes',
+    'trip_date',
+    'base_price',
+    'final_price'
+  ];
+  const missing = required.filter((k) => out[k] === undefined || out[k] === null || out[k] === '');
+  return { payload: out, missing };
+}
+
 // GET /trips
 app.get('/trips', requireAuth, async (req, res) => {
   try {
@@ -171,8 +247,17 @@ app.get('/trips/:id', requireAuth, async (req, res) => {
 app.post('/trips', requireAuth, async (req, res) => {
   try {
     const tripNumber = `TRIP-${Date.now()}`;
-    const insert = { ...req.body, trip_number: tripNumber };
-    if (req.user.role !== 'admin') insert.user_id = req.user.id; // enforce ownership
+    const { payload, missing } = sanitizeTripPayload(req.body || {});
+    if (missing && missing.length) {
+      return res.status(400).json({ error: 'Missing required fields for trip creation', fields: missing });
+    }
+    const insert = { ...payload, trip_number: tripNumber };
+    if (req.user.role !== 'admin') insert.user_id = req.user.id; // enforce ownership (also satisfies RLS)
+    // Warn (non-fatal) on unexpected fields to aid diagnostics
+    const extraKeys = Object.keys(req.body || {}).filter(k => !ALLOWED_TRIP_FIELDS.includes(k) && k !== 'trip_number');
+    if (extraKeys.length) {
+      console.warn('Dropping unexpected trip fields:', extraKeys);
+    }
     const { data, error } = await supabase
       .from('trips')
       .insert(insert)
@@ -190,9 +275,10 @@ app.patch('/trips/:id', requireAuth, async (req, res) => {
   try {
     const id = req.params.id;
     await assertCanAccessTrip(req.user, id);
+    const updates = sanitizeTripPayload(req.body || {}, { forUpdate: true });
     const { data, error } = await supabase
       .from('trips')
-      .update(req.body || {})
+      .update(updates)
       .eq('id', id)
       .select('*')
       .single();
@@ -284,6 +370,231 @@ app.delete('/trips/:id/discounts/:discountId', requireAuth, async (req, res) => 
       .delete()
       .eq('trip_id', id)
       .eq('discount_id', discountId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+// -----------------------------
+// Orders API (auth required)
+// -----------------------------
+
+function orderSelect() {
+  return `
+    *,
+    order_items (
+      *,
+      trips (*)
+    )
+  `;
+}
+
+async function assertCanAccessOrder(user, orderId) {
+  const { data: order, error } = await supabase
+    .from('orders')
+    .select('id, user_id')
+    .eq('id', orderId)
+    .single();
+  if (error) throw error;
+  if (!order) throw new Error('Order not found');
+  if (user.role !== 'admin' && order.user_id !== user.id) {
+    const err = new Error('Forbidden');
+    err.status = 403;
+    throw err;
+  }
+  return order;
+}
+
+// GET /orders
+app.get('/orders', requireAuth, async (req, res) => {
+  try {
+    const { status, orderNumber, all, userId } = req.query || {};
+    const isAdmin = req.user?.role === 'admin';
+    let query = supabase
+      .from('orders')
+      .select(orderSelect())
+      .order('created_at', { ascending: false });
+
+    if (!(isAdmin && String(all).toLowerCase() === 'true')) {
+      query = query.eq('user_id', req.user.id);
+    }
+    if (status) query = query.eq('status', status);
+    if (orderNumber) query = query.eq('order_number', orderNumber);
+    if (isAdmin && userId) query = query.eq('user_id', userId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// GET /orders/:id
+app.get('/orders/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessOrder(req.user, id);
+    const { data, error } = await supabase
+      .from('orders')
+      .select(orderSelect())
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+function sanitizeOrderPayload(body, { forUpdate = false } = {}) {
+  const b = { ...(body || {}) };
+  const numeric = new Set(['subtotal', 'tax_amount', 'discount_amount', 'total_amount']);
+  const allowed = [
+    'user_id',
+    'status',
+    'subtotal',
+    'tax_amount',
+    'discount_amount',
+    'total_amount',
+    'currency',
+    'payment_status',
+    'payment_date',
+    'notes'
+  ];
+  const out = {};
+  allowed.forEach((k) => {
+    if (b[k] !== undefined && b[k] !== null) {
+      if (numeric.has(k)) out[k] = Number(b[k]);
+      else out[k] = b[k];
+    }
+  });
+  if (forUpdate) return out;
+  const required = ['subtotal', 'total_amount'];
+  const missing = required.filter((k) => out[k] === undefined || out[k] === null);
+  return { payload: out, missing };
+}
+
+// POST /orders
+app.post('/orders', requireAuth, async (req, res) => {
+  try {
+    const orderNumber = `ORDER-${Date.now()}`;
+    const { payload, missing } = sanitizeOrderPayload(req.body || {});
+    if (missing && missing.length) {
+      return res.status(400).json({ error: 'Missing required fields for order creation', fields: missing });
+    }
+    const insert = { ...payload, order_number: orderNumber };
+    if (req.user.role !== 'admin') insert.user_id = req.user.id;
+    const { data, error } = await supabase
+      .from('orders')
+      .insert(insert)
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// PATCH /orders/:id
+app.patch('/orders/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessOrder(req.user, id);
+    const updates = sanitizeOrderPayload(req.body || {}, { forUpdate: true });
+    const { data, error } = await supabase
+      .from('orders')
+      .update(updates)
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+// DELETE /orders/:id
+app.delete('/orders/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessOrder(req.user, id);
+    const { error } = await supabase.from('orders').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+// Order Items
+function sanitizeOrderItemPayload(body) {
+  return {
+    trip_id: body?.trip_id,
+    description: body?.description || null,
+    quantity: body?.quantity != null ? Number(body.quantity) : 1,
+    unit_price: Number(body?.unit_price ?? 0),
+    amount: Number(body?.amount ?? 0)
+  };
+}
+
+// GET /orders/:id/items
+app.get('/orders/:id/items', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessOrder(req.user, id);
+    const { data, error } = await supabase
+      .from('order_items')
+      .select('*, trips(*)')
+      .eq('order_id', id)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    const status = e.status || 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
+// POST /orders/:id/items
+app.post('/orders/:id/items', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessOrder(req.user, id);
+    const payload = sanitizeOrderItemPayload(req.body || {});
+    if (!payload.trip_id) return res.status(400).json({ error: 'trip_id is required' });
+    const insert = { ...payload, order_id: id };
+    const { data, error } = await supabase
+      .from('order_items')
+      .insert(insert)
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// DELETE /orders/:id/items/:itemId
+app.delete('/orders/:id/items/:itemId', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    await assertCanAccessOrder(req.user, id);
+    const itemId = req.params.itemId;
+    const { error } = await supabase
+      .from('order_items')
+      .delete()
+      .eq('id', itemId)
+      .eq('order_id', id);
     if (error) throw error;
     res.json({ ok: true });
   } catch (e) {

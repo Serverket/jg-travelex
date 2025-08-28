@@ -268,6 +268,106 @@ export const backendService = {
   },
 
   // ---------------------
+  // Orders (auth required)
+  // ---------------------
+  async getOrders(filters = {}) {
+    const f = filters && filters.filters ? { ...(filters.filters || {}) } : { ...(filters || {}) };
+    const params = new URLSearchParams();
+    const { status, orderNumber, all, userId } = {
+      status: f.status,
+      orderNumber: f.orderNumber,
+      all: f.all,
+      userId: f.userId ?? f.user_id
+    };
+    if (status) params.set('status', status);
+    if (orderNumber) params.set('orderNumber', orderNumber);
+    if (all != null) params.set('all', String(all));
+    if (userId) params.set('userId', userId);
+    const url = `${baseUrl}/orders${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await fetch(url, { headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Get orders failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async getOrderById(id) {
+    const res = await fetch(`${baseUrl}/orders/${id}`, { headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Get order failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async createOrder(orderData) {
+    const res = await fetch(`${baseUrl}/orders`, {
+      method: 'POST',
+      headers: await buildAuthHeaders({}),
+      body: JSON.stringify(orderData)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Create order failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async updateOrder(id, updates) {
+    const res = await fetch(`${baseUrl}/orders/${id}`, {
+      method: 'PATCH',
+      headers: await buildAuthHeaders({}),
+      body: JSON.stringify(updates)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Update order failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async deleteOrder(id) {
+    const res = await fetch(`${baseUrl}/orders/${id}`, { method: 'DELETE', headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Delete order failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async getOrderItems(orderId) {
+    const res = await fetch(`${baseUrl}/orders/${orderId}/items`, { headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Get order items failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async createOrderItem(orderId, itemData) {
+    const res = await fetch(`${baseUrl}/orders/${orderId}/items`, {
+      method: 'POST',
+      headers: await buildAuthHeaders({}),
+      body: JSON.stringify(itemData)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Create order item failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async deleteOrderItem(orderId, itemId) {
+    const res = await fetch(`${baseUrl}/orders/${orderId}/items/${itemId}`, { method: 'DELETE', headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Delete order item failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  // ---------------------
   // Invoices (auth required)
   // ---------------------
   async getInvoices(filters = {}) {

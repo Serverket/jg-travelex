@@ -280,35 +280,46 @@ export const AppProvider = ({ children }) => {
         return date.toISOString().split('T')[0]; // Get YYYY-MM-DD part
       };
       
+      // Normalize fields to backend schema
+      const originDescription = typeof trip.origin === 'string' ? trip.origin : (trip?.origin?.description || 'Origen no especificado');
+      const destinationDescription = typeof trip.destination === 'string' ? trip.destination : (trip?.destination?.description || 'Destino no especificado');
+      const tripDate = formatDateForMySQL(trip.date);
+      const distanceMiles = typeof trip.distance === 'number' ? trip.distance : parseFloat(trip.distance) || 0;
+      const durationMinutes = Math.round(((typeof trip.duration === 'number' ? trip.duration : parseFloat(trip.duration)) || 0) * 60);
+
       const tripData = {
-        user_id: currentUser.id,
-        origin: trip.origin || 'Origen no especificado',
-        destination: trip.destination || 'Destino no especificado',
-        // Ensure distance is a valid number
-        distance: typeof trip.distance === 'number' ? trip.distance : parseFloat(trip.distance) || 0,
-        // Ensure duration is a valid number or null
-        duration: trip.duration ? (typeof trip.duration === 'number' ? trip.duration : parseFloat(trip.duration)) : null,
-        // Format date as YYYY-MM-DD for MySQL DATE field
-        date: formatDateForMySQL(trip.date),
-        // Ensure price is a valid number
-        price: typeof trip.price === 'number' ? trip.price : parseFloat(trip.price) || 0,
-        // Ensure activeSurcharges is a simple array of numbers (not objects)
-        // Backend expects surcharge IDs as integers
-        activeSurcharges: Array.isArray(trip.activeSurcharges) ?
-          trip.activeSurcharges
-            .map(id => typeof id === 'number' ? id : parseInt(id))
-            .filter(id => !isNaN(id)) : // Filter out any NaN values
-          []
-      }
+        origin_address: originDescription,
+        destination_address: destinationDescription,
+        ...(trip?.origin_lat != null && trip?.origin_lng != null
+          ? { origin_lat: trip.origin_lat, origin_lng: trip.origin_lng }
+          : (trip?.origin?.lat != null && trip?.origin?.lng != null
+            ? { origin_lat: trip.origin.lat, origin_lng: trip.origin.lng }
+            : {})),
+        ...(trip?.destination_lat != null && trip?.destination_lng != null
+          ? { destination_lat: trip.destination_lat, destination_lng: trip.destination_lng }
+          : (trip?.destination?.lat != null && trip?.destination?.lng != null
+            ? { destination_lat: trip.destination.lat, destination_lng: trip.destination.lng }
+            : {})),
+        distance_miles: distanceMiles,
+        distance_km: Number((distanceMiles * 1.60934).toFixed(2)),
+        duration_minutes: durationMinutes,
+        trip_date: tripDate,
+        base_price: (trip?.base_price != null)
+          ? Number(trip.base_price)
+          : (trip?.price != null ? Number(trip.price) : 0),
+        surcharges: 0,
+        discounts: 0,
+        final_price: (trip?.price != null ? Number(trip.price) : undefined) ?? ((trip?.base_price != null ? Number(trip.base_price) : undefined) ?? 0)
+      };
       
       // Crear viaje en la API
       const response = await tripService.createTrip(tripData)
       
       // Formato para frontend
       const newTrip = {
-        id: response.tripId,
+        id: response.id,
         ...trip,
-        date: trip.date || new Date().toISOString()
+        date: (response?.trip_date ? new Date(response.trip_date).toISOString() : (trip.date || new Date().toISOString()))
       }
       
       // Actualizar estado local - verificar si el viaje ya existe para evitar duplicados

@@ -1,4 +1,4 @@
-import { supabaseService } from './supabase';
+import { backendService } from './backendService';
 
 /**
  * Order service
@@ -9,7 +9,7 @@ export const orderService = {
    * @returns {Promise<Array>} - List of orders
    */
   async getAllOrders() {
-    return await supabaseService.getOrders();
+    return await backendService.getOrders({ all: true });
   },
 
   /**
@@ -18,7 +18,7 @@ export const orderService = {
    * @returns {Promise<Array>} - List of user orders
    */
   async getOrders(filters = {}) {
-    return await supabaseService.getOrders(filters);
+    return await backendService.getOrders(filters);
   },
 
   /**
@@ -27,7 +27,7 @@ export const orderService = {
    * @returns {Promise<Array>} - List of user orders
    */
   async getOrdersByUserId(userId) {
-    return await supabaseService.getOrders({ userId });
+    return await backendService.getOrders({ userId });
   },
 
   /**
@@ -36,7 +36,7 @@ export const orderService = {
    * @returns {Promise<object>} - Order data
    */
   async getOrderById(id) {
-    return await supabaseService.getOrderById(id);
+    return await backendService.getOrderById(id);
   },
 
   /**
@@ -45,7 +45,7 @@ export const orderService = {
    * @returns {Promise<object>} - Created order response
    */
   async createOrder(orderData) {
-    return await supabaseService.createOrder(orderData);
+    return await backendService.createOrder(orderData);
   },
 
   /**
@@ -54,7 +54,9 @@ export const orderService = {
    * @returns {Promise<object>} - Created order_item row
    */
   async createOrderItem(itemData) {
-    return await supabaseService.createOrderItem(itemData);
+    const { order_id, ...rest } = itemData || {};
+    if (!order_id) throw new Error('order_id is required to create an order item');
+    return await backendService.createOrderItem(order_id, rest);
   },
 
   /**
@@ -63,7 +65,7 @@ export const orderService = {
    * @returns {Promise<Array>} - List of order items
    */
   async getOrderItems(orderId) {
-    return await supabaseService.getOrderItems(orderId);
+    return await backendService.getOrderItems(orderId);
   },
 
   /**
@@ -73,7 +75,7 @@ export const orderService = {
    * @returns {Promise<object>} - Update response
    */
   async updateOrder(id, updates) {
-    return await supabaseService.updateOrder(id, updates);
+    return await backendService.updateOrder(id, updates);
   },
 
   /**
@@ -82,6 +84,6 @@ export const orderService = {
    * @returns {Promise<object>} - Delete response
    */
   async deleteOrder(id) {
-    return await supabaseService.deleteOrder(id);
+    return await backendService.deleteOrder(id);
   }
 };

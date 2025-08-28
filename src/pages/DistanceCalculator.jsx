@@ -202,14 +202,28 @@ const DistanceCalculator = () => {
         setError('Debe iniciar sesión para guardar el viaje')
         return
       }
+      const today = new Date()
+      const tripDate = today.toISOString().split('T')[0] // YYYY-MM-DD
+      const distanceMiles = Number(distance || 0)
+      const durationMinutes = duration ? Math.round(Number(duration) * 60) : null
+
       const tripData = {
-        user_id: currentUser.id,
-        origin: originDescription,
-        destination: destinationDescription,
-        distance: parseFloat(distance || 0),
-        duration: parseFloat(duration || 0),
-        price: parseFloat(price || 0),
-        trip_date: new Date().toISOString()
+        origin_address: originDescription,
+        destination_address: destinationDescription,
+        ...(origin && origin.lat != null && origin.lng != null ? { origin_lat: origin.lat, origin_lng: origin.lng } : {}),
+        ...(destination && destination.lat != null && destination.lng != null ? { destination_lat: destination.lat, destination_lng: destination.lng } : {}),
+        distance_miles: distanceMiles,
+        distance_km: Number((distanceMiles * 1.60934).toFixed(2)),
+        duration_minutes: durationMinutes,
+        trip_date: tripDate,
+        base_price: quoteBreakdown?.base !== undefined ? Number(quoteBreakdown.base) : null,
+        surcharges: Array.isArray(quoteBreakdown?.surcharges)
+          ? quoteBreakdown.surcharges.reduce((sum, s) => sum + Number(s.amount || 0), 0)
+          : null,
+        discounts: Array.isArray(quoteBreakdown?.discounts)
+          ? quoteBreakdown.discounts.reduce((sum, d) => sum + Number(d.amount || 0), 0)
+          : null,
+        final_price: price != null ? Number(price) : null
       }
 
       const savedTrip = await tripService.createTrip(tripData)
@@ -250,14 +264,28 @@ const DistanceCalculator = () => {
 
     try {
       // First save the trip
+      const today = new Date()
+      const tripDate = today.toISOString().split('T')[0] // YYYY-MM-DD
+      const distanceMiles = Number(distance || 0)
+      const durationMinutes = duration ? Math.round(Number(duration) * 60) : null
+
       const tripData = {
-        user_id: (currentUser && currentUser.id) ? currentUser.id : null,
-        origin: originDescription,
-        destination: destinationDescription,
-        distance: parseFloat(distance || 0),
-        duration: parseFloat(duration || 0),
-        price: parseFloat(price || 0),
-        trip_date: new Date().toISOString()
+        origin_address: originDescription,
+        destination_address: destinationDescription,
+        ...(origin && origin.lat != null && origin.lng != null ? { origin_lat: origin.lat, origin_lng: origin.lng } : {}),
+        ...(destination && destination.lat != null && destination.lng != null ? { destination_lat: destination.lat, destination_lng: destination.lng } : {}),
+        distance_miles: distanceMiles,
+        distance_km: Number((distanceMiles * 1.60934).toFixed(2)),
+        duration_minutes: durationMinutes,
+        trip_date: tripDate,
+        base_price: quoteBreakdown?.base !== undefined ? Number(quoteBreakdown.base) : null,
+        surcharges: Array.isArray(quoteBreakdown?.surcharges)
+          ? quoteBreakdown.surcharges.reduce((sum, s) => sum + Number(s.amount || 0), 0)
+          : null,
+        discounts: Array.isArray(quoteBreakdown?.discounts)
+          ? quoteBreakdown.discounts.reduce((sum, d) => sum + Number(d.amount || 0), 0)
+          : null,
+        final_price: price != null ? Number(price) : null
       }
 
       const savedTrip = await tripService.createTrip(tripData)
