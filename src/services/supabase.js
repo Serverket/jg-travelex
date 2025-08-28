@@ -608,6 +608,33 @@ export const supabaseService = {
     }
   },
 
+  // Provide factor-style aliases and getters expected by settingsService
+  async getSurchargeFactorById(id) {
+    try {
+      const { data, error } = await supabase
+        .from('surcharge_factors')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(`Get surcharge factor failed: ${error.message}`);
+    }
+  },
+
+  async createSurchargeFactor(factorData) {
+    return await this.createSurcharge(factorData);
+  },
+
+  async updateSurchargeFactor(id, updates) {
+    return await this.updateSurcharge(id, updates);
+  },
+
+  async deleteSurchargeFactor(id) {
+    return await this.deleteSurcharge(id);
+  },
+
   // Discounts
   async getDiscounts(activeOnly = false) {
     try {
@@ -626,6 +653,20 @@ export const supabaseService = {
       return data;
     } catch (error) {
       throw new Error(`Get discounts failed: ${error.message}`);
+    }
+  },
+
+  async getDiscountById(id) {
+    try {
+      const { data, error } = await supabase
+        .from('discounts')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(`Get discount failed: ${error.message}`);
     }
   },
 
