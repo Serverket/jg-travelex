@@ -1,7 +1,8 @@
 {
-  "name": "Trip Distance Calculator",
-  "short_name": "JGEx",
-  "description": "Calculadora de distancias y precios para viajes en USA",
+  "name": "JG Travelex - Trip Management System",
+  "short_name": "JGEx v1.1.0",
+  "description": "Advanced trip management system with enhanced code quality - v1.1.0",
+  "version": "1.1.0",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

@@ -1,4 +1,4 @@
-# JG Travelex - Trip Management System
+# JG Travelex - Trip Management System v1.1.0
 
 A modern full‑stack web application built with React + Vite (frontend) and an Express backend connected to Supabase.
 
@@ -15,6 +15,9 @@ This app calculates trip distances, generates orders and invoices, and tracks st
 - ⚙️ Configurable rates, surcharges, and discounts
 - 🔒 Role-based access control (admin/user)
 - 📱 Modern responsive design with Tailwind CSS
+- ✨ **New in v1.1.0**: Enhanced code quality with comprehensive ESLint configuration
+- 🛡️ **New in v1.1.0**: Improved error handling and type safety
+- ⚡ **New in v1.1.0**: Optimized React Hook dependencies for better performance
 
 ## Installation and Running
 
@@ -235,6 +238,24 @@ Note: the app expects a singleton row in `company_settings` with id `11111111-11
 ## License
 
 MIT
+
+## What's New in v1.1.0
+
+### Code Quality Improvements
+- ✅ **Zero ESLint warnings/errors** - Clean, maintainable codebase
+- 🔧 **Enhanced error handling** across all components
+- 📝 **Better TypeScript-style conventions** with proper variable naming
+- ⚡ **Optimized performance** with improved React Hook dependencies
+- 🛡️ **Enhanced type safety** with proper variable declarations
+
+### Developer Experience
+- 🛠️ Comprehensive ESLint configuration for consistent code style
+- 📋 Better IDE integration and error detection
+- 🔍 Improved debugging capabilities
+- 📝 Enhanced code readability and documentation
+- 🚀 Faster development workflow with resolved linting issues
+
+See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
 ## :brain: Acknowledgments
 _"Whoever loves discipline loves knowledge, but whoever hates correction is stupid."_
