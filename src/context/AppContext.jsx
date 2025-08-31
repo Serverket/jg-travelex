@@ -123,7 +123,7 @@ export const AppProvider = ({ children }) => {
 
   // Función para actualizar las tarifas
   const updateRateSettings = async (newSettings) => {
-    try {
+    
       // Actualizar configuraciones básicas en la API
       await settingsService.updateSettings({
         distance_rate: newSettings.distanceRate,
@@ -145,9 +145,6 @@ export const AppProvider = ({ children }) => {
       }))
       
       return true
-    } catch (error) {
-      throw error
-    }
   }
 
   // Helper: generate a short, unique-ish code (<= 20 chars)
@@ -162,7 +159,7 @@ export const AppProvider = ({ children }) => {
 
   // Función para añadir un nuevo factor de recargo
   const addSurchargeFactor = async (factor) => {
-    try {
+    
       // Crear factor de recargo en la API con generación de código y reintentos por unicidad
       let attempts = 0
       let lastError = null
@@ -208,14 +205,11 @@ export const AppProvider = ({ children }) => {
       }))
       
       return newFactor
-    } catch (error) {
-      throw error
-    }
   }
 
   // Función para añadir un nuevo descuento
   const addDiscount = async (discount) => {
-    try {
+    
       // Crear descuento en la API con generación de código y reintentos por unicidad
       let attempts = 0
       let lastError = null
@@ -260,14 +254,11 @@ export const AppProvider = ({ children }) => {
       }))
       
       return newDiscount
-    } catch (error) {
-      throw error
-    }
   }
 
   // Función para añadir un nuevo viaje
   const addTrip = async (trip) => {
-    try {
+    
       // Ensure all required fields are present and properly formatted
       if (!currentUser || !currentUser.id) {
         throw new Error('Usuario no autenticado');
@@ -336,14 +327,11 @@ export const AppProvider = ({ children }) => {
         }
       })
       return newTrip
-    } catch (error) {
-      throw error
-    }
   }
 
   // Función para crear una nueva orden
   const createOrder = async (tripData) => {
-    try {
+    
       // Verificamos si el viaje ya está guardado en la base de datos
       let tripId = tripData.id;
       
@@ -391,14 +379,11 @@ export const AppProvider = ({ children }) => {
         }
       })
       return newOrder
-    } catch (error) {
-      throw error
-    }
   }
 
   // Función para crear una nueva factura
   const createInvoice = async (orderId) => {
-    try {
+    
       
       // First check with the API if an invoice already exists for this order
       try {
@@ -484,14 +469,11 @@ export const AppProvider = ({ children }) => {
         
         throw apiError;
       }
-    } catch (error) {
-      throw error;
-    }
   }
   
   // Función para iniciar sesión
   const login = async (username, password) => {
-    try {
+    
       const response = await authService.login(username, password)
       setCurrentUser(response.user)
       
@@ -501,9 +483,6 @@ export const AppProvider = ({ children }) => {
       }
       
       return response.user
-    } catch (error) {
-      throw error
-    }
   }
   
   // Función para cargar datos del usuario

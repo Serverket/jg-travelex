@@ -1,8 +1,9 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { AppContext } from '../context/AppContext';
 import ApiHealthIndicator from '../components/ApiHealthIndicator';
+import { useToast } from '../context/ToastContext';
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -14,6 +15,35 @@ const Login = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { setUser } = useContext(AppContext);
+  const toast = useToast();
+
+  // Background slideshow images (Florida-only, local assets)
+  // Highest priority: VITE_LOGIN_BG_IMAGES (comma-separated paths under /public)
+  // Else: default list under /public/destinations/
+  const envBgList = (import.meta.env.VITE_LOGIN_BG_IMAGES || '').split(',').map(s => s.trim()).filter(Boolean);
+  const defaultLocal = [
+    '/destinations/KeysSevenMileBridges.jpg.webp',
+    '/destinations/SombreroBeach-MarathonFL.jpg.webp',
+    '/destinations/bradentonbeachcheap.jpg.webp',
+    '/destinations/cocoabeachcheap.jpg.webp',
+    '/destinations/fortmyersbeachcheap.jpg.webp',
+    '/destinations/gainesvillecheap.jpg.webp',
+    '/destinations/jaxxx.jpg.webp',
+    '/destinations/newsmyrnacheap.jpg.webp',
+    '/destinations/pensacolabeachcheap.jpg.webp',
+    '/destinations/ponceinletcheap.jpg.webp',
+    '/destinations/splitsville.jpg.webp'
+  ];
+
+  const backgroundImages = envBgList.length > 0 ? envBgList : defaultLocal;
+  const [bgIndex, setBgIndex] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setBgIndex((i) => (i + 1) % backgroundImages.length);
+    }, 5000); // 5s per slide
+    return () => clearInterval(id);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,7 +67,7 @@ const Login = ({ onLogin }) => {
 
         const response = await authService.register(email, password, fullName, username);
         setError('');
-        alert(response.message || 'Registration successful! Please check your email to verify your account.');
+        toast.success(response.message || 'Registration successful! Please check your email to verify your account.');
         setIsRegistering(false);
         setFullName('');
         setUsername('');
@@ -67,15 +97,29 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <div className="sm:mx-auto sm:w-full sm:max-w-md">
-              <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900">
-                {isRegistering ? 'Create your account' : 'Sign in to JG Travelex'}
-              </h2>
-            </div>
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Background slideshow */}
+      <div className="absolute inset-0">
+        {backgroundImages.map((src, i) => (
+          <div
+            key={i}
+            className={`absolute inset-0 bg-center bg-cover transition-opacity duration-1000 ease-in-out ${i === bgIndex ? 'opacity-100' : 'opacity-0'}`}
+            style={{ backgroundImage: `url(${src})` }}
+          />
+        ))}
+        <div className="absolute inset-0 bg-black/50" />
+      </div>
+
+      {/* Foreground content */}
+      <div className="relative z-10 flex min-h-screen items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div>
+            <div className="bg-white/95 backdrop-blur-sm py-8 px-4 shadow sm:rounded-lg sm:px-10">
+              <div className="sm:mx-auto sm:w-full sm:max-w-md">
+                <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900">
+                  {isRegistering ? 'Create your account' : 'Sign in to JG Travelex'}
+                </h2>
+              </div>
 
             <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
               {isRegistering && (
@@ -200,10 +244,15 @@ const Login = ({ onLogin }) => {
                 </button>
               </div>
             </div>
+            </div>
           </div>
         </div>
       </div>
-      <ApiHealthIndicator />
+
+      {/* Health indicator pinned */}
+      <div className="absolute bottom-4 left-4 z-10">
+        <ApiHealthIndicator />
+      </div>
     </div>
   );
 };

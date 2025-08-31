@@ -5,6 +5,7 @@ import { invoiceService } from '../services/invoiceService'
 import { tripService } from '../services/tripService'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
+import { useToast } from '../context/ToastContext'
 
 // Helper function to format address for display, showing lot number and street name
 const formatAddress = (address, maxLength = 30) => {
@@ -35,6 +36,7 @@ const formatAddress = (address, maxLength = 30) => {
 
 const Invoices = () => {
   const { user } = useAppContext()
+  const toast = useToast()
   const [orders, setOrders] = useState([])
   const [invoices, setInvoices] = useState([])
   const [activeTab, setActiveTab] = useState('orders')
@@ -94,7 +96,7 @@ const Invoices = () => {
     }));
   };
   
-  // Load orders and invoices directly from API when component mounts or user changes
+  // Load orders and invoices from API
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
@@ -106,14 +108,14 @@ const Invoices = () => {
         // Fetch orders based on user role
         let ordersResponse = [];
         if (user.role === 'admin') {
-          ordersResponse = await orderService.getOrders({
-            filters: { all: true }
-          });
+          // Admin sees all orders - pass all: true directly
+          ordersResponse = await orderService.getOrders({ all: true });
         } else {
-          ordersResponse = await orderService.getOrders({
-            filters: { user_id: user.id }
-          });
+          // Regular users see only their orders
+          ordersResponse = await orderService.getOrders({ user_id: user.id });
         }
+        
+        console.log('Orders response:', ordersResponse);
         console.log('Orders fetched:', ordersResponse);
         
         // Process orders - make sure trip data is attached and accessible
@@ -146,7 +148,13 @@ const Invoices = () => {
                 const tripData = await tripService.getTripById(processedOrder.items[i].trip_id);
                 if (tripData) {
                   console.log(`Fetched trip data for trip_id ${processedOrder.items[i].trip_id}:`, tripData);
-                  processedOrder.items[i].tripData = tripData;
+                  // Normalize fields for UI compatibility
+                  processedOrder.items[i].tripData = {
+                    ...tripData,
+                    origin: tripData.origin_address ?? tripData.origin,
+                    destination: tripData.destination_address ?? tripData.destination,
+                    price: tripData.final_price ?? tripData.price ?? processedOrder.items[i].amount ?? processedOrder.total_amount
+                  };
                 } else {
                   // Fallback if trip not found
                   console.warn(`No trip data found for trip_id ${processedOrder.items[i].trip_id}, using placeholder`);
@@ -255,10 +263,10 @@ const Invoices = () => {
       setInvoices(prev => [...prev, processedInvoice]);
       
       setSelectedOrderId(null);
-      alert('Invoice created successfully');
+      toast.success('Invoice created successfully');
     } catch (error) {
       console.error('Error creating invoice:', error);
-      alert('Error creating invoice. Please try again.');
+      toast.error('Error creating invoice. Please try again.');
     }
   }
 
@@ -309,11 +317,11 @@ const Invoices = () => {
       }
       
       // Safety fallbacks for missing data
-      const origin = tripData?.origin || 'No disponible';
-      const destination = tripData?.destination || 'No disponible';
-      const distance = tripData?.distance || 'N/A';
-      const duration = tripData?.duration || 'N/A';
-      const price = tripData?.price || orderData?.total_amount || 'N/A';
+      const origin = tripData?.origin_address || tripData?.origin || 'No disponible';
+      const destination = tripData?.destination_address || tripData?.destination || 'No disponible';
+      const distance = tripData?.distance_miles || tripData?.distance || 'N/A';
+      const duration = tripData?.duration_minutes ? `${(tripData.duration_minutes / 60).toFixed(1)}` : (tripData?.duration || 'N/A');
+      const price = tripData?.final_price || tripData?.price || orderData?.total_amount || 'N/A';
       const invoiceNumber = invoice.invoice_number || `INV-${invoice.id || 'NEW'}`;
       
       const doc = new jsPDF()
@@ -323,7 +331,7 @@ const Invoices = () => {
       doc.text('JGEx - Factura de Viaje', 105, 20, { align: 'center' })
       
       doc.setFontSize(12)
-      doc.text(`Factura #: ${invoice.id || invoice.invoice_number || 'N/A'}`, 20, 40)
+      doc.text(`Factura #: ${invoiceNumber || 'N/A'}`, 20, 40)
       doc.text(`Fecha: ${invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : 
                invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : invoice.date ? new Date(invoice.date).toLocaleDateString() : 'N/A'}`, 20, 50)
       doc.text(`Orden #: ${invoice.order_id || invoice.orderId || 'N/A'}`, 20, 60)
@@ -345,6 +353,10 @@ const Invoices = () => {
       const tableColumn = ['Concepto', 'Valor']
       const tableRows = [
         ['Precio Base', `$${price}`],
+        ['Distancia', `${distance} millas`],
+        ['Duración', `${duration} horas`],
+        ['Origen', origin],
+        ['Destino', destination]
       ]
       
       doc.autoTable({
@@ -365,12 +377,12 @@ const Invoices = () => {
       doc.text('Esta factura es un documento informativo y no tiene valor fiscal.', 105, 280, { align: 'center' })
       
       // Guardar o abrir el PDF
-      doc.save(`factura-${invoice.id || invoice.invoice_number || 'nuevo'}.pdf`)
+      doc.save(`factura-${invoiceNumber || 'nuevo'}.pdf`)
       console.log('PDF generated successfully');
       
     } catch (error) {
       console.error('Error al generar el PDF:', error)
-      alert('Error al generar el PDF. Por favor intente nuevamente.')
+      toast.error('Error al generar el PDF. Por favor intente nuevamente.')
     } finally {
       setIsGeneratingInvoice(false)
     }
@@ -379,6 +391,16 @@ const Invoices = () => {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-800">Gestión de Facturas</h1>
+      {error && (
+        <div className="rounded-md bg-red-50 p-4 border border-red-200">
+          <div className="flex">
+            <div className="ml-0">
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <div className="mt-2 text-sm text-red-700">{error}</div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Pestañas */}
       <div className="border-b border-gray-200">
@@ -407,7 +429,16 @@ const Invoices = () => {
               <p className="mt-1 text-sm text-gray-500">Seleccione una orden para generar una factura.</p>
             </div>
             
-            {orders.length === 0 ? (
+            {loading ? (
+              <div className="space-y-2 px-4 py-5 sm:p-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="h-10 bg-gray-100 rounded" />
+                  </div>
+                ))}
+                <p className="text-xs text-gray-400 mt-2">Cargando órdenes...</p>
+              </div>
+            ) : orders.length === 0 ? (
               <div className="px-4 py-5 sm:p-6 text-center text-gray-500">
                 No hay órdenes pendientes de facturación.
               </div>
@@ -489,7 +520,16 @@ const Invoices = () => {
               <p className="mt-1 text-sm text-gray-500">Listado de todas las facturas generadas.</p>
             </div>
             
-            {invoices.length === 0 ? (
+            {loading ? (
+              <div className="space-y-2 px-4 py-5 sm:p-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="h-10 bg-gray-100 rounded" />
+                  </div>
+                ))}
+                <p className="text-xs text-gray-400 mt-2">Cargando facturas...</p>
+              </div>
+            ) : invoices.length === 0 ? (
               <div className="px-4 py-5 sm:p-6 text-center text-gray-500">
                 No hay facturas emitidas.
               </div>

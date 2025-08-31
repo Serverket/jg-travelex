@@ -92,7 +92,7 @@ const OpenStreetMap = ({ origin, destination, onRouteCalculated }) => {
   return (
     <div className="relative">
       <div ref={mapRef} className="h-96 w-full rounded overflow-hidden" />
-      <style jsx>{`
+      <style>{`
         .custom-marker {
           background-color: #1E40AF;
           color: white;

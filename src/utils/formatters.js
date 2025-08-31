@@ -123,10 +123,12 @@ export const getStartOfPeriod = (period, date = new Date()) => {
       result.setHours(0, 0, 0, 0)
       break
     case 'week':
-      const day = result.getDay() // 0 = domingo, 1 = lunes, ...
-      result.setDate(result.getDate() - day) // Retroceder al domingo
-      result.setHours(0, 0, 0, 0)
-      break
+      {
+        const day = result.getDay() // 0 = domingo, 1 = lunes, ...
+        result.setDate(result.getDate() - day) // Retroceder al domingo
+        result.setHours(0, 0, 0, 0)
+        break
+      }
     case 'month':
       result.setDate(1)
       result.setHours(0, 0, 0, 0)
@@ -156,10 +158,12 @@ export const getEndOfPeriod = (period, date = new Date()) => {
       result.setHours(23, 59, 59, 999)
       break
     case 'week':
-      const day = result.getDay() // 0 = domingo, 1 = lunes, ...
-      result.setDate(result.getDate() + (6 - day)) // Avanzar al sábado
-      result.setHours(23, 59, 59, 999)
-      break
+      {
+        const day = result.getDay() // 0 = domingo, 1 = lunes, ...
+        result.setDate(result.getDate() + (6 - day)) // Avanzar al sábado
+        result.setHours(23, 59, 59, 999)
+        break
+      }
     case 'month':
       result.setMonth(result.getMonth() + 1, 0) // Último día del mes
       result.setHours(23, 59, 59, 999)

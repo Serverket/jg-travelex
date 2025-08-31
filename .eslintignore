@@ -1,0 +1,10 @@
+backend/
+public/
+scripts/
+dist/
+*.config.js
+vite.config.js
+postcss.config.js
+tailwind.config.js
+vercel.json
+render.yaml

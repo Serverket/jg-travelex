@@ -15,59 +15,52 @@ export const authService = {
    * @returns {Promise<object>} - Login response with user data
    */
   async login(email, password) {
-    try {
-      const response = await supabaseService.signIn(email, password);
-      
-      if (response.session) {
-        localStorage.setItem(SESSION_KEY, JSON.stringify(response.session));
-        localStorage.setItem(USER_KEY, JSON.stringify({
-          id: response.user.id,
-          email: response.user.email,
-          ...response.profile
-        }));
-      }
-      
-      return {
-        message: 'Login successful',
-        user: response.user,
-        profile: response.profile,
-        session: response.session
-      };
-    } catch (error) {
-      throw error;
+    const response = await supabaseService.signIn(email, password);
+    
+    if (response.session) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(response.session));
+      localStorage.setItem(USER_KEY, JSON.stringify({
+        id: response.user.id,
+        email: response.user.email,
+        ...response.profile
+      }));
     }
+    
+    return {
+      message: 'Login successful',
+      user: response.user,
+      profile: response.profile,
+      session: response.session
+    };
   },
 
   async register(email, password, fullName, username) {
-    try {
-      const response = await supabaseService.signUp(email, password, {
-        full_name: fullName,
-        username: username
-      });
-      
-      return {
-        message: 'Registration successful. Please check your email to verify your account.',
-        user: response.user
-      };
-    } catch (error) {
-      throw error;
-    }
+    const response = await supabaseService.signUp(email, password, {
+      full_name: fullName,
+      username: username
+    });
+    
+    return {
+      message: 'Registration successful. Please check your email to verify your account.',
+      user: response.user
+    };
   },
 
   /**
    * Logout user
    */
   async logout() {
+    let signOutError;
     try {
       await supabaseService.signOut();
-      localStorage.removeItem(USER_KEY);
-      localStorage.removeItem(SESSION_KEY);
     } catch (error) {
-      // Even if signOut fails, clear local storage
+      signOutError = error;
+    } finally {
+      // Always clear local storage even if signOut fails
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem(SESSION_KEY);
-      throw error;
     }
+    if (signOutError) throw signOutError;
   },
 
   /**
@@ -140,41 +133,29 @@ export const authService = {
   },
 
   async updateProfile(updates) {
-    try {
-      const user = await this.getCurrentUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      const updatedProfile = await supabaseService.updateProfile(user.id, updates);
-      
-      // Update cached user data
-      const userData = {
-        ...user,
-        ...updatedProfile
-      };
-      localStorage.setItem(USER_KEY, JSON.stringify(userData));
-      
-      return updatedProfile;
-    } catch (error) {
-      throw error;
+    const user = await this.getCurrentUser();
+    if (!user) {
+      throw new Error('User not authenticated');
     }
+
+    const updatedProfile = await supabaseService.updateProfile(user.id, updates);
+    
+    // Update cached user data
+    const userData = {
+      ...user,
+      ...updatedProfile
+    };
+    localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    
+    return updatedProfile;
   },
 
   async getAllProfiles() {
-    try {
-      return await supabaseService.getAllProfiles();
-    } catch (error) {
-      throw error;
-    }
+    return await supabaseService.getAllProfiles();
   },
 
   async getProfile(userId) {
-    try {
-      return await supabaseService.getProfile(userId);
-    } catch (error) {
-      throw error;
-    }
+    return await supabaseService.getProfile(userId);
   }
 };
 

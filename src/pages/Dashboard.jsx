@@ -41,7 +41,7 @@ const Dashboard = () => {
     const loadData = async () => {
       try {
         setLoading(true)
-        const filters = user?.role === 'admin' ? {} : { userId: user?.id }
+        const filters = user?.role === 'admin' ? { all: true } : { userId: user?.id }
         
         const [tripsData, ordersData, invoicesData] = await Promise.all([
           tripService.getTrips(filters),
@@ -67,8 +67,8 @@ const Dashboard = () => {
   useEffect(() => {
     // Calcular estadísticas generales
     const totalTrips = trips.length
-    const totalDistance = trips.reduce((sum, trip) => sum + parseFloat(trip.distance || 0), 0)
-    const totalRevenue = trips.reduce((sum, trip) => sum + parseFloat(trip.price || 0), 0)
+    const totalDistance = trips.reduce((sum, trip) => sum + parseFloat(trip.distance_miles || trip.distance || 0), 0)
+    const totalRevenue = trips.reduce((sum, trip) => sum + parseFloat(trip.final_price || trip.price || 0), 0)
     const pendingOrders = orders.filter(order => order.status === 'pending').length
     const completedOrders = orders.filter(order => order.status === 'completed').length
     const issuedInvoices = invoices.filter(invoice => invoice.status === 'issued').length
@@ -92,7 +92,10 @@ const Dashboard = () => {
     }).reverse()
 
     const tripCounts = last7Days.map(day => {
-      return trips.filter(trip => trip.date.split('T')[0] === day).length
+      return trips.filter(trip => {
+        const tripDate = trip.trip_date || trip.created_at || trip.date
+        return tripDate && tripDate.split('T')[0] === day
+      }).length
     })
 
     setTripsByDay({
@@ -121,10 +124,10 @@ const Dashboard = () => {
       const [year, monthNum] = month.split('-')
       return trips
         .filter(trip => {
-          const tripDate = new Date(trip.date)
+          const tripDate = new Date(trip.trip_date || trip.created_at || trip.date)
           return tripDate.getFullYear() === parseInt(year) && tripDate.getMonth() + 1 === parseInt(monthNum)
         })
-        .reduce((sum, trip) => sum + parseFloat(trip.price || 0), 0)
+        .reduce((sum, trip) => sum + parseFloat(trip.final_price || trip.price || 0), 0)
     })
 
     setRevenueByMonth({
@@ -235,19 +238,19 @@ const Dashboard = () => {
                 {trips.slice(-5).reverse().map((trip) => (
                   <tr key={trip.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(trip.date).toLocaleDateString()}
+                      {new Date(trip.trip_date || trip.created_at || trip.date).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {trip.origin}
+                      {trip.origin_address || trip.origin || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {trip.destination}
+                      {trip.destination_address || trip.destination || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {trip.distance} millas
+                      {trip.distance_miles || trip.distance || 0} millas
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${trip.price}
+                      ${trip.final_price || trip.price || 0}
                     </td>
                   </tr>
                 ))}

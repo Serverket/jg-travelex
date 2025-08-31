@@ -8,11 +8,15 @@ import { tripService } from '../services/tripService'
 import { orderService } from '../services/orderService'
 import { settingsService } from '../services/settingsService'
 import { backendService } from '../services/backendService'
+import { useToast } from '../context/ToastContext'
 
 const libraries = ['places']
 
 const DistanceCalculator = () => {
-  const { currentUser } = useAppContext()
+  const { currentUser, user, setOrders, setTrips } = useAppContext()
+  const toast = useToast()
+  // Ensure we have a user reference
+  const activeUser = currentUser || user
   const [rateSettings, setRateSettings] = useState(null)
   const [surchargeFactors, setSurchargeFactors] = useState([])
   const [discounts, setDiscounts] = useState([])
@@ -245,7 +249,7 @@ const DistanceCalculator = () => {
       }
       
       setError('')
-      alert('Viaje guardado correctamente')
+      toast.success('Viaje guardado correctamente')
     } catch (error) {
       console.error('Error saving trip:', error)
       setError('Error al guardar el viaje')
@@ -307,22 +311,48 @@ const DistanceCalculator = () => {
       }
       
       // Create order
+      if (!activeUser?.id) {
+        throw new Error('Usuario no autenticado');
+      }
+      
       const orderData = {
-        user_id: currentUser?.id,
+        user_id: activeUser.id,
         status: 'pending',
+        subtotal: parseFloat(price),
         total_amount: parseFloat(price)
       }
       
+      console.log('Creating order with data:', orderData);
       const createdOrder = await orderService.createOrder(orderData)
+      console.log('Order created:', createdOrder);
+      
       // Create order item linked to the trip
-      await orderService.createOrderItem({
+      const orderItemData = {
         order_id: createdOrder.id,
         trip_id: savedTrip.id,
         amount: parseFloat(price)
-      })
+      };
+      console.log('Creating order item with data:', orderItemData);
+      const createdOrderItem = await orderService.createOrderItem(orderItemData);
+      console.log('Order item created:', createdOrderItem);
+      
+      // Update global context state immediately
+      const newOrder = {
+        id: createdOrder.id,
+        user_id: activeUser.id,
+        status: 'pending',
+        total_amount: parseFloat(price),
+        created_at: new Date().toISOString(),
+        items: [createdOrderItem],
+        tripData: savedTrip
+      };
+      
+      // Add to global orders state
+      setOrders(prev => [...prev, newOrder]);
+      
       setOrderCreated(true)
       setError('')
-      alert('Orden creada correctamente')
+      toast.success('Orden creada correctamente')
     } catch (error) {
       console.error('Error creating order:', error)
       setError('Error al crear la orden')

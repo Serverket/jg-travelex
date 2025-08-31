@@ -24,16 +24,14 @@ const Orders = () => {
         // Fetch orders based on user role
         let fetchedOrders = [];
         if (user.role === 'admin') {
-          // Admin sees all orders
-          fetchedOrders = await orderService.getOrders({
-            filters: { all: true }
-          });
+          // Admin sees all orders - pass all: true directly
+          fetchedOrders = await orderService.getOrders({ all: true });
         } else {
           // Regular users see only their orders
-          fetchedOrders = await orderService.getOrders({
-            filters: { user_id: user.id }
-          });
+          fetchedOrders = await orderService.getOrders({ user_id: user.id });
         }
+        
+        console.log('Fetched orders:', fetchedOrders);
         
         // Fetch trip data for each order
         const ordersWithTrips = await Promise.all(
