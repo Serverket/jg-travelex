@@ -6,47 +6,35 @@ const PlaceSearch = ({ placeholder, onPlaceSelect }) => {
   const inputRef = useRef(null)
   
   useEffect(() => {
-    // Verificar si la API de Google Maps está cargada
-    if (!window.google || !window.google.maps || !window.google.maps.places) {
-      const checkGoogleMapsLoaded = setInterval(() => {
-        if (window.google && window.google.maps && window.google.maps.places) {
-          clearInterval(checkGoogleMapsLoaded)
-          initAutocomplete()
+    const initAutocomplete = () => {
+      if (!inputRef.current) return
+      
+      autoCompleteRef.current = new window.google.maps.places.Autocomplete(
+        inputRef.current,
+        { types: ['address'], componentRestrictions: { country: 'us' } }
+      )
+      
+      autoCompleteRef.current.addListener('place_changed', () => {
+        const place = autoCompleteRef.current.getPlace()
+        
+        if (!place.geometry || !place.geometry.location) {
+          console.error('No se encontraron detalles para este lugar')
+          return
         }
-      }, 100)
-      
-      return () => clearInterval(checkGoogleMapsLoaded)
-    } else {
-      initAutocomplete()
+        
+        const location = {
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng(),
+          address: place.formatted_address
+        }
+        
+        setInputValue(place.formatted_address)
+        onPlaceSelect(location)
+      })
     }
-  }, [])
-  
-  const initAutocomplete = () => {
-    if (!inputRef.current) return
     
-    autoCompleteRef.current = new window.google.maps.places.Autocomplete(
-      inputRef.current,
-      { types: ['address'], componentRestrictions: { country: 'us' } }
-    )
-    
-    autoCompleteRef.current.addListener('place_changed', () => {
-      const place = autoCompleteRef.current.getPlace()
-      
-      if (!place.geometry || !place.geometry.location) {
-        console.error('No se encontraron detalles para este lugar')
-        return
-      }
-      
-      const location = {
-        lat: place.geometry.location.lat(),
-        lng: place.geometry.location.lng(),
-        address: place.formatted_address
-      }
-      
-      setInputValue(place.formatted_address)
-      onPlaceSelect(location)
-    })
-  }
+    initAutocomplete()
+  }, [onPlaceSelect])
   
   const handleInputChange = (e) => {
     setInputValue(e.target.value)

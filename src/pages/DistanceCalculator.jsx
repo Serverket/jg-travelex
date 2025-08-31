@@ -13,11 +13,16 @@ import { useToast } from '../context/ToastContext'
 const libraries = ['places']
 
 const DistanceCalculator = () => {
-  const { currentUser, user, setOrders, setTrips } = useAppContext()
+  const {
+    calculateTripPrice: _calculateTripPrice,
+    addTrip: _addTrip,
+    createOrder: _createOrder,
+    currentUser
+  } = useAppContext()
   const toast = useToast()
   // Ensure we have a user reference
-  const activeUser = currentUser || user
-  const [rateSettings, setRateSettings] = useState(null)
+  const activeUser = currentUser
+  const [_rateSettings, setRateSettings] = useState(null)
   const [surchargeFactors, setSurchargeFactors] = useState([])
   const [discounts, setDiscounts] = useState([])
   
@@ -347,9 +352,8 @@ const DistanceCalculator = () => {
         tripData: savedTrip
       };
       
-      // Add to global orders state
-      setOrders(prev => [...prev, newOrder]);
-      
+      // Order created successfully
+      console.log('Order created successfully', newOrder)
       setOrderCreated(true)
       setError('')
       toast.success('Orden creada correctamente')

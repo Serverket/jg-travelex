@@ -21,17 +21,17 @@ function App() {
 
 // Componente para gestionar rutas y autenticación
 function AppRoutes() {
-  const { currentUser, logout } = useAppContext()
+  const { user: _user } = useAppContext()
   const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated())
   const navigate = useNavigate()
 
   // Verificar si el usuario ya está autenticado al cargar la aplicación
   useEffect(() => {
-    setIsAuthenticated(!!currentUser)
-  }, [currentUser])
+    setIsAuthenticated(!!_user)
+  }, [_user])
 
   // Función para manejar el inicio de sesión
-  const handleLogin = async (user) => {
+  const handleLogin = async (_user) => {
     try {
       // El login ya fue procesado en el componente Login con authService
       // Aquí solo necesitamos actualizar el estado y redirigir
@@ -46,7 +46,7 @@ function AppRoutes() {
 
   // Función para manejar el cierre de sesión
   const handleLogout = () => {
-    logout()
+    authService.logout()
     setIsAuthenticated(false)
     navigate('/login')
   }

@@ -5,7 +5,7 @@ import { AppContext } from '../context/AppContext';
 import ApiHealthIndicator from '../components/ApiHealthIndicator';
 import { useToast } from '../context/ToastContext';
 
-const Login = ({ onLogin }) => {
+const Login = ({ onLogin: _onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
@@ -39,11 +39,14 @@ const Login = ({ onLogin }) => {
   const [bgIndex, setBgIndex] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setBgIndex((i) => (i + 1) % backgroundImages.length);
-    }, 5000); // 5s per slide
-    return () => clearInterval(id);
-  }, []);
+    const interval = setInterval(() => {
+      setBgIndex((prevIndex) => 
+        (prevIndex + 1) % backgroundImages.length
+      )
+    }, 5000)
+    
+    return () => clearInterval(interval)
+  }, [backgroundImages.length]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

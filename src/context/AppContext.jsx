@@ -42,7 +42,7 @@ export const AppProvider = ({ children }) => {
     if (user) {
       setCurrentUser(user)
       // Also load the user's data when restoring session
-      loadUserData(user.id).catch(err => {
+      loadUserData(user.id).catch(_err => {
         setError('Error loading user data')
       })
     }

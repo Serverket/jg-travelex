@@ -14,7 +14,7 @@ export const supabaseService = {
   // Health Check
   async checkHealth() {
     try {
-      const { data, error } = await supabase.from('company_settings').select('id').limit(1);
+      const { data: _data, error } = await supabase.from('company_settings').select('id').limit(1);
       return {
         healthy: !error,
         message: error ? error.message : 'Supabase connection successful',

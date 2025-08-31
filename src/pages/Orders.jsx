@@ -176,9 +176,9 @@ const Orders = () => {
                     <td className="px-6 py-4 text-sm text-gray-500">
                       <div className="max-w-xs">
                         {order.trips?.length > 0 ? (
-                          order.trips.map((trip, index) => (
-                            <div key={trip.id} className="text-xs mb-1">
-                              {trip.origin} → {trip.destination}
+                          orders.map((order, _index) => (
+                            <div key={order.id} className="text-xs mb-1">
+                              {order.origin} → {order.destination}
                             </div>
                           ))
                         ) : (

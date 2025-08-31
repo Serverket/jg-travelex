@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef } from 'react'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -29,7 +29,7 @@ ChartJS.register(
 )
 
 const Chart = ({ type = 'line', data, options = {}, height = 300 }) => {
-  const chartRef = useRef(null)
+  const _chartRef = useRef(null)
 
   // Opciones por defecto para cada tipo de gráfico
   const defaultOptions = {

@@ -14,7 +14,7 @@ const defaultCenter = {
 const libraries = ['places', 'directions']
 
 const Map = ({ origin, destination, directions, setDirections }) => {
-  const [map, setMap] = useState(null)
+  const [_map, setMap] = useState(null)
   const [center, setCenter] = useState(defaultCenter)
   
   const { isLoaded, loadError } = useJsApiLoader({
