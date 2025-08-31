@@ -4,6 +4,7 @@ import { authService } from '../services/authService';
 import { AppContext } from '../context/AppContext';
 import ApiHealthIndicator from '../components/ApiHealthIndicator';
 import { useToast } from '../context/ToastContext';
+import Logo from '../components/Logo';
 
 const Login = ({ onLogin: _onLogin }) => {
   const [email, setEmail] = useState('');
@@ -119,6 +120,14 @@ const Login = ({ onLogin: _onLogin }) => {
           <div>
             <div className="bg-white/95 backdrop-blur-sm py-8 px-4 shadow sm:rounded-lg sm:px-10">
               <div className="sm:mx-auto sm:w-full sm:max-w-md">
+                <div className="flex justify-center mb-6">
+                  <Logo 
+                    size="large" 
+                    showDropShadow={true}
+                    variant="black"
+                    className="transition-transform hover:scale-105"
+                  />
+                </div>
                 <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900">
                   {isRegistering ? 'Create your account' : 'Sign in to JG Travelex'}
                 </h2>

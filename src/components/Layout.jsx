@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
 import ApiHealthIndicator from './ApiHealthIndicator'
+import Logo from './Logo'
 
 const Layout = ({ onLogout }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -24,7 +25,13 @@ const Layout = ({ onLogout }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-800">JGEx</h1>
+              <Logo 
+                size="small" 
+                variant="black"
+                showText={true}
+                text="JGEx"
+                className="transition-transform hover:scale-105"
+              />
             </div>
             
             {/* Desktop Navigation */}

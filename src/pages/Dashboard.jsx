@@ -5,6 +5,7 @@ import { Line, Bar } from 'react-chartjs-2'
 import { tripService } from '../services/tripService'
 import { orderService } from '../services/orderService'
 import { invoiceService } from '../services/invoiceService'
+import Logo from '../components/Logo'
 
 // Registrar componentes de Chart.js
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend)
@@ -41,7 +42,9 @@ const Dashboard = () => {
     const loadData = async () => {
       try {
         setLoading(true)
+        console.log('Dashboard: Starting data load for user:', user)
         const filters = user?.role === 'admin' ? { all: true } : { userId: user?.id }
+        console.log('Dashboard: Using filters:', filters)
         
         const [tripsData, ordersData, invoicesData] = await Promise.all([
           tripService.getTrips(filters),
@@ -49,22 +52,32 @@ const Dashboard = () => {
           invoiceService.getInvoices(filters)
         ])
         
+        console.log('Dashboard: Loaded data:', { tripsData, ordersData, invoicesData })
         setTrips(tripsData || [])
         setOrders(ordersData || [])
         setInvoices(invoicesData || [])
       } catch (error) {
-        console.error('Error loading dashboard data:', error)
+        console.error('Dashboard: Error loading data:', error)
+        console.error('Dashboard: Error details:', {
+          message: error.message,
+          stack: error.stack,
+          user: user
+        })
       } finally {
         setLoading(false)
       }
     }
 
     if (user) {
+      console.log('Dashboard: User found, loading data...')
       loadData()
+    } else {
+      console.log('Dashboard: No user found, skipping data load')
     }
   }, [user])
 
   useEffect(() => {
+    console.log('Dashboard: Recalculating stats with data:', { tripsLength: trips.length, ordersLength: orders.length, invoicesLength: invoices.length })
     // Calcular estadísticas generales
     const totalTrips = trips.length
     const totalDistance = trips.reduce((sum, trip) => sum + parseFloat(trip.distance_miles || trip.distance || 0), 0)
@@ -74,7 +87,7 @@ const Dashboard = () => {
     const issuedInvoices = invoices.filter(invoice => invoice.status === 'issued').length
     const paidInvoices = invoices.filter(invoice => invoice.status === 'paid').length
 
-    setStats({
+    const newStats = {
       totalTrips,
       totalDistance: totalDistance.toFixed(2),
       totalRevenue: totalRevenue.toFixed(2),
@@ -82,7 +95,10 @@ const Dashboard = () => {
       completedOrders,
       issuedInvoices,
       paidInvoices
-    })
+    }
+    
+    console.log('Dashboard: Setting new stats:', newStats)
+    setStats(newStats)
 
     // Preparar datos para gráfico de viajes por día (últimos 7 días)
     const last7Days = [...Array(7)].map((_, i) => {
@@ -98,7 +114,7 @@ const Dashboard = () => {
       }).length
     })
 
-    setTripsByDay({
+    const newTripsByDay = {
       labels: last7Days.map(day => {
         const date = new Date(day)
         return date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })
@@ -111,7 +127,10 @@ const Dashboard = () => {
           backgroundColor: 'rgba(53, 162, 235, 0.5)',
         },
       ],
-    })
+    }
+    
+    console.log('Dashboard: Setting trips by day chart data:', newTripsByDay)
+    setTripsByDay(newTripsByDay)
 
     // Preparar datos para gráfico de ingresos por mes (últimos 6 meses)
     const last6Months = [...Array(6)].map((_, i) => {
@@ -130,7 +149,7 @@ const Dashboard = () => {
         .reduce((sum, trip) => sum + parseFloat(trip.final_price || trip.price || 0), 0)
     })
 
-    setRevenueByMonth({
+    const newRevenueByMonth = {
       labels: last6Months.map(month => {
         const [year, monthNum] = month.split('-')
         const date = new Date(parseInt(year), parseInt(monthNum) - 1)
@@ -143,7 +162,10 @@ const Dashboard = () => {
           backgroundColor: 'rgba(75, 192, 192, 0.5)',
         },
       ],
-    })
+    }
+    
+    console.log('Dashboard: Setting revenue by month chart data:', newRevenueByMonth)
+    setRevenueByMonth(newRevenueByMonth)
   }, [trips, orders, invoices])
 
   if (loading) {
@@ -156,7 +178,12 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+        <div className="text-sm text-gray-500">
+          Welcome back, {user?.full_name || user?.username || 'User'}
+        </div>
+      </div>
       
       {/* Tarjetas de estadísticas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
