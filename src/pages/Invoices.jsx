@@ -203,7 +203,7 @@ const Invoices = () => {
         }
         console.log('Invoices fetched:', invoicesResponse);
 
-        // Process and link invoices with orders
+        // Process and link invoices with orders - ensure complete trip data is included
         const processedInvoices = [];
         for (const invoice of invoicesResponse) {
           // Make a copy of the invoice
@@ -219,6 +219,76 @@ const Invoices = () => {
             // Attach order data to invoice
             processedInvoice.orderData = matchingOrder;
             processedInvoices.push(processedInvoice);
+          } else {
+            // If no matching order found, try to fetch order data from API
+            console.log(`No matching order found for invoice ${processedInvoice.id}, fetching from API...`);
+            try {
+              const fetchedOrder = await orderService.getOrderById(processedInvoice.orderId);
+              if (fetchedOrder) {
+                console.log('Fetched order data for invoice:', fetchedOrder);
+                
+                // Process the fetched order to ensure it has trip data
+                const processedFetchedOrder = { ...fetchedOrder };
+                
+                // Fetch order items and trip data
+                try {
+                  const orderItems = await orderService.getOrderItems(processedFetchedOrder.id);
+                  processedFetchedOrder.items = orderItems || [];
+                } catch (err) {
+                  console.error('Error fetching order items:', err);
+                  processedFetchedOrder.items = [];
+                }
+                
+                // Fetch trip data for each order item
+                for (let i = 0; i < processedFetchedOrder.items.length; i++) {
+                  if (!processedFetchedOrder.items[i].tripData && processedFetchedOrder.items[i].trip_id) {
+                    try {
+                      const tripData = await tripService.getTripById(processedFetchedOrder.items[i].trip_id);
+                      if (tripData) {
+                        console.log(`Fetched trip data for invoice trip_id ${processedFetchedOrder.items[i].trip_id}:`, tripData);
+                        processedFetchedOrder.items[i].tripData = {
+                          ...tripData,
+                          origin: tripData.origin_address ?? tripData.origin,
+                          destination: tripData.destination_address ?? tripData.destination,
+                          price: tripData.final_price ?? tripData.price ?? processedFetchedOrder.items[i].amount ?? processedFetchedOrder.total_amount
+                        };
+                      }
+                    } catch (tripError) {
+                      console.error(`Error fetching trip data for invoice trip_id ${processedFetchedOrder.items[i].trip_id}:`, tripError);
+                      processedFetchedOrder.items[i].tripData = {
+                        id: processedFetchedOrder.items[i].trip_id,
+                        origin: 'Error Loading Data',
+                        destination: 'Error Loading Data',
+                        distance: 'N/A',
+                        duration: 'N/A',
+                        price: processedFetchedOrder.items[i].amount || processedFetchedOrder.total_amount
+                      };
+                    }
+                  }
+                }
+                
+                // Attach processed order data to invoice
+                processedInvoice.orderData = processedFetchedOrder;
+                processedInvoices.push(processedInvoice);
+              }
+            } catch (fetchError) {
+              console.error('Error fetching order data for invoice:', fetchError);
+              // Create a minimal invoice without order data
+              processedInvoice.orderData = {
+                id: processedInvoice.orderId,
+                total_amount: processedInvoice.total_amount || 'N/A',
+                items: [{
+                  tripData: {
+                    origin: 'No disponible',
+                    destination: 'No disponible',
+                    distance: 'N/A',
+                    duration: 'N/A',
+                    price: processedInvoice.total_amount || 'N/A'
+                  }
+                }]
+              };
+              processedInvoices.push(processedInvoice);
+            }
           }
         }
 
@@ -246,6 +316,40 @@ const Invoices = () => {
         throw new Error('Order not found');
       }
       
+      // Ensure the order has complete trip data before creating invoice
+      let processedOrder = { ...order };
+      
+      // If order items don't have trip data, fetch it
+      if (processedOrder.items && processedOrder.items.length > 0) {
+        for (let i = 0; i < processedOrder.items.length; i++) {
+          if (!processedOrder.items[i].tripData && processedOrder.items[i].trip_id) {
+            try {
+              console.log(`Fetching trip data for order item trip_id ${processedOrder.items[i].trip_id} during invoice creation`);
+              const tripData = await tripService.getTripById(processedOrder.items[i].trip_id);
+              if (tripData) {
+                processedOrder.items[i].tripData = {
+                  ...tripData,
+                  origin: tripData.origin_address ?? tripData.origin,
+                  destination: tripData.destination_address ?? tripData.destination,
+                  price: tripData.final_price ?? tripData.price ?? processedOrder.items[i].amount ?? processedOrder.total_amount
+                };
+                console.log('Trip data attached to order item for invoice creation:', processedOrder.items[i].tripData);
+              }
+            } catch (tripError) {
+              console.error(`Error fetching trip data during invoice creation:`, tripError);
+              processedOrder.items[i].tripData = {
+                id: processedOrder.items[i].trip_id,
+                origin: 'Error Loading Data',
+                destination: 'Error Loading Data',
+                distance: 'N/A',
+                duration: 'N/A',
+                price: processedOrder.items[i].amount || processedOrder.total_amount
+              };
+            }
+          }
+        }
+      }
+      
       const currentDate = new Date();
       const dueDate = new Date(currentDate);
       dueDate.setDate(dueDate.getDate() + 30);
@@ -258,15 +362,15 @@ const Invoices = () => {
       
       const newInvoice = await invoiceService.createInvoice(invoiceData);
       
-      // Add the new invoice to the list with order data
-      const processedInvoice = { ...newInvoice, orderData: order };
+      // Add the new invoice to the list with complete processed order data
+      const processedInvoice = { ...newInvoice, orderData: processedOrder };
       setInvoices(prev => [...prev, processedInvoice]);
       
       setSelectedOrderId(null);
-      toast.success('Invoice created successfully');
+      toast.success('Factura creada exitosamente');
     } catch (error) {
-      console.error('Error creating invoice:', error);
-      toast.error('Error creating invoice. Please try again.');
+      console.error('Error al crear la factura:', error);
+      toast.error('Error al crear la factura. Por favor intente nuevamente.');
     }
   }
 
@@ -336,19 +440,9 @@ const Invoices = () => {
                invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : invoice.date ? new Date(invoice.date).toLocaleDateString() : 'N/A'}`, 20, 50)
       doc.text(`Orden #: ${invoice.order_id || invoice.orderId || 'N/A'}`, 20, 60)
       
-      // Información del viaje
-      doc.setFontSize(14)
-      doc.text('Detalles del Viaje', 20, 80)
-      
-      doc.setFontSize(12)
-      doc.text(`Origen: ${origin}`, 20, 90)
-      doc.text(`Destino: ${destination}`, 20, 100)
-      doc.text(`Distancia: ${distance} millas`, 20, 110)
-      doc.text(`Duración: ${duration} horas`, 20, 120)
-      
       // Tabla de costos
       doc.setFontSize(14)
-      doc.text('Resumen de Costos', 20, 140)
+      doc.text('Detalles del Viaje', 20, 80)
       
       const tableColumn = ['Concepto', 'Valor']
       const tableRows = [
@@ -360,7 +454,7 @@ const Invoices = () => {
       ]
       
       doc.autoTable({
-        startY: 150,
+        startY: 90,
         head: [tableColumn],
         body: tableRows,
         theme: 'grid',

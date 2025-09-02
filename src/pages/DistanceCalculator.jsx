@@ -89,12 +89,17 @@ const DistanceCalculator = () => {
   useEffect(() => {
     const fetchQuote = async () => {
       try {
-        const { price: quotedPrice, breakdown } = await backendService.getQuote({
-          distance: parseFloat(distance || 0),
-          duration: parseFloat(duration || 0),
+        // Handle different calculation types for backend
+        const quoteData = {
+          distance: distance ? parseFloat(distance) : 0,
+          duration: duration ? parseFloat(duration) : 0, 
           surcharges: activeSurcharges,
           discounts: activeDiscounts,
-        });
+        };
+        
+        console.log('Sending quote request:', quoteData);
+        
+        const { price: quotedPrice, breakdown } = await backendService.getQuote(quoteData);
         setPrice(quotedPrice)
         setQuoteBreakdown(breakdown)
         setError('')
@@ -103,6 +108,8 @@ const DistanceCalculator = () => {
         setError('Error al calcular el precio')
       }
     }
+    
+    // Only fetch quote if we have at least distance OR duration
     if (distance || duration) {
       fetchQuote()
     }
@@ -172,6 +179,9 @@ const DistanceCalculator = () => {
     setDestination(data.destination)
     setDistance(data.distance)
     setDuration(data.duration)
+    
+    // Log the calculation type for debugging
+    console.log('Manual calculation type:', data.calculationType)
   }
 
   // Manejar cambios en los recargos
@@ -203,36 +213,55 @@ const DistanceCalculator = () => {
       return
     }
 
-    const originDescription = typeof origin === 'string' ? origin : (origin?.description || 'Origen no especificado')
-    const destinationDescription = typeof destination === 'string' ? destination : (destination?.description || 'Destino no especificado')
+    // Use provided origin/destination or default values for distance-only mode
+    const originDescription = origin 
+      ? (typeof origin === 'string' ? origin : origin.description)
+      : 'Origen no especificado'
+      
+    const destinationDescription = destination
+      ? (typeof destination === 'string' ? destination : destination.description)
+      : 'Destino no especificado'
 
     try {
       if (!currentUser || !currentUser.id) {
         setError('Debe iniciar sesión para guardar el viaje')
         return
       }
+      
       const today = new Date()
       const tripDate = today.toISOString().split('T')[0] // YYYY-MM-DD
       const distanceMiles = Number(distance || 0)
-      const durationMinutes = duration ? Math.round(Number(duration) * 60) : null
+      const durationMinutes = duration ? Math.round(Number(duration) * 60) : 0 // Default to 0 instead of null
 
       const tripData = {
         origin_address: originDescription,
         destination_address: destinationDescription,
-        ...(origin && origin.lat != null && origin.lng != null ? { origin_lat: origin.lat, origin_lng: origin.lng } : {}),
-        ...(destination && destination.lat != null && destination.lng != null ? { destination_lat: destination.lat, destination_lng: destination.lng } : {}),
+        ...(origin && origin.lat != null && origin.lng != null ? { 
+          origin_lat: origin.lat, 
+          origin_lng: origin.lng 
+        } : {
+          origin_lat: 0, // Default values for required fields
+          origin_lng: 0
+        }),
+        ...(destination && destination.lat != null && destination.lng != null ? { 
+          destination_lat: destination.lat, 
+          destination_lng: destination.lng 
+        } : {
+          destination_lat: 0, // Default values for required fields
+          destination_lng: 0
+        }),
         distance_miles: distanceMiles,
         distance_km: Number((distanceMiles * 1.60934).toFixed(2)),
         duration_minutes: durationMinutes,
         trip_date: tripDate,
-        base_price: quoteBreakdown?.base !== undefined ? Number(quoteBreakdown.base) : null,
+        base_price: quoteBreakdown?.base !== undefined ? Number(quoteBreakdown.base) : 0, // Default to 0 instead of null
         surcharges: Array.isArray(quoteBreakdown?.surcharges)
           ? quoteBreakdown.surcharges.reduce((sum, s) => sum + Number(s.amount || 0), 0)
-          : null,
+          : 0, // Default to 0 instead of null
         discounts: Array.isArray(quoteBreakdown?.discounts)
           ? quoteBreakdown.discounts.reduce((sum, d) => sum + Number(d.amount || 0), 0)
-          : null,
-        final_price: price != null ? Number(price) : null
+          : 0, // Default to 0 instead of null
+        final_price: price != null ? Number(price) : 0 // Default to 0 instead of null
       }
 
       const savedTrip = await tripService.createTrip(tripData)
@@ -268,33 +297,51 @@ const DistanceCalculator = () => {
       return
     }
 
-    const originDescription = typeof origin === 'string' ? origin : (origin?.description || 'Origen no especificado')
-    const destinationDescription = typeof destination === 'string' ? destination : (destination?.description || 'Destino no especificado')
+    // Use provided origin/destination or default values for distance-only mode
+    const originDescription = origin 
+      ? (typeof origin === 'string' ? origin : origin.description)
+      : 'Origen no especificado'
+      
+    const destinationDescription = destination
+      ? (typeof destination === 'string' ? destination : destination.description)
+      : 'Destino no especificado'
 
     try {
       // First save the trip
       const today = new Date()
       const tripDate = today.toISOString().split('T')[0] // YYYY-MM-DD
       const distanceMiles = Number(distance || 0)
-      const durationMinutes = duration ? Math.round(Number(duration) * 60) : null
+      const durationMinutes = duration ? Math.round(Number(duration) * 60) : 0 // Default to 0 instead of null
 
       const tripData = {
         origin_address: originDescription,
         destination_address: destinationDescription,
-        ...(origin && origin.lat != null && origin.lng != null ? { origin_lat: origin.lat, origin_lng: origin.lng } : {}),
-        ...(destination && destination.lat != null && destination.lng != null ? { destination_lat: destination.lat, destination_lng: destination.lng } : {}),
+        ...(origin && origin.lat != null && origin.lng != null ? { 
+          origin_lat: origin.lat, 
+          origin_lng: origin.lng 
+        } : {
+          origin_lat: 0, // Default values for required fields
+          origin_lng: 0
+        }),
+        ...(destination && destination.lat != null && destination.lng != null ? { 
+          destination_lat: destination.lat, 
+          destination_lng: destination.lng 
+        } : {
+          destination_lat: 0, // Default values for required fields
+          destination_lng: 0
+        }),
         distance_miles: distanceMiles,
         distance_km: Number((distanceMiles * 1.60934).toFixed(2)),
         duration_minutes: durationMinutes,
         trip_date: tripDate,
-        base_price: quoteBreakdown?.base !== undefined ? Number(quoteBreakdown.base) : null,
+        base_price: quoteBreakdown?.base !== undefined ? Number(quoteBreakdown.base) : 0,
         surcharges: Array.isArray(quoteBreakdown?.surcharges)
           ? quoteBreakdown.surcharges.reduce((sum, s) => sum + Number(s.amount || 0), 0)
-          : null,
+          : 0, // Default to 0 instead of null
         discounts: Array.isArray(quoteBreakdown?.discounts)
           ? quoteBreakdown.discounts.reduce((sum, d) => sum + Number(d.amount || 0), 0)
-          : null,
-        final_price: price != null ? Number(price) : null
+          : 0, // Default to 0 instead of null
+        final_price: price != null ? Number(price) : 0 // Default to 0 instead of null
       }
 
       const savedTrip = await tripService.createTrip(tripData)
@@ -356,9 +403,9 @@ const DistanceCalculator = () => {
       console.log('Order created successfully', newOrder)
       setOrderCreated(true)
       setError('')
-      toast.success('Orden creada correctamente')
+      toast.success('La orden ha sido creada con éxito')
     } catch (error) {
-      console.error('Error creating order:', error)
+      console.error('Error al crear la orden:', error)
       setError('Error al crear la orden')
     }
   }

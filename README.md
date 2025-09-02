@@ -1,46 +1,59 @@
-# JG Travelex - Trip Management System v1.1.0
+<div align="center">
 
-A modern full‑stack web application built with React + Vite (frontend) and an Express backend connected to Supabase.
+# JG Travelex - Trip Management System
 
-This app calculates trip distances, generates orders and invoices, and tracks statistics. It is designed for transportation businesses to manage trip calculations, financial tracking, and reporting with seamless Supabase integration.
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Node.js](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)
+![React](https://img.shields.io/badge/react-18.2.0-blue.svg)
+![Supabase](https://img.shields.io/badge/supabase-2.56.0-3ecf8e.svg)
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
 
-## Features
+*Modern trip management system with React + Vite (frontend) and Express backend connected to Supabase*
 
-- 🗺️ Distance calculation using Google Maps
-- 💰 Automatic pricing with configurable rates
-- 📊 Real-time dashboard
-- 📋 Order management
-- 📄 PDF invoice generation
-- 👤 Authentication with Supabase Auth
-- ⚙️ Configurable rates, surcharges, and discounts
-- 🔒 Role-based access control (admin/user)
-- 📱 Modern responsive design with Tailwind CSS
+</div>
+
+---
+
+## 🌟 Features
+
+- 🗺️ **Distance calculation** using Google Maps
+- 💰 **Automatic pricing** with configurable rates
+- 📊 **Real-time dashboard**
+- 📋 **Order management**
+- 📄 **PDF invoice generation**
+- 👤 **Authentication** with Supabase Auth
+- ⚙️ **Configurable rates**, surcharges and discounts
+- 🔒 **Role-based access control** (admin/user)
+- 📱 **Modern responsive design** with Tailwind CSS
 - ✨ **New in v1.1.0**: Enhanced code quality with comprehensive ESLint configuration
 - 🛡️ **New in v1.1.0**: Improved error handling and type safety
 - ⚡ **New in v1.1.0**: Optimized React Hook dependencies for better performance
 
-## Installation and Running
+---
 
-### Prerequisites
+## 🚀 Installation and Running
 
-- Node.js 16+ and npm
-- Supabase account (https://supabase.com)
-- Google Maps API key (for distance calculations)
+### 📋 Prerequisites
 
-### Installation steps
+- **Node.js 16+** and npm
+- **Supabase account** (https://supabase.com)
+- **Google Maps API key** (for distance calculations)
 
-1. Clone the repository
+### 📝 Installation Steps
+
+1. **Clone the repository**
 ```bash
 git clone <repository-url>
 cd jg-travelex
 ```
 
-2. Install dependencies
+2. **Install dependencies**
 ```bash
 npm install
 ```
 
-3. Configure environment variables
+3. **Configure environment variables**
 ```bash
 cp .env.template .env
 ```
@@ -63,9 +76,9 @@ PORT=8000
 VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 ```
 
-4. Initialize the database in Supabase (schema + defaults)
-- Option A (recommended first time): Open Supabase Dashboard → SQL Editor and run the contents of `supabase-schema.sql`.
-- Option B (scripted): Ensure an RPC function `exec_sql(sql text)` exists in your database, then run:
+4. **Initialize the database in Supabase (schema + defaults)**
+   - **Option A** (recommended first time): Open Supabase Dashboard → SQL Editor and run the contents of `supabase-schema.sql`.
+   - **Option B** (scripted): Ensure an RPC function `exec_sql(sql text)` exists in your database, then run:
 ```bash
 npm run db:reset
 ```
@@ -86,14 +99,14 @@ revoke all on function public.exec_sql(text) from public;
 grant execute on function public.exec_sql(text) to service_role;
 ```
 
-5. Create the admin user
+5. **Create the admin user**
 ```bash
 npm run create-admin
 ```
 
-Legacy note: Do not use `scripts/create-admin.js`. It is deprecated and incompatible with the current schema (no `password` column in `profiles`). Always use `npm run create-admin` which runs `scripts/create-admin-supabase.js`.
+> **Note**: Do not use `scripts/create-admin.js`. It is deprecated and incompatible with the current schema (no `password` column in `profiles`). Always use `npm run create-admin` which runs `scripts/create-admin-supabase.js`.
 
-6. Start the app (backend and frontend)
+6. **Start the app (backend and frontend)**
 ```bash
 # Start backend (Express on :8000)
 npm run backend:dev
@@ -105,7 +118,7 @@ npm run dev
 npm run dev:all
 ```
 
-Backend endpoints:
+**Backend endpoints**:
 - `GET /health` on `http://localhost:8000` – checks Supabase connectivity
 - `POST /pricing/quote` – server-side pricing calculation using DB-configured rates
   - Request body:
@@ -117,7 +130,7 @@ Backend endpoints:
     { "price": "32.75", "breakdown": { "base": 25.5, "surcharges": [], "discounts": [] } }
     ```
 
-Note: `CORS_ORIGIN` supports multiple origins separated by commas (e.g., `https://yourapp.vercel.app,http://localhost:5173`).
+> **Note**: `CORS_ORIGIN` supports multiple origins separated by commas (e.g., `https://yourapp.vercel.app,http://localhost:5173`).
 
 ## Tech Stack
 

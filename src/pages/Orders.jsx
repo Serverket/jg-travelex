@@ -11,14 +11,20 @@ const Orders = () => {
   const [error, setError] = useState(null)
   const [orderStatusFilter, setOrderStatusFilter] = useState('all') // 'all', 'pending', 'completed', 'canceled'
   const [filteredOrders, setFilteredOrders] = useState([])
+  const [sortConfig, setSortConfig] = useState({
+    key: 'date',
+    direction: 'desc' // Newest first by default
+  })
 
-  // Load orders directly from API to ensure we have the latest data
+  // Load orders with periodic refresh
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchOrders = async (isInitial = true) => {
       if (!user) return;
       
       try {
-        setLoading(true);
+        if (isInitial) {
+          setLoading(true);
+        }
         setError(null);
         
         // Fetch orders based on user role
@@ -53,23 +59,62 @@ const Orders = () => {
         setOrders(ordersWithTrips);
       } catch (err) {
         console.error('Error loading orders:', err);
-        setError('Error loading orders. Please try again.');
+        if (isInitial) {
+          setError('Error al cargar pedidos. Por favor intente nuevamente.');
+        }
       } finally {
-        setLoading(false);
+        if (isInitial) {
+          setLoading(false);
+        }
       }
     };
     
-    fetchOrders();
+    if (user) {
+      // Initial fetch with loading indicator
+      fetchOrders(true);
+      
+      // Set up periodic refresh every 10 seconds (silent background updates)
+      const intervalId = setInterval(() => {
+        console.log('Orders: Background data refresh triggered');
+        fetchOrders(false); // Silent refresh - no loading indicator
+      }, 10000);
+      
+      // Cleanup interval on unmount
+      return () => {
+        console.log('Orders: Cleaning up refresh interval');
+        clearInterval(intervalId);
+      };
+    }
   }, [user]);
 
-  // Filter orders based on status
-  useEffect(() => {
-    if (orderStatusFilter === 'all') {
-      setFilteredOrders(orders);
-    } else {
-      setFilteredOrders(orders.filter(order => order.status === orderStatusFilter));
-    }
-  }, [orders, orderStatusFilter]);
+  // Sort function that works for both orders and invoices
+  const sortedItems = (items) => {
+    if (!items || items.length === 0) return [];
+    return [...items].sort((a, b) => {
+      if (sortConfig.key === 'date') {
+        const dateA = a.created_at || new Date().toISOString();
+        const dateB = b.created_at || new Date().toISOString();
+        return sortConfig.direction === 'asc' 
+          ? new Date(dateA) - new Date(dateB)
+          : new Date(dateB) - new Date(dateA);
+      } else if (sortConfig.key === 'price') {
+        const priceA = a.total_amount || 0;
+        const priceB = b.total_amount || 0;
+        return sortConfig.direction === 'asc' ? priceA - priceB : priceB - priceA;
+      }
+      return 0;
+    });
+  };
+
+  // Handle column header click for sorting
+  const handleSort = (key) => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: prevConfig.key === key 
+        ? prevConfig.direction === 'asc' ? 'desc' : 'asc'
+        : key === 'date' ? 'desc' : 'asc' // Default to newest first for dates
+    }));
+  };
 
   // Handle order status update
   const updateOrderStatus = async (orderId, newStatus) => {
@@ -100,40 +145,40 @@ const Orders = () => {
       }
     } catch (err) {
       console.error('Error updating order status:', err);
-      setError('Failed to update order status');
+      setError('Error al actualizar el estado del pedido');
     }
   };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Order Management</h1>
+      <h1 className="text-2xl font-bold text-gray-800">Gestión de Pedidos</h1>
       
       {/* Filter Controls */}
       <div className="flex items-center space-x-4">
-        <span className="text-gray-700">Filter by status:</span>
+        <span className="text-gray-700">Filtrar por estado:</span>
         <select 
           value={orderStatusFilter}
           onChange={(e) => setOrderStatusFilter(e.target.value)}
           className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="all">All Orders</option>
-          <option value="pending">Pending</option>
-          <option value="completed">Completed</option>
-          <option value="canceled">Canceled</option>
+          <option value="all">Todos los pedidos</option>
+          <option value="pending">Pendientes</option>
+          <option value="completed">Completados</option>
+          <option value="canceled">Cancelados</option>
         </select>
       </div>
       
       {/* Orders List */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="px-4 py-5 sm:px-6">
-          <h2 className="text-lg font-medium text-gray-900">Orders</h2>
-          <p className="mt-1 text-sm text-gray-500">Full list of all your orders.</p>
+          <h2 className="text-lg font-medium text-gray-900">Pedidos</h2>
+          <p className="mt-1 text-sm text-gray-500">Lista completa de todos tus pedidos.</p>
         </div>
         
         {loading && (
           <div className="px-4 py-5 sm:p-6 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-solid border-blue-500 border-r-transparent"></div>
-            <p className="mt-2 text-gray-600">Loading orders...</p>
+            <p className="mt-2 text-gray-600">Cargando pedidos...</p>
           </div>
         )}
         
@@ -145,7 +190,7 @@ const Orders = () => {
         
         {!loading && !error && filteredOrders.length === 0 && (
           <div className="px-4 py-5 sm:p-6 text-center text-gray-500">
-            No orders found.
+            No se encontraron pedidos.
           </div>
         )}
         
@@ -154,18 +199,32 @@ const Orders = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order #</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trips</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pedido #</th>
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('date')}
+                  >
+                    <div className="flex items-center">
+                      Fecha {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Viajes</th>
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('price')}
+                  >
+                    <div className="flex items-center">
+                      Monto Total {sortConfig.key === 'price' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                   {user?.role === 'admin' && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                   )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredOrders.map((order) => (
+                {sortedItems(filteredOrders).map((order) => (
                   <tr key={order.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       #{order.id.slice(0, 8)}
@@ -176,13 +235,13 @@ const Orders = () => {
                     <td className="px-6 py-4 text-sm text-gray-500">
                       <div className="max-w-xs">
                         {order.trips?.length > 0 ? (
-                          orders.map((order, _index) => (
-                            <div key={order.id} className="text-xs mb-1">
-                              {order.origin} → {order.destination}
+                          order.trips.map((trip, index) => (
+                            <div key={index} className="text-xs mb-1">
+                              {trip.origin} → {trip.destination}
                             </div>
                           ))
                         ) : (
-                          <span className="text-gray-400">No trips</span>
+                          <span className="text-gray-400">Sin viajes</span>
                         )}
                       </div>
                     </td>
@@ -194,7 +253,9 @@ const Orders = () => {
                         ${order.status === 'completed' ? 'bg-green-100 text-green-800' : 
                           order.status === 'canceled' ? 'bg-red-100 text-red-800' : 
                           'bg-yellow-100 text-yellow-800'}`}>
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        {order.status === 'completed' ? 'Completado' : 
+                         order.status === 'canceled' ? 'Cancelado' : 
+                         'Pendiente'}
                       </span>
                     </td>
                     {user?.role === 'admin' && (
@@ -205,13 +266,13 @@ const Orders = () => {
                               onClick={() => updateOrderStatus(order.id, 'completed')}
                               className="text-green-600 hover:text-green-900 font-medium"
                             >
-                              Complete
+                              Completar
                             </button>
                             <button
                               onClick={() => updateOrderStatus(order.id, 'canceled')}
                               className="text-red-600 hover:text-red-900 font-medium"
                             >
-                              Cancel
+                              Cancelar
                             </button>
                           </div>
                         )}

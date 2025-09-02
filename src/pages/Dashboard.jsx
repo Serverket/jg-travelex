@@ -37,12 +37,14 @@ const Dashboard = () => {
     datasets: []
   })
 
-  // Load data on mount
+  // Load data with periodic refresh
   useEffect(() => {
-    const loadData = async () => {
+    const loadData = async (isInitial = true) => {
       try {
-        setLoading(true)
-        console.log('Dashboard: Starting data load for user:', user)
+        if (isInitial) {
+          setLoading(true)
+        }
+        console.log('Dashboard: Starting data load for user:', user, 'Initial:', isInitial)
         const filters = user?.role === 'admin' ? { all: true } : { userId: user?.id }
         console.log('Dashboard: Using filters:', filters)
         
@@ -64,13 +66,28 @@ const Dashboard = () => {
           user: user
         })
       } finally {
-        setLoading(false)
+        if (isInitial) {
+          setLoading(false)
+        }
       }
     }
 
     if (user) {
       console.log('Dashboard: User found, loading data...')
-      loadData()
+      // Initial data load with loading indicator
+      loadData(true)
+      
+      // Set up periodic refresh every 10 seconds (silent background updates)
+      const intervalId = setInterval(() => {
+        console.log('Dashboard: Background data refresh triggered')
+        loadData(false) // Silent refresh - no loading indicator
+      }, 10000)
+      
+      // Cleanup interval on unmount
+      return () => {
+        console.log('Dashboard: Cleaning up refresh interval')
+        clearInterval(intervalId)
+      }
     } else {
       console.log('Dashboard: No user found, skipping data load')
     }

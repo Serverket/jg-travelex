@@ -58,27 +58,27 @@ const Login = ({ onLogin: _onLogin }) => {
       if (isRegistering) {
         // Registration mode
         if (!email || !password || !fullName || !username) {
-          setError('All fields are required');
+          setError('Todos los campos son obligatorios');
           setIsLoading(false);
           return;
         }
 
         if (password.length < 6) {
-          setError('Password must be at least 6 characters');
+          setError('La contraseña debe tener al menos 6 caracteres');
           setIsLoading(false);
           return;
         }
 
         const response = await authService.register(email, password, fullName, username);
         setError('');
-        toast.success(response.message || 'Registration successful! Please check your email to verify your account.');
+        toast.success(response.message || '¡Registro exitoso! Por favor revise su email para verificar su cuenta.');
         setIsRegistering(false);
         setFullName('');
         setUsername('');
       } else {
         // Login mode
         if (!email || !password) {
-          setError('Email and password are required');
+          setError('El email y la contraseña son obligatorios');
           setIsLoading(false);
           return;
         }
@@ -89,12 +89,12 @@ const Login = ({ onLogin: _onLogin }) => {
           setUser(response.user);
           navigate('/dashboard');
         } else {
-          setError('Invalid login response');
+          setError('Respuesta de login inválida');
         }
       }
     } catch (err) {
       console.error('Auth error:', err);
-      setError(err.message || 'Authentication failed. Please try again.');
+      setError(err.message || 'Error de autenticación. Por favor intente nuevamente.');
     } finally {
       setIsLoading(false);
     }
@@ -129,7 +129,7 @@ const Login = ({ onLogin: _onLogin }) => {
                   />
                 </div>
                 <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900">
-                  {isRegistering ? 'Create your account' : 'Sign in to JG Travelex'}
+                  {isRegistering ? 'Crear su cuenta' : 'Iniciar sesión en JG Travelex'}
                 </h2>
               </div>
 
@@ -138,7 +138,7 @@ const Login = ({ onLogin: _onLogin }) => {
                 <>
                   <div>
                     <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-                      Full Name
+                      Nombre Completo
                     </label>
                     <div className="mt-1">
                       <input
@@ -156,7 +156,7 @@ const Login = ({ onLogin: _onLogin }) => {
                   
                   <div>
                     <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                      Username
+                      Nombre de Usuario
                     </label>
                     <div className="mt-1">
                       <input
@@ -176,7 +176,7 @@ const Login = ({ onLogin: _onLogin }) => {
 
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email
+                  Correo Electrónico
                 </label>
                 <div className="mt-1">
                   <input
@@ -194,7 +194,7 @@ const Login = ({ onLogin: _onLogin }) => {
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
+                  Contraseña
                 </label>
                 <div className="mt-1">
                   <input
@@ -216,7 +216,7 @@ const Login = ({ onLogin: _onLogin }) => {
                   disabled={isLoading}
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? (isRegistering ? 'Creating account...' : 'Signing in...') : (isRegistering ? 'Create Account' : 'Sign in')}
+                  {isLoading ? (isRegistering ? 'Creando cuenta...' : 'Iniciando sesión...') : (isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión')}
                 </button>
               </div>
 
@@ -234,7 +234,7 @@ const Login = ({ onLogin: _onLogin }) => {
                 </div>
                 <div className="relative flex justify-center text-sm">
                   <span className="px-2 bg-white text-gray-500">
-                    {isRegistering ? 'Already have an account?' : "Don't have an account?"}
+                    {isRegistering ? '¿Ya tiene una cuenta?' : '¿No tiene una cuenta?'}
                   </span>
                 </div>
               </div>
@@ -252,7 +252,7 @@ const Login = ({ onLogin: _onLogin }) => {
                   }}
                   className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  {isRegistering ? 'Sign in instead' : 'Create new account'}
+                  {isRegistering ? 'Iniciar sesión' : 'Crear nueva cuenta'}
                 </button>
               </div>
             </div>
