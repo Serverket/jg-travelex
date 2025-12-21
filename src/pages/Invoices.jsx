@@ -483,119 +483,159 @@ const Invoices = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Gestión de Facturas</h1>
-      {error && (
-        <div className="rounded-md bg-red-50 p-4 border border-red-200">
-          <div className="flex">
-            <div className="ml-0">
-              <h3 className="text-sm font-medium text-red-800">Error</h3>
-              <div className="mt-2 text-sm text-red-700">{error}</div>
-            </div>
+    <div className="space-y-8">
+      <div
+        className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-blue-500/5 backdrop-blur"
+        data-aos="fade-up"
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold text-white">Gestión de Facturas</h1>
+            <p className="mt-2 max-w-2xl text-sm text-blue-100/75">
+              Centralice todo el flujo de facturación: detecte órdenes listas, genere comprobantes y descargue PDFs con un par de clics.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4 text-sm text-blue-100/70 shadow-inner shadow-blue-500/10">
+            <p className="font-medium text-blue-100">Estado del Servicio</p>
+            <p className="mt-1 text-xs text-blue-200/70">Pedidos y facturas se sincronizan cada 10 segundos en segundo plano.</p>
           </div>
         </div>
-      )}
-      
-      {/* Pestañas */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex flex-wrap gap-3">
+        {error && (
+          <div className="mt-5 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {error}
+          </div>
+        )}
+        <div className="mt-6 flex flex-wrap gap-3">
           <button
+            type="button"
             onClick={() => setActiveTab('orders')}
-            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'orders' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap ${
+              activeTab === 'orders'
+                ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-inner shadow-blue-500/30'
+                : 'border-white/10 bg-white/5 text-blue-100/70 hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-white'
+            }`}
           >
             Órdenes Pendientes
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('invoices')}
-            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'invoices' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap ${
+              activeTab === 'invoices'
+                ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-inner shadow-blue-500/30'
+                : 'border-white/10 bg-white/5 text-blue-100/70 hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-white'
+            }`}
           >
             Facturas Emitidas
           </button>
-        </nav>
+        </div>
       </div>
-      
-      {/* Contenido de la pestaña activa */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+
+      <div
+        className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 shadow-2xl shadow-blue-500/10 backdrop-blur"
+        data-aos="fade-up"
+        data-aos-delay="120"
+      >
         {activeTab === 'orders' ? (
           <div>
-            <div className="px-4 py-5 sm:px-6">
-              <h2 className="text-lg font-medium text-gray-900">Órdenes Pendientes de Facturación</h2>
-              <p className="mt-1 text-sm text-gray-500">Seleccione una orden para generar una factura.</p>
+            <div className="border-b border-white/10 px-6 py-5">
+              <h2 className="text-xl font-semibold text-white">Órdenes pendientes de facturación</h2>
+              <p className="mt-1 text-sm text-blue-100/70">Seleccione una orden para generar una factura al instante.</p>
             </div>
-            
+
             {loading ? (
-              <div className="space-y-2 px-4 py-5 sm:p-6">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-10 bg-gray-100 rounded" />
-                  </div>
+              <div className="space-y-3 px-6 py-10">
+                {[...Array(6)].map((_, index) => (
+                  <div key={index} className="h-12 w-full animate-pulse rounded-xl bg-white/5" />
                 ))}
-                <p className="text-xs text-gray-400 mt-2">Cargando órdenes...</p>
+                <p className="text-xs text-blue-200/60">Cargando órdenes...</p>
               </div>
             ) : orders.length === 0 ? (
-              <div className="px-4 py-5 sm:p-6 text-center text-gray-500">
-                No hay órdenes pendientes de facturación.
+              <div className="px-6 py-12 text-center text-sm text-blue-100/60">
+                No hay órdenes pendientes de facturación en este momento.
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-white/10 text-sm text-blue-100/80">
+                  <thead className="bg-white/5 text-blue-100 text-sm uppercase tracking-[0.12em]">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">ID</th>
-                      <th 
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sm:px-6"
+                      <th className="px-6 py-4 font-semibold whitespace-nowrap">ID</th>
+                      <th
+                        className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
                         onClick={() => handleSort('date')}
                       >
-                        Fecha {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                        <span className="flex items-center gap-2 whitespace-nowrap">
+                          Fecha
+                          {sortConfig.key === 'date' && (
+                            <span className="text-xs">
+                              {sortConfig.direction === 'asc' ? '▲' : '▼'}
+                            </span>
+                          )}
+                        </span>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Origen</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Destino</th>
-                      <th 
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sm:px-6"
+                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Origen</th>
+                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Destino</th>
+                      <th
+                        className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
                         onClick={() => handleSort('price')}
                       >
-                        Precio {sortConfig.key === 'price' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                        <span className="flex items-center gap-2 whitespace-nowrap">
+                          Precio
+                          {sortConfig.key === 'price' && (
+                            <span className="text-xs">
+                              {sortConfig.direction === 'asc' ? '▲' : '▼'}
+                            </span>
+                          )}
+                        </span>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Estado</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Acciones</th>
+                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Estado</th>
+                      <th className="px-6 py-4 text-right font-semibold whitespace-nowrap">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="divide-y divide-white/5">
                     {sortedItems(orders).map((order) => {
-                      // Check if order already has an invoice
-                      const hasInvoice = invoices.some(invoice => invoice.order_id === order.id || invoice.orderId === order.id);
-                      
+                      const hasInvoice = invoices.some(invoice => invoice.order_id === order.id || invoice.orderId === order.id)
+
                       return (
-                        <tr key={order.id} className={selectedOrderId === order.id ? 'bg-blue-50' : ''}>
-                          <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
-                            {order.id}
+                        <tr
+                          key={order.id}
+                          className={selectedOrderId === order.id ? 'bg-blue-500/10' : 'bg-white/5'}
+                        >
+                          <td className="px-6 py-4 text-sm font-semibold text-white">{order.id}</td>
+                          <td className="px-6 py-4 text-sm text-blue-100/80">
+                            {order.created_at ? `${new Date(order.created_at).toLocaleDateString()} ${new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'N/A'}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
-                            {order.created_at ? new Date(order.created_at).toLocaleDateString() + ' ' + new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 break-words sm:px-6 sm:py-4" title={order.items && order.items[0]?.tripData?.origin || 'No origin'}>
+                          <td className="px-6 py-4 text-xs text-blue-100/70" title={order.items && order.items[0]?.tripData?.origin || 'No origin'}>
                             {formatAddress(order.items && order.items[0]?.tripData?.origin)}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 break-words sm:px-6 sm:py-4" title={order.items && order.items[0]?.tripData?.destination || 'No destination'}>
+                          <td className="px-6 py-4 text-xs text-blue-100/70" title={order.items && order.items[0]?.tripData?.destination || 'No destination'}>
                             {formatAddress(order.items && order.items[0]?.tripData?.destination)}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
+                          <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
                             ${order.items && order.items[0]?.tripData?.price || order.total_amount || 0}
                           </td>
-                          <td className="px-4 py-3 text-sm sm:px-6 sm:py-4">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${hasInvoice ? 'bg-green-100 text-green-800' : (order.status === 'completed' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800')}`}>
-                              {hasInvoice ? 'Facturada' : (order.status === 'completed' ? 'Completada' : 'Pendiente')}
+                          <td className="px-6 py-4 text-sm">
+                            <span
+                              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
+                                hasInvoice
+                                  ? 'bg-emerald-500/20 text-emerald-200'
+                                  : order.status === 'completed'
+                                    ? 'bg-blue-500/20 text-blue-100'
+                                    : 'bg-amber-400/20 text-amber-100'
+                              }`}
+                            >
+                              {hasInvoice ? 'Facturada' : order.status === 'completed' ? 'Completada' : 'Pendiente'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right text-sm font-medium sm:px-6 sm:py-4">
+                          <td className="px-6 py-4 text-right text-sm">
                             {hasInvoice ? (
-                              <span className="text-gray-400">Facturada</span>
+                              <span className="text-xs text-blue-200/60">Facturada</span>
                             ) : (
                               <button
                                 onClick={() => handleCreateInvoice(order.id)}
-                                className="text-blue-600 hover:text-blue-900"
+                                className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white whitespace-nowrap"
                               >
-                                Generar Factura
+                                Generar factura
                               </button>
                             )}
                           </td>
@@ -609,78 +649,101 @@ const Invoices = () => {
           </div>
         ) : (
           <div>
-            <div className="px-4 py-5 sm:px-6">
-              <h2 className="text-lg font-medium text-gray-900">Facturas Emitidas</h2>
-              <p className="mt-1 text-sm text-gray-500">Listado de todas las facturas generadas.</p>
+            <div className="border-b border-white/10 px-6 py-5">
+              <h2 className="text-xl font-semibold text-white">Facturas emitidas</h2>
+              <p className="mt-1 text-sm text-blue-100/70">Revise el histórico de facturas y genere comprobantes en PDF.</p>
             </div>
-            
+
             {loading ? (
-              <div className="space-y-2 px-4 py-5 sm:p-6">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-10 bg-gray-100 rounded" />
-                  </div>
+              <div className="space-y-3 px-6 py-10">
+                {[...Array(6)].map((_, index) => (
+                  <div key={index} className="h-12 w-full animate-pulse rounded-xl bg-white/5" />
                 ))}
-                <p className="text-xs text-gray-400 mt-2">Cargando facturas...</p>
+                <p className="text-xs text-blue-200/60">Cargando facturas...</p>
               </div>
             ) : invoices.length === 0 ? (
-              <div className="px-4 py-5 sm:p-6 text-center text-gray-500">
-                No hay facturas emitidas.
+              <div className="px-6 py-12 text-center text-sm text-blue-100/60">
+                No hay facturas emitidas todavía.
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-white/10 text-sm text-blue-100/80">
+                  <thead className="bg-white/5 text-blue-100 text-sm uppercase tracking-[0.12em]">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">ID Factura</th>
-                      <th 
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sm:px-6"
+                      <th className="px-6 py-4 font-semibold whitespace-nowrap">ID Factura</th>
+                      <th
+                        className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
                         onClick={() => handleSort('date')}
                       >
-                        Fecha {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                        <span className="flex items-center gap-2 whitespace-nowrap">
+                          Fecha
+                          {sortConfig.key === 'date' && (
+                            <span className="text-xs">
+                              {sortConfig.direction === 'asc' ? '▲' : '▼'}
+                            </span>
+                          )}
+                        </span>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Origen</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Destino</th>
-                      <th 
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sm:px-6"
+                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Origen</th>
+                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Destino</th>
+                      <th
+                        className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
                         onClick={() => handleSort('price')}
                       >
-                        Monto {sortConfig.key === 'price' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                        <span className="flex items-center gap-2 whitespace-nowrap">
+                          Monto
+                          {sortConfig.key === 'price' && (
+                            <span className="text-xs">
+                              {sortConfig.direction === 'asc' ? '▲' : '▼'}
+                            </span>
+                          )}
+                        </span>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Estado</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Acciones</th>
+                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Estado</th>
+                      <th className="px-6 py-4 text-right font-semibold whitespace-nowrap">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="divide-y divide-white/5">
                     {sortedItems(invoices).map((invoice) => (
-                      <tr key={invoice.id}>
-                        <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
-                          {invoice.id}
+                      <tr
+                        key={invoice.id}
+                        className="bg-white/5"
+                      >
+                        <td className="px-6 py-4 text-sm font-semibold text-white">{invoice.id}</td>
+                        <td className="px-6 py-4 text-sm text-blue-100/80">
+                          {invoice.invoice_date
+                            ? `${new Date(invoice.invoice_date).toLocaleDateString()} ${new Date(invoice.invoice_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                            : invoice.created_at
+                              ? `${new Date(invoice.created_at).toLocaleDateString()} ${new Date(invoice.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                              : 'N/A'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
-                          {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() + ' ' + new Date(invoice.invoice_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : (invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() + ' ' + new Date(invoice.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A')}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500 break-words sm:px-6 sm:py-4" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin || 'No origin'}>
+                        <td className="px-6 py-4 text-xs text-blue-100/70" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin || 'No origin'}>
                           {formatAddress(invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-500 break-words sm:px-6 sm:py-4" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination || 'No destination'}>
+                        <td className="px-6 py-4 text-xs text-blue-100/70" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination || 'No destination'}>
                           {formatAddress(invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
+                        <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
                           ${invoice.total_amount || (invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.price) || invoice.orderData?.total_amount || 0}
                         </td>
-                        <td className="px-4 py-3 text-sm sm:px-6 sm:py-4">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${invoice.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                        <td className="px-6 py-4 text-sm">
+                          <span
+                            className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
+                              invoice.status === 'paid'
+                                ? 'bg-emerald-500/20 text-emerald-200'
+                                : 'bg-blue-500/20 text-blue-100'
+                            }`}
+                          >
                             {invoice.status === 'paid' ? 'Pagada' : 'Emitida'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right text-sm font-medium sm:px-6 sm:py-4">
+                        <td className="px-6 py-4 text-right text-sm">
                           <button
                             onClick={() => generateInvoicePDF(invoice)}
                             disabled={isGeneratingInvoice}
-                            className="text-blue-600 hover:text-blue-900 disabled:text-gray-400"
+                            className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/40 whitespace-nowrap"
                           >
-                            {isGeneratingInvoice ? 'Generando...' : 'Descargar PDF'}
+                            {isGeneratingInvoice ? 'Generando…' : 'Descargar PDF'}
                           </button>
                         </td>
                       </tr>

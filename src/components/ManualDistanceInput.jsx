@@ -1,235 +1,194 @@
-import React, { useState, useEffect } from 'react';
-import OpenStreetPlaceSearch from './OpenStreetPlaceSearch';
+import React, { useState, useEffect, useCallback } from 'react'
+import OpenStreetPlaceSearch from './OpenStreetPlaceSearch'
+
+const tabs = [
+  { id: 'combined', label: 'Distancia + Tiempo', description: 'Precio basado en distancia y duración del viaje.' },
+  { id: 'distance-only', label: 'Solo Distancia', description: 'Precio calculado únicamente por millas recorridas.' },
+  { id: 'duration-only', label: 'Solo Tiempo', description: 'Precio basado solo en el tiempo estimado.' }
+]
 
 const ManualDistanceInput = ({ onCalculate }) => {
-  const [calculationType, setCalculationType] = useState('combined'); // 'combined', 'distance-only', 'duration-only'
-  const [errors, setErrors] = useState({});
-  
-  // Separate state for each calculation type
+  const [calculationType, setCalculationType] = useState('combined')
+  const [errors, setErrors] = useState({})
+
   const [combinedState, setCombinedState] = useState({
     origin: null,
     destination: null,
     distance: '',
     duration: ''
-  });
-  
+  })
+
   const [distanceOnlyState, setDistanceOnlyState] = useState({
     origin: null,
     destination: null,
     distance: ''
-  });
-  
+  })
+
   const [durationOnlyState, setDurationOnlyState] = useState({
     origin: null,
     destination: null,
     duration: ''
-  });
-  
-  // Get current state based on calculation type
-  const getCurrentState = () => {
-    switch (calculationType) {
-      case 'combined': return combinedState;
-      case 'distance-only': return distanceOnlyState;
-      case 'duration-only': return durationOnlyState;
-      default: return combinedState;
-    }
-  };
-  
-  const currentState = getCurrentState();
-  const { origin, destination, distance, duration } = currentState;
+  })
 
-  // Update state based on calculation type
-  const updateCurrentState = (updates) => {
+  const getCurrentState = useCallback(() => {
     switch (calculationType) {
-      case 'combined':
-        setCombinedState(prev => ({ ...prev, ...updates }));
-        break;
       case 'distance-only':
-        setDistanceOnlyState(prev => ({ ...prev, ...updates }));
-        break;
+        return distanceOnlyState
       case 'duration-only':
-        setDurationOnlyState(prev => ({ ...prev, ...updates }));
-        break;
+        return durationOnlyState
+      case 'combined':
+      default:
+        return combinedState
     }
-  };
+  }, [calculationType, combinedState, distanceOnlyState, durationOnlyState])
+
+  const currentState = getCurrentState()
+  const { origin, destination, distance, duration } = currentState
+
+  const updateCurrentState = useCallback((updates) => {
+    switch (calculationType) {
+      case 'distance-only':
+        setDistanceOnlyState(prev => ({ ...prev, ...updates }))
+        break
+      case 'duration-only':
+        setDurationOnlyState(prev => ({ ...prev, ...updates }))
+        break
+      case 'combined':
+      default:
+        setCombinedState(prev => ({ ...prev, ...updates }))
+        break
+    }
+  }, [calculationType])
 
   useEffect(() => {
-    let isMounted = true;
+    let cancelled = false
 
     const fetchRoute = async () => {
-      // Only fetch route for combined mode and when both places are selected
-      if (calculationType === 'combined' && origin && destination && origin.lat && origin.lng && destination.lat && destination.lng) {
+      if (
+        calculationType === 'combined' &&
+        origin && origin.lat && origin.lng &&
+        destination && destination.lat && destination.lng
+      ) {
         try {
           const response = await fetch(
             `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=false&alternatives=true&steps=true&hints=;`
-          );
-          const data = await response.json();
-          
-          if (data.routes && data.routes.length > 0) {
-            const route = data.routes[0];
-            const distanceInMeters = route.distance;
-            const durationInSeconds = route.duration;
-            
-            const distanceInMiles = distanceInMeters / 1609.34;
-            const durationInHours = durationInSeconds / 3600;
-            
-            if (isMounted) {
-              updateCurrentState({
-                distance: distanceInMiles.toFixed(2),
-                duration: durationInHours.toFixed(2)
-              });
-            }
+          )
+          const data = await response.json()
+
+          if (!cancelled && data.routes && data.routes.length > 0) {
+            const [route] = data.routes
+            const distanceInMiles = route.distance / 1609.34
+            const durationInHours = route.duration / 3600
+
+            updateCurrentState({
+              distance: distanceInMiles.toFixed(2),
+              duration: durationInHours.toFixed(2)
+            })
           }
         } catch (error) {
-          console.error('Error fetching route from OSM:', error);
+          console.error('Error fetching route from OSM:', error)
         }
       }
-    };
+    }
 
-    fetchRoute();
+    fetchRoute()
 
     return () => {
-      isMounted = false;
-    };
-  }, [origin, destination, calculationType]);
+      cancelled = true
+    }
+  }, [calculationType, destination, origin, updateCurrentState])
 
   const validate = (fieldsOnly = false) => {
-    const newErrors = {};
-    
-    // Origin/destination only required for combined mode
-    if (calculationType === 'combined') {
-      if (!origin || !origin.lat || !origin.lng) newErrors.origin = 'El origen es obligatorio';
-      if (!destination || !destination.lat || !destination.lng) newErrors.destination = 'El destino es obligatorio';
-    }
-    // For single-parameter modes, origin/destination are optional
-    
-    // Validation based on calculation type
-    if (calculationType === 'combined') {
-      if (!distance) newErrors.distance = 'La distancia es obligatoria';
-      else if (isNaN(distance) || distance <= 0) newErrors.distance = 'Distancia inválida';
-      if (!duration) newErrors.duration = 'La duración es obligatoria';
-      else if (isNaN(duration) || duration <= 0) newErrors.duration = 'Duración inválida';
-    } else if (calculationType === 'distance-only') {
-      if (!distance) newErrors.distance = 'La distancia es obligatoria';
-      else if (isNaN(distance) || distance <= 0) newErrors.distance = 'Distancia inválida';
-    } else if (calculationType === 'duration-only') {
-      if (!duration) newErrors.duration = 'La duración es obligatoria';
-      else if (isNaN(duration) || duration <= 0) newErrors.duration = 'Duración inválida';
-    }
-    
-    if (!fieldsOnly) setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    const newErrors = {}
 
-  // Auto-trigger calculation when required fields are filled and valid
-  React.useEffect(() => {
-    let isValid = false;
-    let calcData = {
+    if (calculationType === 'combined') {
+      if (!origin || !origin.lat || !origin.lng) newErrors.origin = 'El origen es obligatorio'
+      if (!destination || !destination.lat || !destination.lng) newErrors.destination = 'El destino es obligatorio'
+      if (!distance) newErrors.distance = 'La distancia es obligatoria'
+      else if (isNaN(distance) || Number(distance) <= 0) newErrors.distance = 'Distancia inválida'
+      if (!duration) newErrors.duration = 'La duración es obligatoria'
+      else if (isNaN(duration) || Number(duration) <= 0) newErrors.duration = 'Duración inválida'
+    }
+
+    if (calculationType === 'distance-only') {
+      if (!distance) newErrors.distance = 'La distancia es obligatoria'
+      else if (isNaN(distance) || Number(distance) <= 0) newErrors.distance = 'Distancia inválida'
+    }
+
+    if (calculationType === 'duration-only') {
+      if (!duration) newErrors.duration = 'La duración es obligatoria'
+      else if (isNaN(duration) || Number(duration) <= 0) newErrors.duration = 'Duración inválida'
+    }
+
+    if (!fieldsOnly) setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  useEffect(() => {
+    if (!validate(true)) return
+
+    const payload = {
       origin: origin || null,
       destination: destination || null,
       calculationType,
-      distance: null,
-      duration: null,
-    };
-
-    if (calculationType === 'combined') {
-      // Combined mode requires origin, destination, distance, and duration
-      isValid = origin && origin.lat && origin.lng && 
-                destination && destination.lat && destination.lng &&
-                distance && !isNaN(distance) && distance > 0 && 
-                duration && !isNaN(duration) && duration > 0;
-      if (isValid) {
-        calcData.distance = parseFloat(distance);
-        calcData.duration = parseFloat(duration);
-      }
-    } else if (calculationType === 'distance-only') {
-      // Distance-only mode only requires distance (origin/destination optional)
-      isValid = distance && !isNaN(distance) && distance > 0;
-      if (isValid) {
-        calcData.distance = parseFloat(distance);
-      }
-    } else if (calculationType === 'duration-only') {
-      // Duration-only mode only requires duration (origin/destination optional)
-      isValid = duration && !isNaN(duration) && duration > 0;
-      if (isValid) {
-        calcData.duration = parseFloat(duration);
-      }
+      distance: calculationType === 'duration-only' ? null : (distance ? Number(distance) : null),
+      duration: calculationType === 'distance-only' ? null : (duration ? Number(duration) : null)
     }
 
-    if (isValid) {
-      onCalculate(calcData);
-    }
+    onCalculate(payload)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [origin, destination, distance, duration, calculationType]);
+  }, [origin, destination, distance, duration, calculationType])
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!validate()) return;
-    
-    const calcData = {
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    if (!validate()) return
+
+    const payload = {
       origin: origin || null,
       destination: destination || null,
       calculationType,
-      distance: calculationType === 'duration-only' ? null : (distance ? parseFloat(distance) : null),
-      duration: calculationType === 'distance-only' ? null : (duration ? parseFloat(duration) : null),
-    };
-    
-    console.log('Submitting calculation with:', calcData);
-    
-    onCalculate(calcData);
-  };
-  
-  // Handle calculation type change
-  const handleCalculationTypeChange = (newType) => {
-    setCalculationType(newType);
-    setErrors({}); // Clear errors when switching tabs
-  };
+      distance: calculationType === 'duration-only' ? null : (distance ? Number(distance) : null),
+      duration: calculationType === 'distance-only' ? null : (duration ? Number(duration) : null)
+    }
+
+    onCalculate(payload)
+  }
+
+  const handleCalculationTypeChange = (nextType) => {
+    setCalculationType(nextType)
+    setErrors({})
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Calculation Type Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-          <button
-            type="button"
-            onClick={() => handleCalculationTypeChange('combined')}
-            className={`${
-              calculationType === 'combined'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm`}
-          >
-            Distancia + Tiempo
-          </button>
-          <button
-            type="button"
-            onClick={() => handleCalculationTypeChange('distance-only')}
-            className={`${
-              calculationType === 'distance-only'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm`}
-          >
-            Solo Distancia
-          </button>
-          <button
-            type="button"
-            onClick={() => handleCalculationTypeChange('duration-only')}
-            className={`${
-              calculationType === 'duration-only'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm`}
-          >
-            Solo Tiempo
-          </button>
-        </nav>
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6 text-slate-100"
+      data-aos="fade-up"
+      data-aos-delay="40"
+    >
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-2" data-aos="fade-up" data-aos-delay="60">
+        <div className="flex overflow-hidden rounded-xl border border-white/10 bg-white/10 p-1">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => handleCalculationTypeChange(tab.id)}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                calculationType === tab.id
+                  ? 'bg-blue-500/20 text-white shadow-inner shadow-blue-500/40'
+                  : 'text-blue-100/70 hover:text-white hover:bg-blue-500/10'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-blue-100/70">{tabs.find(tab => tab.id === calculationType)?.description}</p>
       </div>
 
-      {/* Origin and Destination - Required for combined, optional for others */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Origen {calculationType !== 'combined' && <span className="text-gray-400">(opcional)</span>}
+      <div data-aos="fade-up" data-aos-delay="80">
+        <label className="mb-1 block text-sm font-semibold text-blue-100/90">
+          Origen {calculationType !== 'combined' && <span className="text-blue-200/60">(opcional)</span>}
         </label>
         <OpenStreetPlaceSearch
           key={`origin-${calculationType}`}
@@ -237,12 +196,12 @@ const ManualDistanceInput = ({ onCalculate }) => {
           onPlaceSelected={(place) => updateCurrentState({ origin: place })}
           value={origin}
         />
-        {errors.origin && <p className="mt-1 text-sm text-red-600">{errors.origin}</p>}
+        {errors.origin && <p className="mt-1 text-sm text-red-300">{errors.origin}</p>}
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Destino {calculationType !== 'combined' && <span className="text-gray-400">(opcional)</span>}
+      <div data-aos="fade-up" data-aos-delay="100">
+        <label className="mb-1 block text-sm font-semibold text-blue-100/90">
+          Destino {calculationType !== 'combined' && <span className="text-blue-200/60">(opcional)</span>}
         </label>
         <OpenStreetPlaceSearch
           key={`destination-${calculationType}`}
@@ -250,73 +209,73 @@ const ManualDistanceInput = ({ onCalculate }) => {
           onPlaceSelected={(place) => updateCurrentState({ destination: place })}
           value={destination}
         />
-        {errors.destination && <p className="mt-1 text-sm text-red-600">{errors.destination}</p>}
+        {errors.destination && <p className="mt-1 text-sm text-red-300">{errors.destination}</p>}
       </div>
 
-      {/* Conditional input fields based on calculation type */}
       {(calculationType === 'combined' || calculationType === 'distance-only') && (
-        <div>
-          <label htmlFor="distance" className="block text-sm font-medium text-gray-700 mb-1">
+        <div data-aos="fade-up" data-aos-delay="120">
+          <label htmlFor="distance" className="mb-1 block text-sm font-semibold text-blue-100/90">
             Distancia (millas)
           </label>
           <input
             type="number"
             id="distance"
             value={distance || ''}
-            onChange={(e) => updateCurrentState({ distance: e.target.value })}
-            className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${errors.distance ? 'border-red-500' : 'border-gray-300'}`}
+            onChange={(event) => updateCurrentState({ distance: event.target.value })}
+            className={`w-full rounded-xl border px-3 py-2 text-sm text-white transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+              errors.distance ? 'border-red-400/60 bg-red-500/10' : 'border-white/15 bg-white/5 placeholder:text-blue-200/60'
+            }`}
             placeholder="Ingrese la distancia en millas"
             min="0"
             step="any"
           />
-          {errors.distance && <p className="mt-1 text-sm text-red-600">{errors.distance}</p>}
+          {errors.distance && <p className="mt-1 text-sm text-red-300">{errors.distance}</p>}
         </div>
       )}
 
       {(calculationType === 'combined' || calculationType === 'duration-only') && (
-        <div>
-          <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
+        <div data-aos="fade-up" data-aos-delay="140">
+          <label htmlFor="duration" className="mb-1 block text-sm font-semibold text-blue-100/90">
             Duración (horas)
           </label>
           <input
             type="number"
             id="duration"
             value={duration || ''}
-            onChange={(e) => updateCurrentState({ duration: e.target.value })}
-            className={`w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${errors.duration ? 'border-red-500' : 'border-gray-300'}`}
+            onChange={(event) => updateCurrentState({ duration: event.target.value })}
+            className={`w-full rounded-xl border px-3 py-2 text-sm text-white transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+              errors.duration ? 'border-red-400/60 bg-red-500/10' : 'border-white/15 bg-white/5 placeholder:text-blue-200/60'
+            }`}
             placeholder="Ingrese la duración en horas"
             min="0"
             step="any"
           />
-          {errors.duration && <p className="mt-1 text-sm text-red-600">{errors.duration}</p>}
+          {errors.duration && <p className="mt-1 text-sm text-red-300">{errors.duration}</p>}
         </div>
       )}
 
-      {/* Info message based on calculation type */}
-      <div className="p-3 bg-blue-50 rounded-md">
+      <div
+        className="rounded-2xl border border-white/10 bg-white/5 p-4"
+        data-aos="fade-up"
+        data-aos-delay="160"
+      >
         <div className="flex">
           <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+            <svg className="h-5 w-5 text-blue-300" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
           </div>
-          <div className="ml-3 flex-1 md:flex md:justify-between">
-            <p className="text-sm text-blue-700">
-              {calculationType === 'combined' && 'Precio basado en distancia Y tiempo de viaje'}
-              {calculationType === 'distance-only' && 'Precio basado SOLO en la distancia del viaje'}
-              {calculationType === 'duration-only' && 'Precio basado SOLO en el tiempo del viaje'}
+          <div className="ml-3 flex-1">
+            <p className="text-sm text-blue-100/80">
+              {calculationType === 'combined' && 'Precio basado en distancia y tiempo de viaje.'}
+              {calculationType === 'distance-only' && 'Precio basado solo en la distancia del viaje.'}
+              {calculationType === 'duration-only' && 'Precio basado solo en la duración del viaje.'}
             </p>
           </div>
         </div>
       </div>
-      {/* <button
-        type="submit"
-        className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-      >
-        Calcular
-      </button> */}
     </form>
-  );
-};
+  )
+}
 
-export default ManualDistanceInput;
+export default ManualDistanceInput

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { orderService } from '../services/orderService'
 import { tripService } from '../services/tripService'
@@ -10,11 +10,11 @@ const Orders = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [orderStatusFilter, setOrderStatusFilter] = useState('all') // 'all', 'pending', 'completed', 'canceled'
-  const [filteredOrders, setFilteredOrders] = useState([])
   const [sortConfig, setSortConfig] = useState({
     key: 'date',
     direction: 'desc' // Newest first by default
   })
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   // Load orders with periodic refresh
   useEffect(() => {
@@ -56,7 +56,8 @@ const Orders = () => {
           })
         );
         
-        setOrders(ordersWithTrips);
+  setOrders(ordersWithTrips);
+  setLastUpdated(new Date());
       } catch (err) {
         console.error('Error loading orders:', err);
         if (isInitial) {
@@ -87,6 +88,67 @@ const Orders = () => {
     }
   }, [user]);
 
+  const filteredOrders = useMemo(() => {
+    if (orderStatusFilter === 'all') return orders
+    return orders.filter(order => (order.status || '').toLowerCase() === orderStatusFilter)
+  }, [orders, orderStatusFilter])
+
+  const currencyFormatter = useMemo(() => new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'USD'
+  }), [])
+
+  const orderInsights = useMemo(() => {
+    if (!filteredOrders || filteredOrders.length === 0) {
+      return {
+        total: 0,
+        pending: 0,
+        completed: 0,
+        canceled: 0,
+        revenue: 0,
+        average: 0,
+        completionRate: 0
+      }
+    }
+
+    return filteredOrders.reduce((acc, order) => {
+      const status = (order.status || 'pending').toLowerCase()
+      const amount = parseFloat(order.total_amount || 0) || 0
+
+      acc.total += 1
+      acc.revenue += amount
+
+      if (status === 'completed') {
+        acc.completed += 1
+      } else if (status === 'canceled') {
+        acc.canceled += 1
+      } else {
+        acc.pending += 1
+      }
+
+      return acc
+    }, {
+      total: 0,
+      pending: 0,
+      completed: 0,
+      canceled: 0,
+      revenue: 0,
+      average: 0,
+      completionRate: 0
+    })
+  }, [filteredOrders])
+
+  const enrichedOrderInsights = useMemo(() => {
+    const average = orderInsights.total ? orderInsights.revenue / orderInsights.total : 0
+    const completionRate = orderInsights.total ? (orderInsights.completed / orderInsights.total) * 100 : 0
+
+    return {
+      ...orderInsights,
+      average,
+      completionRate
+    }
+  }, [orderInsights])
+
   // Sort function that works for both orders and invoices
   const sortedItems = (items) => {
     if (!items || items.length === 0) return [];
@@ -105,6 +167,44 @@ const Orders = () => {
       return 0;
     });
   };
+
+  const sortedOrders = useMemo(() => sortedItems(filteredOrders), [filteredOrders, sortConfig])
+
+  const formattedLastUpdated = useMemo(() => {
+    if (!lastUpdated) return null
+    return `${lastUpdated.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} · ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+  }, [lastUpdated])
+
+  const metricCards = useMemo(() => ([
+    {
+      label: 'Pedidos visibles',
+      value: enrichedOrderInsights.total,
+      helper: orderStatusFilter === 'all' ? 'Total general' : 'Coinciden con el filtro activo',
+      border: 'border-sky-400/40',
+      shadow: 'shadow-sky-500/20'
+    },
+    {
+      label: 'Ingresos estimados',
+      value: currencyFormatter.format(enrichedOrderInsights.revenue || 0),
+      helper: enrichedOrderInsights.total ? 'Acumulado en pedidos listados' : 'Sin pedidos en el rango',
+      border: 'border-indigo-400/40',
+      shadow: 'shadow-indigo-500/20'
+    },
+    {
+      label: 'Ticket promedio',
+      value: enrichedOrderInsights.total ? currencyFormatter.format(enrichedOrderInsights.average || 0) : currencyFormatter.format(0),
+      helper: enrichedOrderInsights.total ? 'Promedio por pedido visible' : 'Esperando nuevos pedidos',
+      border: 'border-emerald-400/40',
+      shadow: 'shadow-emerald-500/20'
+    },
+    {
+      label: 'Estado actual',
+      value: `${Math.round(enrichedOrderInsights.completionRate)}% completado`,
+      helper: `Pendientes: ${enrichedOrderInsights.pending} · Cancelados: ${enrichedOrderInsights.canceled}`,
+      border: 'border-amber-400/40',
+      shadow: 'shadow-amber-500/20'
+    }
+  ]), [currencyFormatter, enrichedOrderInsights, orderStatusFilter])
 
   // Handle column header click for sorting
   const handleSort = (key) => {
@@ -150,131 +250,172 @@ const Orders = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Gestión de Pedidos</h1>
-      
-      {/* Filter Controls */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-gray-700">Filtrar por estado:</span>
-        <select 
-          value={orderStatusFilter}
-          onChange={(e) => setOrderStatusFilter(e.target.value)}
-          className="w-full rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-auto"
-        >
-          <option value="all">Todos los pedidos</option>
-          <option value="pending">Pendientes</option>
-          <option value="completed">Completados</option>
-          <option value="canceled">Cancelados</option>
-        </select>
-      </div>
-      
-      {/* Orders List */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-4 py-5 sm:px-6">
-          <h2 className="text-lg font-medium text-gray-900">Pedidos</h2>
-          <p className="mt-1 text-sm text-gray-500">Lista completa de todos tus pedidos.</p>
+    <div className="space-y-8">
+      <div
+        className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-blue-500/5 backdrop-blur"
+        data-aos="fade-up"
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold text-white">Gestión de Pedidos</h1>
+            <p className="mt-1 text-sm text-blue-100/70">Supervise el ciclo completo de pedidos con estado en vivo y acciones rápidas.</p>
+          </div>
+          <div className="flex flex-col gap-2 text-sm text-blue-100/70 md:text-right">
+            <span className="font-medium uppercase tracking-wide text-blue-200/70">Filtrar por estado</span>
+            <select
+              value={orderStatusFilter}
+              onChange={(event) => setOrderStatusFilter(event.target.value)}
+              className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-inner shadow-blue-500/10 transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400 md:w-64"
+            >
+              <option value="all" className="bg-slate-900">Todos los pedidos</option>
+              <option value="pending" className="bg-slate-900">Pendientes</option>
+              <option value="completed" className="bg-slate-900">Completados</option>
+              <option value="canceled" className="bg-slate-900">Cancelados</option>
+            </select>
+            {formattedLastUpdated && (
+              <span className="text-xs text-blue-200/60">Actualizado {formattedLastUpdated}</span>
+            )}
+          </div>
         </div>
-        
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {metricCards.map((card, index) => (
+          <div
+            key={card.label}
+            data-aos="fade-up"
+            data-aos-delay={String(80 * index)}
+            className={`rounded-3xl border ${card.border} bg-white/5 p-5 text-blue-100/80 shadow-2xl ${card.shadow} backdrop-blur`}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-200/70">{card.label}</p>
+            <p className="mt-3 text-2xl font-semibold text-white">{card.value}</p>
+            <p className="mt-2 text-xs text-blue-100/60">{card.helper}</p>
+          </div>
+        ))}
+      </div>
+
+      <div
+        className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/40 shadow-2xl shadow-blue-500/10 backdrop-blur"
+        data-aos="fade-up"
+        data-aos-delay="120"
+      >
+        <div className="border-b border-white/10 px-6 py-5">
+          <h2 className="text-xl font-semibold text-white">Pedidos</h2>
+          <p className="mt-1 text-sm text-blue-100/70">Visualice los pedidos recientes, revise sus viajes asociados y modifique estados.</p>
+        </div>
+
         {loading && (
-          <div className="px-4 py-5 sm:p-6 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-solid border-blue-500 border-r-transparent"></div>
-            <p className="mt-2 text-gray-600">Cargando pedidos...</p>
+          <div className="px-6 py-12 text-center">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+            <p className="mt-3 text-sm text-blue-100/70">Cargando pedidos...</p>
           </div>
         )}
-        
+
         {error && (
-          <div className="px-4 py-5 sm:p-6 text-center text-red-500">
-            {error}
-          </div>
+          <div className="px-6 py-6 text-center text-sm text-rose-300">{error}</div>
         )}
-        
+
         {!loading && !error && filteredOrders.length === 0 && (
-          <div className="px-4 py-5 sm:p-6 text-center text-gray-500">
-            No se encontraron pedidos.
-          </div>
+          <div className="px-6 py-12 text-center text-sm text-blue-100/60">No se encontraron pedidos para los filtros aplicados.</div>
         )}
-        
+
         {!loading && !error && filteredOrders.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-white/10 text-left text-sm text-blue-100/80">
+              <thead className="bg-white/5 text-blue-100 text-sm uppercase tracking-[0.12em]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pedido #</th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  <th className="px-6 py-4 font-semibold whitespace-nowrap">Pedido #</th>
+                  <th
+                    className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
                     onClick={() => handleSort('date')}
                   >
-                    <div className="flex items-center">
-                      Fecha {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
-                    </div>
+                    <span className="flex items-center gap-2">
+                      Fecha
+                      {sortConfig.key === 'date' && (
+                        <span className="text-xs">
+                          {sortConfig.direction === 'asc' ? '▲' : '▼'}
+                        </span>
+                      )}
+                    </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Viajes</th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  <th className="px-6 py-4 font-semibold whitespace-nowrap">Viajes</th>
+                  <th
+                    className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
                     onClick={() => handleSort('price')}
                   >
-                    <div className="flex items-center">
-                      Monto Total {sortConfig.key === 'price' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
-                    </div>
+                    <span className="flex items-center gap-2 whitespace-nowrap">
+                      Monto Total
+                      {sortConfig.key === 'price' && (
+                        <span className="text-xs">
+                          {sortConfig.direction === 'asc' ? '▲' : '▼'}
+                        </span>
+                      )}
+                    </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                  <th className="px-6 py-4 font-semibold whitespace-nowrap">Estado</th>
                   {user?.role === 'admin' && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                    <th className="px-6 py-4 font-semibold whitespace-nowrap">Acciones</th>
                   )}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {sortedItems(filteredOrders).map((order) => (
-                  <tr key={order.id}>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900 break-words md:px-6 md:whitespace-nowrap">
-                      #{order.id.slice(0, 8)}
+              <tbody className="divide-y divide-white/5">
+                {sortedOrders.map((order) => (
+                  <tr
+                    key={order.id}
+                    className="bg-white/5"
+                  >
+                    <td className="px-6 py-4 text-sm font-semibold text-white">#{order.id.slice(0, 8)}</td>
+                    <td className="px-6 py-4 text-sm text-blue-100/80">
+                      {order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 md:px-6 md:whitespace-nowrap">
-                      {new Date(order.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      <div className="max-w-xs space-y-1 text-xs md:max-w-sm">
+                    <td className="px-6 py-4 text-xs text-blue-100/70">
+                      <div className="max-w-xs space-y-2 md:max-w-md">
                         {order.trips?.length > 0 ? (
                           order.trips.map((trip, index) => (
-                            <div key={index} className="break-words">
-                              {trip.origin} → {trip.destination}
+                            <div key={index} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-blue-100/80">
+                              {trip.origin} <span className="mx-1 text-blue-200/60">→</span> {trip.destination}
                             </div>
                           ))
                         ) : (
-                          <span className="text-gray-400">Sin viajes</span>
+                          <span className="text-blue-200/50">Sin viajes asociados</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-900 md:px-6 md:whitespace-nowrap">
+                    <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
                       ${parseFloat(order.total_amount || 0).toFixed(2)}
                     </td>
-                    <td className="px-4 py-3 text-sm md:px-6 md:whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                        ${order.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                          order.status === 'canceled' ? 'bg-red-100 text-red-800' : 
-                          'bg-yellow-100 text-yellow-800'}`}>
-                        {order.status === 'completed' ? 'Completado' : 
-                         order.status === 'canceled' ? 'Cancelado' : 
-                         'Pendiente'}
+                    <td className="px-6 py-4 text-sm">
+                      <span
+                        className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
+                          order.status === 'completed'
+                            ? 'bg-emerald-500/20 text-emerald-200'
+                            : order.status === 'canceled'
+                              ? 'bg-rose-500/20 text-rose-200'
+                              : 'bg-amber-400/20 text-amber-100'
+                        }`}
+                      >
+                        {order.status === 'completed' ? 'Completado' : order.status === 'canceled' ? 'Cancelado' : 'Pendiente'}
                       </span>
                     </td>
                     {user?.role === 'admin' && (
-                      <td className="px-4 py-3 text-sm md:px-6 md:whitespace-nowrap">
-                        {order.status === 'pending' && (
+                      <td className="px-6 py-4 text-sm">
+                        {order.status === 'pending' ? (
                           <div className="flex flex-wrap gap-2">
                             <button
                               onClick={() => updateOrderStatus(order.id, 'completed')}
-                              className="text-green-600 hover:text-green-900 font-medium"
+                              className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-200 transition hover:bg-emerald-500/20 hover:text-emerald-100 whitespace-nowrap"
                             >
                               Completar
                             </button>
                             <button
                               onClick={() => updateOrderStatus(order.id, 'canceled')}
-                              className="text-red-600 hover:text-red-900 font-medium"
+                              className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-sm font-medium text-rose-200 transition hover:bg-rose-500/20 hover:text-rose-100 whitespace-nowrap"
                             >
                               Cancelar
                             </button>
                           </div>
+                        ) : (
+                          <span className="text-xs text-blue-200/60">Sin acciones</span>
                         )}
                       </td>
                     )}

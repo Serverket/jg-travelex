@@ -10,6 +10,13 @@ import { useToast } from '../context/ToastContext'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement)
 
 const TripTracking = () => {
+  const filterOptions = [
+    { id: 'day', label: 'Hoy' },
+    { id: 'week', label: 'Esta Semana' },
+    { id: 'month', label: 'Este Mes' },
+    { id: 'all', label: 'Todos' }
+  ]
+
   const { user } = useAppContext()
   const toast = useToast()
   const [trips, setTrips] = useState([])
@@ -314,250 +321,284 @@ const TripTracking = () => {
         borderWidth: 1
       }]
     })
-  }, [filteredTrips])
+  }, [filteredTrips, filteredOrders])
+
+  const overviewStats = [
+    { label: 'Total de Viajes', value: stats.totalTrips, suffix: '', accent: 'text-emerald-200' },
+    { label: 'Total de Órdenes', value: stats.totalOrders, suffix: '', accent: 'text-blue-200' },
+    { label: 'Distancia Total', value: `${stats.totalDistance} mi`, suffix: '', accent: 'text-sky-200' },
+    { label: 'Ingresos Totales', value: `$${stats.totalRevenue}`, suffix: '', accent: 'text-amber-200' },
+    { label: 'Distancia Promedio', value: `${stats.avgDistance} mi`, suffix: '', accent: 'text-fuchsia-200' },
+    { label: 'Precio Promedio', value: `$${stats.avgPrice}`, suffix: '', accent: 'text-lime-200' }
+  ]
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Seguimiento de Viajes</h1>
-        
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setFilter('day')}
-            className={`px-3 py-1 text-sm rounded-md ${filter === 'day' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-          >
-            Hoy
-          </button>
-          <button
-            onClick={() => setFilter('week')}
-            className={`px-3 py-1 text-sm rounded-md ${filter === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-          >
-            Esta Semana
-          </button>
-          <button
-            onClick={() => setFilter('month')}
-            className={`px-3 py-1 text-sm rounded-md ${filter === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-          >
-            Este Mes
-          </button>
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-3 py-1 text-sm rounded-md ${filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-          >
-            Todos
-          </button>
+    <div className="space-y-8">
+      <div
+        className="flex flex-col gap-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-blue-500/5 backdrop-blur lg:flex-row lg:items-center lg:justify-between"
+        data-aos="fade-up"
+      >
+        <div>
+          <h1 className="text-3xl font-semibold text-white">Seguimiento de Viajes</h1>
+          <p className="mt-2 max-w-3xl text-sm text-blue-100/70">
+            Controle el rendimiento operacional con métricas en vivo, gráficos avanzados y tableros listos para la acción.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {filterOptions.map(option => (
+            <button
+              key={option.id}
+              onClick={() => setFilter(option.id)}
+              className={`rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap ${
+                filter === option.id
+                  ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-inner shadow-blue-500/30'
+                  : 'border-white/10 bg-white/5 text-blue-100/70 hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-white'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       </div>
+
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded">
+        <div
+          data-aos="fade-up"
+          className="rounded-3xl border border-rose-500/40 bg-rose-500/10 px-5 py-4 text-sm text-rose-200"
+        >
           {error}
         </div>
       )}
-      
-      {/* Resumen */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-500 text-sm font-medium">Total de Viajes</h2>
-          <p className="text-2xl font-bold text-gray-800">{stats.totalTrips}</p>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-500 text-sm font-medium">Total de Órdenes</h2>
-          <p className="text-2xl font-bold text-gray-800">{stats.totalOrders}</p>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-500 text-sm font-medium">Distancia Total</h2>
-          <p className="text-2xl font-bold text-gray-800">{stats.totalDistance} mi</p>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-500 text-sm font-medium">Ingresos Totales</h2>
-          <p className="text-2xl font-bold text-gray-800">${stats.totalRevenue}</p>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-500 text-sm font-medium">Distancia Promedio</h2>
-          <p className="text-2xl font-bold text-gray-800">{stats.avgDistance} mi</p>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-500 text-sm font-medium">Precio Promedio</h2>
-          <p className="text-2xl font-bold text-gray-800">${stats.avgPrice}</p>
+
+      <div
+        className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-2xl shadow-blue-500/10 backdrop-blur"
+        data-aos="fade-up"
+        data-aos-delay="80"
+      >
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+          {overviewStats.map((stat, index) => (
+            <div
+              key={stat.label}
+              data-aos="fade-up"
+              data-aos-delay={String(60 * index)}
+              className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-blue-500/10"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-200/70">{stat.label}</p>
+              <p className={`mt-3 text-2xl font-semibold ${stat.accent}`}>{stat.value}{stat.suffix}</p>
+            </div>
+          ))}
         </div>
       </div>
-      
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-700 font-medium mb-4">Distancia por Día</h2>
-          {distanceData.labels.length > 0 ? (
-            <Line 
-              data={distanceData} 
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: { position: 'top' },
-                  title: { display: false }
-                }
-              }} 
-            />
-          ) : (
-            <p className="text-gray-500 text-center py-10">No hay datos disponibles</p>
-          )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div
+          className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-2xl shadow-blue-500/10 backdrop-blur"
+          data-aos="fade-up"
+          data-aos-delay="120"
+        >
+          <h2 className="text-lg font-semibold text-white">Distancia por día</h2>
+          <p className="mt-1 text-xs text-blue-100/60">Visualice la evolución diaria de distancias recorridas.</p>
+          <div className="mt-4">
+            {distanceData.labels.length > 0 ? (
+              <Line
+                data={distanceData}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: { position: 'top', labels: { color: '#cbd5f5' } },
+                    title: { display: false }
+                  },
+                  scales: {
+                    x: { ticks: { color: '#9fb7ff' }, grid: { color: 'rgba(148, 163, 209, 0.15)' } },
+                    y: { ticks: { color: '#9fb7ff' }, grid: { color: 'rgba(148, 163, 209, 0.15)' } }
+                  }
+                }}
+              />
+            ) : (
+              <p className="py-10 text-center text-sm text-blue-100/60">No hay datos disponibles.</p>
+            )}
+          </div>
         </div>
-        
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-700 font-medium mb-4">Ingresos por Día</h2>
-          {revenueData.labels.length > 0 ? (
-            <Bar 
-              data={revenueData} 
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: { position: 'top' },
-                  title: { display: false }
-                }
-              }} 
-            />
-          ) : (
-            <p className="text-gray-500 text-center py-10">No hay datos disponibles</p>
-          )}
+
+        <div
+          className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-2xl shadow-blue-500/10 backdrop-blur"
+          data-aos="fade-up"
+          data-aos-delay="160"
+        >
+          <h2 className="text-lg font-semibold text-white">Ingresos por día</h2>
+          <p className="mt-1 text-xs text-blue-100/60">Compare los ingresos generados en el período seleccionado.</p>
+          <div className="mt-4">
+            {revenueData.labels.length > 0 ? (
+              <Bar
+                data={revenueData}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: { position: 'top', labels: { color: '#cbd5f5' } },
+                    title: { display: false }
+                  },
+                  scales: {
+                    x: { ticks: { color: '#9fb7ff' }, grid: { color: 'rgba(148, 163, 209, 0.15)' } },
+                    y: { ticks: { color: '#9fb7ff' }, grid: { color: 'rgba(148, 163, 209, 0.15)' } }
+                  }
+                }}
+              />
+            ) : (
+              <p className="py-10 text-center text-sm text-blue-100/60">No hay datos disponibles.</p>
+            )}
+          </div>
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-700 font-medium mb-4">Uso de Factores de Recargo</h2>
-          {surchargeData.labels.length > 0 ? (
-            <div className="h-64">
-              <Pie 
-                data={surchargeData} 
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div
+          className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-2xl shadow-blue-500/10 backdrop-blur"
+          data-aos="fade-up"
+          data-aos-delay="200"
+        >
+          <h2 className="text-lg font-semibold text-white">Uso de factores de recargo</h2>
+          <p className="mt-1 text-xs text-blue-100/60">Identifique qué recargos se aplican con mayor frecuencia.</p>
+          <div className="mt-4 h-64">
+            {surchargeData.labels.length > 0 ? (
+              <Pie
+                data={surchargeData}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
                   plugins: {
-                    legend: { position: 'right' },
+                    legend: { position: 'right', labels: { color: '#cbd5f5' } },
                     title: { display: false }
                   }
-                }} 
+                }}
               />
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-10">No hay datos disponibles</p>
-          )}
+            ) : (
+              <p className="py-10 text-center text-sm text-blue-100/60">No hay datos disponibles.</p>
+            )}
+          </div>
         </div>
-        
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-700 font-medium mb-4">Viajes y Órdenes</h2>
-          
-          {loading ? (
-            <div className="space-y-2">
-              {[...Array(6)].map((_, idx) => (
-                <div key={idx} className="animate-pulse">
-                  <div className="h-10 bg-gray-100 rounded" />
-                </div>
-              ))}
-              <p className="text-xs text-gray-400 mt-2">Cargando datos...</p>
-            </div>
-          ) : filteredTrips.length === 0 && filteredOrders.length === 0 ? (
-            <p className="text-gray-500 text-center py-10">No hay viajes u órdenes registradas en este período</p>
-          ) : (
-            <div className="space-y-6">
-              {/* Viajes */}
-              {filteredTrips.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">Viajes ({filteredTrips.length})</h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Origen</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Destino</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Distancia</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredTrips.map((trip) => (
-                          <tr key={`trip-${trip.id}`}>
-                            <td className="px-4 py-2 text-sm text-gray-500">
-                              {new Date(trip.trip_date || trip.created_at || trip.date).toLocaleDateString()}
-                            </td>
-                            <td className="px-4 py-2 text-sm text-gray-500">
-                              {trip.origin_address || trip.origin || 'N/A'}
-                            </td>
-                            <td className="px-4 py-2 text-sm text-gray-500">
-                              {trip.destination_address || trip.destination || 'N/A'}
-                            </td>
-                            <td className="px-4 py-2 text-sm text-gray-500">
-                              {trip.distance_miles || trip.distance || 0} mi
-                            </td>
-                            <td className="px-4 py-2 text-sm text-gray-500">
-                              ${trip.final_price || trip.price || 0}
-                            </td>
-                            <td className="px-4 py-2 text-right text-sm">
-                              <button
-                                onClick={() => handleDeleteTrip(trip)}
-                                className="text-red-600 hover:text-red-800 text-xs"
-                              >
-                                Eliminar
-                              </button>
-                            </td>
+
+        <div
+          className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-2xl shadow-blue-500/10 backdrop-blur"
+          data-aos="fade-up"
+          data-aos-delay="240"
+        >
+          <h2 className="text-lg font-semibold text-white">Viajes y órdenes</h2>
+          <p className="mt-1 text-xs text-blue-100/60">Revise registros recientes y gestione acciones críticas.</p>
+          <div className="mt-4">
+            {loading ? (
+              <div className="space-y-3">
+                {[...Array(6)].map((_, idx) => (
+                  <div key={idx} className="h-9 w-full animate-pulse rounded-xl bg-white/5" />
+                ))}
+                <p className="text-xs text-blue-100/60">Cargando datos...</p>
+              </div>
+            ) : filteredTrips.length === 0 && filteredOrders.length === 0 ? (
+              <p className="py-10 text-center text-sm text-blue-100/60">No hay viajes u órdenes registradas en este período.</p>
+            ) : (
+              <div className="space-y-6">
+                {filteredTrips.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Viajes ({filteredTrips.length})</h3>
+                    <div className="mt-3 overflow-x-auto rounded-2xl border border-white/10">
+                      <table className="min-w-full divide-y divide-white/10 text-left text-sm text-blue-100/80">
+                        <thead className="bg-white/5 text-blue-100 text-sm uppercase tracking-[0.12em]">
+                          <tr>
+                            <th className="px-4 py-3 font-semibold whitespace-nowrap">Fecha</th>
+                            <th className="px-4 py-3 font-semibold whitespace-nowrap">Origen</th>
+                            <th className="px-4 py-3 font-semibold whitespace-nowrap">Destino</th>
+                            <th className="px-4 py-3 font-semibold whitespace-nowrap">Distancia</th>
+                            <th className="px-4 py-3 font-semibold whitespace-nowrap">Precio</th>
+                            <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Acciones</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {filteredTrips.map((trip) => (
+                            <tr
+                              key={`trip-${trip.id}`}
+                              className="bg-white/5"
+                            >
+                              <td className="px-4 py-3 text-sm text-blue-100/80">
+                                {new Date(trip.trip_date || trip.created_at || trip.date).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-blue-100/80">
+                                {trip.origin_address || trip.origin || 'N/A'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-blue-100/80">
+                                {trip.destination_address || trip.destination || 'N/A'}
+                              </td>
+                              <td className="px-4 py-3 text-sm font-semibold text-white">
+                                {trip.distance_miles || trip.distance || 0} mi
+                              </td>
+                              <td className="px-4 py-3 text-sm font-semibold text-white whitespace-nowrap">
+                                ${trip.final_price || trip.price || 0}
+                              </td>
+                              <td className="px-4 py-3 text-right text-sm">
+                                <button
+                                  onClick={() => handleDeleteTrip(trip)}
+                                  className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20 hover:text-rose-100 whitespace-nowrap"
+                                >
+                                  Eliminar
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              )}
-              
-              {/* Órdenes */}
-              {filteredOrders.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">Órdenes ({filteredOrders.length})</h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredOrders.map((order) => (
-                          <tr key={`order-${order.id}`}>
-                            <td className="px-4 py-2 text-sm text-gray-500">
-                              {new Date(order.created_at || order.order_date).toLocaleDateString()}
-                            </td>
-                            <td className="px-4 py-2 text-sm">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                                {order.status || 'pending'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2 text-sm text-gray-500">
-                              ${order.total_amount || 0}
-                            </td>
-                            <td className="px-4 py-2 text-sm text-gray-500">
-                              {order.user_name || order.username || 'N/A'}
-                            </td>
+                )}
+
+                {filteredOrders.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Órdenes ({filteredOrders.length})</h3>
+                    <div className="mt-3 overflow-x-auto rounded-2xl border border-white/10">
+                      <table className="min-w-full divide-y divide-white/10 text-left text-sm text-blue-100/80">
+                        <thead className="bg-white/5 text-blue-100 text-sm uppercase tracking-[0.12em]">
+                          <tr>
+                            <th className="px-4 py-3 font-semibold whitespace-nowrap">Fecha</th>
+                            <th className="px-4 py-3 font-semibold whitespace-nowrap">Estado</th>
+                            <th className="px-4 py-3 font-semibold whitespace-nowrap">Total</th>
+                            <th className="px-4 py-3 font-semibold whitespace-nowrap">Usuario</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {filteredOrders.map((order) => (
+                            <tr
+                              key={`order-${order.id}`}
+                              className="bg-white/5"
+                            >
+                              <td className="px-4 py-3 text-sm text-blue-100/80">
+                                {new Date(order.created_at || order.order_date).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                <span
+                                  className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
+                                    order.status === 'completed'
+                                      ? 'bg-emerald-500/20 text-emerald-200'
+                                      : order.status === 'pending'
+                                        ? 'bg-amber-400/20 text-amber-100'
+                                        : 'bg-rose-500/20 text-rose-200'
+                                  }`}
+                                >
+                                  {order.status || 'pending'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm font-semibold text-white whitespace-nowrap">
+                                ${order.total_amount || 0}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-blue-100/80">
+                                {order.user_name || order.username || 'N/A'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

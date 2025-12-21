@@ -24,6 +24,33 @@ export const authService = {
       ...profileData
     };
 
+    const now = new Date();
+    const expiresAt = profileData?.expires_at ? new Date(profileData.expires_at) : null;
+    const hasValidExpiry = expiresAt instanceof Date && !Number.isNaN(expiresAt.getTime());
+    const isExpired = Boolean(profileData?.is_temporary && hasValidExpiry && expiresAt < now);
+    const isInactive = profileData?.is_active === false;
+
+    if (isInactive || isExpired) {
+      try {
+        await supabaseService.signOut();
+      } catch (_signOutError) {
+        // Ignore sign-out failures; we'll still clear local storage below.
+      }
+
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(SESSION_KEY);
+
+      const statusError = new Error(
+        isInactive
+          ? 'Tu cuenta está deshabilitada. Revisa nuestros planes para continuar.'
+          : 'Tu acceso temporal ha expirado. Descubre nuestros planes para continuar.'
+      );
+      statusError.code = isInactive ? 'ACCOUNT_DISABLED' : 'ACCESS_EXPIRED';
+      statusError.email = combinedUser.email || email;
+      statusError.userId = combinedUser.id;
+      throw statusError;
+    }
+
     if (response.session && combinedUser.id) {
       localStorage.setItem(SESSION_KEY, JSON.stringify(response.session));
       localStorage.setItem(USER_KEY, JSON.stringify(combinedUser));

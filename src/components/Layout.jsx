@@ -18,7 +18,10 @@ const Layout = ({ onLogout }) => {
   }
 
   const navLinkClass = ({ isActive }) => {
-    return `block px-4 py-2 rounded-md ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`
+    const base = 'block rounded-full px-4 py-2 text-sm font-medium transition'
+    return isActive
+      ? `${base} bg-blue-500/90 text-white shadow-lg shadow-blue-500/30`
+      : `${base} text-blue-100/80 hover:bg-white/10 hover:text-white`
   }
 
   const visibleNavItems = useMemo(() => ([
@@ -31,15 +34,15 @@ const Layout = ({ onLogout }) => {
   ]), [hasFeature, isAdmin])
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="relative min-h-screen bg-slate-950 text-blue-100/80">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="border-b border-white/10 bg-slate-900/80 backdrop-blur">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3 py-3 md:h-16 md:flex-nowrap md:gap-6">
             <div className="flex items-center">
               <Logo 
                 size="small" 
-                variant="black"
+                variant="white"
                 showText={true}
                 text="JGEx"
                 className="transition-transform hover:scale-105"
@@ -53,7 +56,7 @@ const Layout = ({ onLogout }) => {
               ))}
               <button 
                 onClick={onLogout}
-                className="px-4 py-2 rounded-md text-red-600 hover:bg-red-50"
+                className="rounded-full border border-red-400/40 px-4 py-2 text-sm font-medium text-red-200 transition hover:border-red-300/70 hover:bg-red-500/10 hover:text-red-50"
               >
                 Cerrar Sesión
               </button>
@@ -63,7 +66,7 @@ const Layout = ({ onLogout }) => {
             <div className="flex items-center md:hidden">
               <button 
                 onClick={toggleMobileMenu}
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+                className="inline-flex items-center justify-center rounded-full bg-white/10 p-2 text-blue-100 transition hover:bg-white/20"
               >
                 <span className="sr-only">Abrir menú</span>
                 <svg 
@@ -88,12 +91,12 @@ const Layout = ({ onLogout }) => {
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
           <div className="md:hidden">
-            <div className="mx-4 mt-2 rounded-md bg-white shadow-lg ring-1 ring-black/5">
+            <div className="mx-4 mt-2 rounded-2xl border border-white/10 bg-slate-900/90 p-2 shadow-xl shadow-blue-900/40">
               {visibleNavItems.filter(item => item.show).map(item => (
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                  className="block rounded-xl px-4 py-2 text-sm text-blue-100/80 transition hover:bg-white/10 hover:text-white"
                   onClick={closeMobileMenu}
                 >
                   {item.label}
@@ -104,7 +107,7 @@ const Layout = ({ onLogout }) => {
                   closeMobileMenu();
                   onLogout(e);
                 }}
-                className="block w-full px-4 py-2 text-left text-red-600 hover:bg-red-50"
+                className="mt-2 block w-full rounded-xl px-4 py-2 text-left text-sm text-red-200 transition hover:bg-red-500/10 hover:text-red-50"
               >
                 Cerrar Sesión
               </button>
@@ -114,21 +117,23 @@ const Layout = ({ onLogout }) => {
       </header>
       
       {/* Main Content */}
-      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <Outlet />
       </main>
       
       {/* Footer */}
-      <footer className="bg-white shadow-inner py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-gray-500 text-sm">
-            &copy; {new Date().getFullYear()} JGEx - Calculadora de Distancias
+      <footer className="border-t border-white/10 bg-slate-900/70 py-4">
+        <div className="mx-auto max-w-7xl px-4 text-sm text-blue-200/80 sm:px-6 lg:px-8">
+          <p className="text-center">
+            &copy; {new Date().getFullYear()} JGEx · Calculadora de Distancias
           </p>
         </div>
       </footer>
       
       {/* API Health Indicator */}
-      <ApiHealthIndicator />
+      <div className="absolute bottom-6 left-6 z-20">
+        <ApiHealthIndicator />
+      </div>
     </div>
   )
 }

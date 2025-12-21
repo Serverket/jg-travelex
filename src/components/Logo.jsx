@@ -4,7 +4,7 @@ const Logo = ({
   size = 'medium', 
   className = '', 
   showDropShadow = false,
-  variant = 'black', // 'black' or 'original'
+  variant = 'black', // 'black', 'white' or 'original'
   showText = false, // Show text under logo
   text = 'JGEx',
   alt = 'JG Travelex Logo'
@@ -37,6 +37,10 @@ const Logo = ({
     ? 'brightness-0 saturate-100' // Converts any color to pure black
     : ''
 
+  const textColorClasses = variant === 'white'
+    ? 'text-white'
+    : 'text-gray-800'
+
   if (showText) {
     return (
       <div className={`flex flex-col items-center justify-center ${className}`}>
@@ -45,7 +49,7 @@ const Logo = ({
           alt={alt}
           className={`${sizeClasses[size]} ${shadowClasses} ${variantClasses} mb-1`}
         />
-        <div className={`${textSizeClasses[size]} font-bold text-gray-800 leading-none`}>
+  <div className={`${textSizeClasses[size]} font-bold ${textColorClasses} leading-none`}>
           {text}
         </div>
       </div>

@@ -5,7 +5,6 @@ import { Line, Bar } from 'react-chartjs-2'
 import { tripService } from '../services/tripService'
 import { orderService } from '../services/orderService'
 import { invoiceService } from '../services/invoiceService'
-import Logo from '../components/Logo'
 
 // Registrar componentes de Chart.js
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend)
@@ -187,113 +186,151 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-14 w-14 animate-spin rounded-full border-2 border-blue-400/60 border-t-transparent" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        <div className="text-sm text-gray-500">
-          Welcome back, {user?.full_name || user?.username || 'User'}
+    <div className="space-y-10 text-slate-100">
+      <div
+        className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+        data-aos="fade-up"
+      >
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.45em] text-blue-300/70">Dashboard</p>
+          <h1 className="text-3xl font-bold text-white sm:text-4xl">Tu Panel de Operaciones</h1>
+        </div>
+        <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-blue-100/80 shadow-lg shadow-blue-900/20">
+          Bienvenido de nuevo, {user?.full_name || user?.username || 'Usuario'}
         </div>
       </div>
       
       {/* Tarjetas de estadísticas */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-lg bg-white p-4 shadow">
-          <h2 className="text-gray-500 text-sm font-medium">Total de Viajes</h2>
-          <p className="text-2xl font-bold text-gray-800">{stats.totalTrips}</p>
-        </div>
-        
-        <div className="rounded-lg bg-white p-4 shadow">
-          <h2 className="text-gray-500 text-sm font-medium">Distancia Total (millas)</h2>
-          <p className="text-2xl font-bold text-gray-800">{stats.totalDistance}</p>
-        </div>
-        
-        <div className="rounded-lg bg-white p-4 shadow">
-          <h2 className="text-gray-500 text-sm font-medium">Ingresos Totales ($)</h2>
-          <p className="text-2xl font-bold text-gray-800">{stats.totalRevenue}</p>
-        </div>
-        
-        <div className="rounded-lg bg-white p-4 shadow">
-          <h2 className="text-gray-500 text-sm font-medium">Órdenes Pendientes</h2>
-          <p className="text-2xl font-bold text-gray-800">{stats.pendingOrders}</p>
-        </div>
+      <div
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        {[{
+          label: 'Total de Viajes',
+          value: stats.totalTrips,
+        }, {
+          label: 'Distancia Total (millas)',
+          value: stats.totalDistance,
+        }, {
+          label: 'Ingresos Totales ($)',
+          value: stats.totalRevenue,
+        }, {
+          label: 'Órdenes Pendientes',
+          value: stats.pendingOrders,
+        }].map((item, index) => (
+          <div
+            key={item.label}
+            data-aos="fade-up"
+            data-aos-delay={String(80 * index)}
+            className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg shadow-blue-950/20 backdrop-blur-lg"
+          >
+            <p className="text-xs uppercase tracking-[0.3em] text-blue-200/80">{item.label}</p>
+            <p className="mt-3 text-3xl font-semibold text-white">
+              {item.value}
+            </p>
+          </div>
+        ))}
       </div>
       
       {/* Gráficos */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg bg-white p-4 shadow">
-          <h2 className="mb-4 font-medium text-gray-700">Viajes por Día (Últimos 7 días)</h2>
-          {tripsByDay.labels.length > 0 && (
+        <div
+          className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-blue-950/20 backdrop-blur-lg"
+          data-aos="fade-up"
+          data-aos-delay="100"
+        >
+          <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Viajes por Día (últimos 7 días)</h2>
+          {tripsByDay.labels.length > 0 ? (
             <Line 
               data={tripsByDay} 
               options={{
                 responsive: true,
                 plugins: {
-                  legend: { position: 'top' },
+                  legend: { labels: { color: '#E2E8F0' }, position: 'top' },
                   title: { display: false }
+                },
+                scales: {
+                  x: { ticks: { color: '#94A3B8' }, grid: { color: 'rgba(148, 163, 184, 0.2)' } },
+                  y: { ticks: { color: '#94A3B8' }, grid: { color: 'rgba(148, 163, 184, 0.15)' } }
                 }
               }} 
             />
+          ) : (
+            <p className="text-sm text-blue-200/70">Aún no hay suficientes datos para graficar.</p>
           )}
         </div>
         
-        <div className="rounded-lg bg-white p-4 shadow">
-          <h2 className="mb-4 font-medium text-gray-700">Ingresos por Mes</h2>
-          {revenueByMonth.labels.length > 0 && (
+        <div
+          className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-blue-950/20 backdrop-blur-lg"
+          data-aos="fade-up"
+          data-aos-delay="160"
+        >
+          <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Ingresos por Mes</h2>
+          {revenueByMonth.labels.length > 0 ? (
             <Bar 
               data={revenueByMonth} 
               options={{
                 responsive: true,
                 plugins: {
-                  legend: { position: 'top' },
+                  legend: { labels: { color: '#E2E8F0' }, position: 'top' },
                   title: { display: false }
+                },
+                scales: {
+                  x: { ticks: { color: '#94A3B8' }, grid: { color: 'rgba(148, 163, 184, 0.15)' } },
+                  y: { ticks: { color: '#94A3B8' }, grid: { color: 'rgba(148, 163, 184, 0.12)' } }
                 }
               }} 
             />
+          ) : (
+            <p className="text-sm text-blue-200/70">Aún no hay suficientes datos para graficar.</p>
           )}
         </div>
       </div>
       
       {/* Actividad reciente */}
-      <div className="rounded-lg bg-white p-4 shadow">
-        <h2 className="mb-4 font-medium text-gray-700">Actividad Reciente</h2>
+      <div
+        className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-blue-950/20 backdrop-blur-lg"
+        data-aos="fade-up"
+        data-aos-delay="220"
+      >
+        <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Actividad Reciente</h2>
         
         {trips.length === 0 ? (
-          <p className="text-gray-500">No hay viajes registrados aún.</p>
+          <p className="text-sm text-blue-200/70">No hay viajes registrados aún.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-white/10 text-sm text-slate-100">
+              <thead className="bg-white/5 text-sm uppercase tracking-[0.12em] text-blue-200/80">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origen</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destino</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
+                  <th className="px-6 py-3 text-left whitespace-nowrap">Fecha</th>
+                  <th className="px-6 py-3 text-left whitespace-nowrap">Origen</th>
+                  <th className="px-6 py-3 text-left whitespace-nowrap">Destino</th>
+                  <th className="px-6 py-3 text-left whitespace-nowrap">Distancia</th>
+                  <th className="px-6 py-3 text-left whitespace-nowrap">Precio</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-white/5">
                 {trips.slice(-5).reverse().map((trip) => (
-                  <tr key={trip.id}>
-                    <td className="px-4 py-3 text-sm text-gray-600 break-words md:px-6 md:whitespace-nowrap">
+                  <tr key={trip.id} className="transition hover:bg-white/5">
+                    <td className="px-4 py-3 md:px-6">
                       {new Date(trip.trip_date || trip.created_at || trip.date).toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 break-words md:px-6 md:whitespace-nowrap">
+                    <td className="px-4 py-3 md:px-6">
                       {trip.origin_address || trip.origin || 'N/A'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 break-words md:px-6 md:whitespace-nowrap">
+                    <td className="px-4 py-3 md:px-6">
                       {trip.destination_address || trip.destination || 'N/A'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 md:px-6 md:whitespace-nowrap">
+                    <td className="px-4 py-3 md:px-6">
                       {trip.distance_miles || trip.distance || 0} millas
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 md:px-6 md:whitespace-nowrap">
+                    <td className="px-4 py-3 md:px-6">
                       ${trip.final_price || trip.price || 0}
                     </td>
                   </tr>

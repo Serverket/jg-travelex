@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { GoogleMap, useJsApiLoader, DirectionsRenderer } from '@react-google-maps/api'
 import PlaceSearch from '../components/PlaceSearch'
@@ -45,6 +45,12 @@ const DistanceCalculator = () => {
   const [error, setError] = useState('')
   const [orderCreated, setOrderCreated] = useState(false)
   const [center, setCenter] = useState({ lat: 37.7749, lng: -122.4194 }) // San Francisco por defecto
+  const lastTripRef = useRef(null)
+  const surfacePanelClass = 'rounded-3xl border border-white/10 bg-white/5 shadow-xl shadow-blue-950/20 backdrop-blur-lg'
+
+  const subtlePanelClass = 'rounded-2xl border border-white/10 bg-white/5'
+
+  const chipClass = 'rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-blue-100/80 shadow-lg shadow-blue-950/20'
 
   // Cargar la API de Google Maps
   const { isLoaded } = useJsApiLoader({
@@ -206,14 +212,22 @@ const DistanceCalculator = () => {
     });
   }
 
-  // Guardar el viaje
-  const saveTrip = async () => {
-    if (!distance && !duration) {
-      setError('Primero debe ingresar distancia o duración')
-      return
+  // Derive a lightweight fingerprint so we can reuse the last trip instead of duplicating it
+  const createTripSignature = (payload) => JSON.stringify({
+    origin: payload.origin_address || '',
+    destination: payload.destination_address || '',
+    distance: Number(payload.distance_miles ?? 0).toFixed(2),
+    duration: Number(payload.duration_minutes ?? 0),
+    date: payload.trip_date || '',
+    price: Number(payload.final_price ?? 0).toFixed(2)
+  })
+
+  const buildTripPayload = () => {
+    if (!currentUser || !currentUser.id) {
+      setError('Debe iniciar sesión para guardar el viaje')
+      return null
     }
 
-    // Use provided origin/destination or default values for distance-only mode
     const originDescription = origin 
       ? (typeof origin === 'string' ? origin : origin.description)
       : 'Origen no especificado'
@@ -222,68 +236,95 @@ const DistanceCalculator = () => {
       ? (typeof destination === 'string' ? destination : destination.description)
       : 'Destino no especificado'
 
+    const today = new Date()
+    const tripDate = today.toISOString().split('T')[0]
+    const distanceMiles = Number(distance || 0)
+    const durationMinutes = duration ? Math.round(Number(duration) * 60) : 0
+
+    return {
+      origin_address: originDescription,
+      destination_address: destinationDescription,
+      ...(origin && origin.lat != null && origin.lng != null ? { 
+        origin_lat: origin.lat, 
+        origin_lng: origin.lng 
+      } : {
+        origin_lat: 0,
+        origin_lng: 0
+      }),
+      ...(destination && destination.lat != null && destination.lng != null ? { 
+        destination_lat: destination.lat, 
+        destination_lng: destination.lng 
+      } : {
+        destination_lat: 0,
+        destination_lng: 0
+      }),
+      distance_miles: distanceMiles,
+      distance_km: Number((distanceMiles * 1.60934).toFixed(2)),
+      duration_minutes: durationMinutes,
+      trip_date: tripDate,
+      base_price: quoteBreakdown?.base !== undefined ? Number(quoteBreakdown.base) : 0,
+      surcharges: Array.isArray(quoteBreakdown?.surcharges)
+        ? quoteBreakdown.surcharges.reduce((sum, s) => sum + Number(s.amount || 0), 0)
+        : 0,
+      discounts: Array.isArray(quoteBreakdown?.discounts)
+        ? quoteBreakdown.discounts.reduce((sum, d) => sum + Number(d.amount || 0), 0)
+        : 0,
+      final_price: price != null ? Number(price) : 0
+    }
+  }
+
+  // Persist trip by updating the most recent entry when the form submission matches the prior one
+  const persistTrip = async (tripPayload) => {
+    const signature = createTripSignature(tripPayload)
+    const lastTrip = lastTripRef.current
+
+    if (lastTrip && lastTrip.signature === signature && lastTrip.id) {
+      const updatedTrip = await tripService.updateTrip(lastTrip.id, tripPayload)
+      lastTripRef.current = { id: updatedTrip.id, signature }
+      return { trip: updatedTrip, wasNew: false }
+    }
+
+    const savedTrip = await tripService.createTrip(tripPayload)
+    lastTripRef.current = { id: savedTrip.id, signature }
+    return { trip: savedTrip, wasNew: true }
+  }
+
+  const applyBreakdownToTrip = async (tripId, isNew) => {
+    if (!isNew || !tripId) return
+
+    if (quoteBreakdown?.surcharges?.length) {
+      await Promise.all(
+        quoteBreakdown.surcharges.map(s =>
+          tripService.addSurcharge(tripId, s.id, s.amount)
+        )
+      )
+    }
+
+    if (quoteBreakdown?.discounts?.length) {
+      await Promise.all(
+        quoteBreakdown.discounts.map(d =>
+          tripService.addDiscount(tripId, d.id, d.amount)
+        )
+      )
+    }
+  }
+
+  // Guardar el viaje
+  const saveTrip = async () => {
+    if (!distance && !duration) {
+      setError('Primero debe ingresar distancia o duración')
+      return
+    }
+
     try {
-      if (!currentUser || !currentUser.id) {
-        setError('Debe iniciar sesión para guardar el viaje')
-        return
-      }
-      
-      const today = new Date()
-      const tripDate = today.toISOString().split('T')[0] // YYYY-MM-DD
-      const distanceMiles = Number(distance || 0)
-      const durationMinutes = duration ? Math.round(Number(duration) * 60) : 0 // Default to 0 instead of null
+      const tripPayload = buildTripPayload()
+      if (!tripPayload) return
 
-      const tripData = {
-        origin_address: originDescription,
-        destination_address: destinationDescription,
-        ...(origin && origin.lat != null && origin.lng != null ? { 
-          origin_lat: origin.lat, 
-          origin_lng: origin.lng 
-        } : {
-          origin_lat: 0, // Default values for required fields
-          origin_lng: 0
-        }),
-        ...(destination && destination.lat != null && destination.lng != null ? { 
-          destination_lat: destination.lat, 
-          destination_lng: destination.lng 
-        } : {
-          destination_lat: 0, // Default values for required fields
-          destination_lng: 0
-        }),
-        distance_miles: distanceMiles,
-        distance_km: Number((distanceMiles * 1.60934).toFixed(2)),
-        duration_minutes: durationMinutes,
-        trip_date: tripDate,
-        base_price: quoteBreakdown?.base !== undefined ? Number(quoteBreakdown.base) : 0, // Default to 0 instead of null
-        surcharges: Array.isArray(quoteBreakdown?.surcharges)
-          ? quoteBreakdown.surcharges.reduce((sum, s) => sum + Number(s.amount || 0), 0)
-          : 0, // Default to 0 instead of null
-        discounts: Array.isArray(quoteBreakdown?.discounts)
-          ? quoteBreakdown.discounts.reduce((sum, d) => sum + Number(d.amount || 0), 0)
-          : 0, // Default to 0 instead of null
-        final_price: price != null ? Number(price) : 0 // Default to 0 instead of null
-      }
-
-      const savedTrip = await tripService.createTrip(tripData)
-      
-      // Save surcharges and discounts with amounts from backend breakdown
-      if (quoteBreakdown?.surcharges?.length) {
-        await Promise.all(
-          quoteBreakdown.surcharges.map(s =>
-            tripService.addSurcharge(savedTrip.id, s.id, s.amount)
-          )
-        )
-      }
-      if (quoteBreakdown?.discounts?.length) {
-        await Promise.all(
-          quoteBreakdown.discounts.map(d =>
-            tripService.addDiscount(savedTrip.id, d.id, d.amount)
-          )
-        )
-      }
+      const { trip: savedTrip, wasNew } = await persistTrip(tripPayload)
+      await applyBreakdownToTrip(savedTrip.id, wasNew)
       
       setError('')
-      toast.success('Viaje guardado correctamente')
+      toast.success(wasNew ? 'Viaje guardado correctamente' : 'Viaje actualizado sin duplicados')
     } catch (error) {
       console.error('Error saving trip:', error)
       setError('Error al guardar el viaje')
@@ -297,70 +338,12 @@ const DistanceCalculator = () => {
       return
     }
 
-    // Use provided origin/destination or default values for distance-only mode
-    const originDescription = origin 
-      ? (typeof origin === 'string' ? origin : origin.description)
-      : 'Origen no especificado'
-      
-    const destinationDescription = destination
-      ? (typeof destination === 'string' ? destination : destination.description)
-      : 'Destino no especificado'
-
     try {
-      // First save the trip
-      const today = new Date()
-      const tripDate = today.toISOString().split('T')[0] // YYYY-MM-DD
-      const distanceMiles = Number(distance || 0)
-      const durationMinutes = duration ? Math.round(Number(duration) * 60) : 0 // Default to 0 instead of null
+      const tripPayload = buildTripPayload()
+      if (!tripPayload) return
 
-      const tripData = {
-        origin_address: originDescription,
-        destination_address: destinationDescription,
-        ...(origin && origin.lat != null && origin.lng != null ? { 
-          origin_lat: origin.lat, 
-          origin_lng: origin.lng 
-        } : {
-          origin_lat: 0, // Default values for required fields
-          origin_lng: 0
-        }),
-        ...(destination && destination.lat != null && destination.lng != null ? { 
-          destination_lat: destination.lat, 
-          destination_lng: destination.lng 
-        } : {
-          destination_lat: 0, // Default values for required fields
-          destination_lng: 0
-        }),
-        distance_miles: distanceMiles,
-        distance_km: Number((distanceMiles * 1.60934).toFixed(2)),
-        duration_minutes: durationMinutes,
-        trip_date: tripDate,
-        base_price: quoteBreakdown?.base !== undefined ? Number(quoteBreakdown.base) : 0,
-        surcharges: Array.isArray(quoteBreakdown?.surcharges)
-          ? quoteBreakdown.surcharges.reduce((sum, s) => sum + Number(s.amount || 0), 0)
-          : 0, // Default to 0 instead of null
-        discounts: Array.isArray(quoteBreakdown?.discounts)
-          ? quoteBreakdown.discounts.reduce((sum, d) => sum + Number(d.amount || 0), 0)
-          : 0, // Default to 0 instead of null
-        final_price: price != null ? Number(price) : 0 // Default to 0 instead of null
-      }
-
-      const savedTrip = await tripService.createTrip(tripData)
-      
-      // Save surcharges and discounts with amounts from backend breakdown
-      if (quoteBreakdown?.surcharges?.length) {
-        await Promise.all(
-          quoteBreakdown.surcharges.map(s =>
-            tripService.addSurcharge(savedTrip.id, s.id, s.amount)
-          )
-        )
-      }
-      if (quoteBreakdown?.discounts?.length) {
-        await Promise.all(
-          quoteBreakdown.discounts.map(d =>
-            tripService.addDiscount(savedTrip.id, d.id, d.amount)
-          )
-        )
-      }
+      const { trip: persistedTrip, wasNew } = await persistTrip(tripPayload)
+      await applyBreakdownToTrip(persistedTrip.id, wasNew)
       
       // Create order
       if (!activeUser?.id) {
@@ -381,7 +364,7 @@ const DistanceCalculator = () => {
       // Create order item linked to the trip
       const orderItemData = {
         order_id: createdOrder.id,
-        trip_id: savedTrip.id,
+        trip_id: persistedTrip.id,
         amount: parseFloat(price)
       };
       console.log('Creating order item with data:', orderItemData);
@@ -396,7 +379,7 @@ const DistanceCalculator = () => {
         total_amount: parseFloat(price),
         created_at: new Date().toISOString(),
         items: [createdOrderItem],
-        tripData: savedTrip
+        tripData: persistedTrip
       };
       
       // Order created successfully
@@ -435,12 +418,16 @@ const DistanceCalculator = () => {
         )
       case 'google':
         if (!isLoaded) {
-          return <div className="flex justify-center items-center h-64">Cargando Google Maps...</div>
+          return (
+            <div className="flex h-64 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-blue-100/80">
+              Cargando Google Maps...
+            </div>
+          )
         }
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Origen</label>
+              <label className="mb-1 block text-sm font-semibold text-blue-100/90">Origen</label>
               <PlaceSearch 
                 placeholder="Ingrese dirección de origen" 
                 onPlaceSelect={handleOriginSelect} 
@@ -448,7 +435,7 @@ const DistanceCalculator = () => {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Destino</label>
+              <label className="mb-1 block text-sm font-semibold text-blue-100/90">Destino</label>
               <PlaceSearch 
                 placeholder="Ingrese dirección de destino" 
                 onPlaceSelect={handleDestinationSelect} 
@@ -458,7 +445,7 @@ const DistanceCalculator = () => {
             <button
               onClick={calculateGoogleRoute}
               disabled={isLoading || !origin || !destination}
-              className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
+              className="w-full rounded-full border border-white/10 bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:cursor-not-allowed disabled:bg-blue-500/40"
             >
               {isLoading ? 'Calculando...' : 'Calcular Ruta'}
             </button>
@@ -513,13 +500,19 @@ const DistanceCalculator = () => {
           )
         }
         return (
-          <div className="h-96 w-full rounded overflow-hidden bg-gray-100 flex items-center justify-center">
-            <div className="text-center p-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex h-96 w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+            <div className="p-4 text-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="mx-auto mb-4 h-16 w-16 text-blue-300/60"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
               </svg>
-              <p className="text-gray-500">Modo de cálculo manual</p>
-              <p className="text-gray-400 text-sm mt-2">No se muestra mapa en este modo</p>
+              <p className="text-sm font-semibold text-blue-100/80">Modo de cálculo manual</p>
+              <p className="mt-2 text-xs text-blue-200/70">No se muestra mapa en este modo</p>
             </div>
           </div>
         )
@@ -529,22 +522,28 @@ const DistanceCalculator = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10 text-blue-100/90">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Calculadora de Distancias</h1>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.45em] text-blue-300/70">Planificador</p>
+          <h1 className="text-3xl font-bold text-white sm:text-4xl">Calculadora de Distancias</h1>
+        </div>
         {(distance || duration) && price && (
-          <p className="text-sm text-gray-500">
-            Precio estimado: <span className="font-semibold text-gray-700">${price}</span>
-          </p>
+          <div className={chipClass}>
+            Precio estimado: <span className="font-semibold text-white">${price}</span>
+          </div>
         )}
       </div>
       
       {/* Selector de método de cálculo */}
-      <div className="bg-white p-4 rounded-lg shadow">
-        <h2 className="text-lg font-medium text-gray-700 mb-4">Método de Cálculo</h2>
+      <div className={`${surfacePanelClass} p-6`}>
+        <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Método de Cálculo</h2>
         
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label htmlFor="method-manual" className="flex cursor-pointer flex-col rounded-lg border border-gray-200 p-3 transition hover:border-blue-400">
+          <label
+            htmlFor="method-manual"
+            className="flex cursor-pointer flex-col rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-blue-300/60 hover:bg-white/10"
+          >
             <div className="flex items-start gap-3">
               <input
                 type="radio"
@@ -553,16 +552,25 @@ const DistanceCalculator = () => {
                 value="manual"
                 checked={calculationMethod === 'manual'}
                 onChange={() => setCalculationMethod('manual')}
-                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                className="mt-1 h-4 w-4 text-blue-500 focus:ring-blue-300"
               />
               <div>
-                <p className="text-sm font-medium text-gray-700">Cálculo Inteligente</p>
-                <p className="mt-1 text-xs text-gray-500">Ingrese origen, destino, distancia y duración manualmente.</p>
+                <p className="text-sm font-semibold text-white">Cálculo Inteligente</p>
+                <p className="mt-1 text-xs text-blue-200/80">
+                  Ingrese origen, destino, distancia y duración manualmente.
+                </p>
               </div>
             </div>
           </label>
           
-          <label htmlFor="method-google" className={`flex cursor-pointer flex-col rounded-lg border p-3 transition ${googleMapsApiKeyAvailable ? 'border-gray-200 hover:border-blue-400' : 'border-gray-200 bg-gray-50 cursor-not-allowed'}`}>
+          <label
+            htmlFor="method-google"
+            className={`flex cursor-pointer flex-col rounded-2xl border p-4 transition ${
+              googleMapsApiKeyAvailable
+                ? 'border-white/10 bg-white/5 hover:border-blue-300/60 hover:bg-white/10'
+                : 'cursor-not-allowed border-white/5 bg-white/5 opacity-60'
+            }`}
+          >
             <div className="flex items-start gap-3">
               <input
                 type="radio"
@@ -572,11 +580,11 @@ const DistanceCalculator = () => {
                 checked={calculationMethod === 'google'}
                 onChange={() => setCalculationMethod('google')}
                 disabled={!googleMapsApiKeyAvailable}
-                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 disabled:text-gray-400"
+                className="mt-1 h-4 w-4 text-blue-500 focus:ring-blue-300 disabled:text-slate-400"
               />
               <div>
-                <p className={`text-sm font-medium ${!googleMapsApiKeyAvailable ? 'text-gray-400' : 'text-gray-700'}`}>Google Maps</p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className={`text-sm font-semibold ${!googleMapsApiKeyAvailable ? 'text-slate-400' : 'text-white'}`}>Google Maps</p>
+                <p className="mt-1 text-xs text-blue-200/80">
                   {googleMapsApiKeyAvailable 
                     ? 'Cálculo preciso usando la API de Google Maps.' 
                     : 'Requiere API key de Google Maps (no disponible).'}
@@ -587,36 +595,44 @@ const DistanceCalculator = () => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Formulario */}
-        <div className="lg:col-span-1 bg-white p-4 rounded-lg shadow space-y-4">
-          <h2 className="text-lg font-medium text-gray-700 mb-4">Detalles del Viaje</h2>
+        <div className={`${surfacePanelClass} space-y-4 p-6`}>
+          <h2 className="text-lg font-semibold text-blue-100/90">Detalles del Viaje</h2>
           
           {renderCalculationMethod()}
           
           <button
             onClick={clearForm}
-            className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-4"
+            className="mt-4 w-full rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-blue-100 transition hover:border-blue-300/60 hover:bg-blue-500/20 hover:text-white whitespace-nowrap"
           >
             Limpiar
           </button>
           
           {error && (
-            <div className="mt-4 text-sm text-red-600">
+            <div className="mt-4 rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
               {error}
             </div>
           )}
           
           {(distance || duration) && price && (
-            <div className="mt-6 p-4 bg-gray-50 rounded-md">
-              <h3 className="text-md font-medium text-gray-700 mb-2">Resultado</h3>
-              {distance && <p className="text-sm text-gray-600">Distancia: <span className="font-medium">{distance} millas</span></p>}
-              {duration && <p className="text-sm text-gray-600">Duración: <span className="font-medium">{duration} horas</span></p>}
-              <p className="text-lg font-bold text-gray-800 mt-2">Precio: ${price}</p>
+            <div className={`mt-6 p-5 ${subtlePanelClass}`}>
+              <h3 className="text-md font-semibold text-blue-100/90">Resultado</h3>
+              {distance && (
+                <p className="mt-2 text-sm text-blue-100/80">
+                  Distancia: <span className="font-medium text-white">{distance} millas</span>
+                </p>
+              )}
+              {duration && (
+                <p className="mt-1 text-sm text-blue-100/80">
+                  Duración: <span className="font-medium text-white">{duration} horas</span>
+                </p>
+              )}
+              <p className="mt-3 text-xl font-bold text-white">Precio: ${price}</p>
               {activeSurcharges.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-sm text-gray-600">Recargos aplicados:</p>
-                  <ul className="list-disc pl-5 text-sm text-gray-600">
+                <div className="mt-4">
+                  <p className="text-sm text-blue-200/80">Recargos aplicados:</p>
+                  <ul className="mt-2 list-disc pl-5 text-sm text-slate-100">
                     {activeSurcharges.map(id => {
                       const factor = surchargeFactors.find(f => f.id === id);
                       return factor ? <li key={id}>{factor.name}</li> : null;
@@ -625,9 +641,9 @@ const DistanceCalculator = () => {
                 </div>
               )}
               {activeDiscounts.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-sm text-gray-600">Descuentos aplicados:</p>
-                  <ul className="list-disc pl-5 text-sm text-gray-600">
+                <div className="mt-4">
+                  <p className="text-sm text-blue-200/80">Descuentos aplicados:</p>
+                  <ul className="mt-2 list-disc pl-5 text-sm text-slate-100">
                     {activeDiscounts.map(id => {
                       const discount = discounts.find(d => d.id === id);
                       return discount ? <li key={id}>{discount.name}</li> : null;
@@ -635,10 +651,10 @@ const DistanceCalculator = () => {
                   </ul>
                 </div>
               )}
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   onClick={saveTrip}
-                  className="py-1 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  className="transform rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition-transform duration-150 hover:scale-[1.02] hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 whitespace-nowrap"
                 >
                   Guardar Viaje
                 </button>
@@ -646,7 +662,11 @@ const DistanceCalculator = () => {
                 <button
                   onClick={createTripOrder}
                   disabled={orderCreated}
-                  className="py-1 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:bg-purple-300"
+                  className={`transform rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 transition-transform duration-150 whitespace-nowrap ${
+                    orderCreated
+                      ? 'bg-purple-500/40 cursor-not-allowed'
+                      : 'bg-purple-500 hover:bg-purple-400 hover:scale-[1.02]'
+                  }`}
                 >
                   {orderCreated ? 'Orden Creada' : 'Crear Orden'}
                 </button>
@@ -656,53 +676,61 @@ const DistanceCalculator = () => {
         </div>
         
         {/* Mapa */}
-        <div className="lg:col-span-1 bg-white p-4 rounded-lg shadow">
+        <div className={`${surfacePanelClass} p-4`}>
           {renderMap()}
         </div>
       </div>
       
       {/* Factores de recargo y descuentos */}
-  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Factores de recargo */}
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-lg font-medium text-gray-700 mb-4">Factores de Recargo</h2>
+        <div className={`${surfacePanelClass} p-6`}>
+          <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Factores de Recargo</h2>
           
-          <div className="space-y-2">
+          <div className="space-y-3">
             {surchargeFactors.map((factor) => (
-              <div key={factor.id} className="flex flex-wrap items-center gap-3">
+              <label
+                key={factor.id}
+                htmlFor={`surcharge-${factor.id}`}
+                className="flex flex-wrap items-center gap-3 text-sm text-slate-100"
+              >
                 <input
                   type="checkbox"
                   id={`surcharge-${factor.id}`}
                   checked={activeSurcharges.includes(factor.id)}
                   onChange={() => handleSurchargeChange(factor.id)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-300"
                 />
-                <label htmlFor={`surcharge-${factor.id}`} className="ml-2 block text-sm text-gray-700">
+                <span>
                   {factor.name} ({factor.type === 'percentage' ? `${factor.rate}%` : `$${factor.rate}`})
-                </label>
-              </div>
+                </span>
+              </label>
             ))}
           </div>
         </div>
         
         {/* Descuentos */}
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-lg font-medium text-gray-700 mb-4">Descuentos Aplicables</h2>
+        <div className={`${surfacePanelClass} p-6`}>
+          <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Descuentos Aplicables</h2>
           
-          <div className="space-y-2">
+          <div className="space-y-3">
             {discounts.map((discount) => (
-              <div key={discount.id} className="flex flex-wrap items-center gap-3">
+              <label
+                key={discount.id}
+                htmlFor={`discount-${discount.id}`}
+                className="flex flex-wrap items-center gap-3 text-sm text-slate-100"
+              >
                 <input
                   type="checkbox"
                   id={`discount-${discount.id}`}
                   checked={activeDiscounts.includes(discount.id)}
                   onChange={() => handleDiscountChange(discount.id)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-300"
                 />
-                <label htmlFor={`discount-${discount.id}`} className="ml-2 block text-sm text-gray-700">
+                <span>
                   {discount.name} ({discount.type === 'percentage' ? `${discount.rate}%` : `$${discount.rate}`})
-                </label>
-              </div>
+                </span>
+              </label>
             ))}
           </div>
         </div>

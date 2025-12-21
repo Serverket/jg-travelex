@@ -325,30 +325,49 @@ const Settings = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Configuración</h1>
-      
-      {/* Mensajes de éxito o error */}
-      {successMessage && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
-          {successMessage}
+    <div className="space-y-8">
+      <div
+        className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-blue-500/5 backdrop-blur"
+        data-aos="fade-up"
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold text-white">Configuración de Tarifas</h1>
+            <p className="mt-2 max-w-3xl text-sm text-blue-100/70">
+              Ajuste las tarifas base y administre factores dinámicos para personalizar la estrategia de precios en tiempo real.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/15 bg-slate-900/60 px-5 py-4 text-sm text-blue-100/70 shadow-inner shadow-blue-500/10">
+            <p className="font-semibold text-blue-100">Sincronización automática</p>
+            <p className="mt-1 text-xs text-blue-200/70">Las tarifas guardadas se aplican inmediatamente a los cálculos de viaje.</p>
+          </div>
         </div>
-      )}
-      
-      {errorMessage && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-          {errorMessage}
-        </div>
-      )}
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Tarifas Base */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Tarifas Base</h2>
-          
-          <div className="space-y-4">
+        {successMessage && (
+          <div className="mt-6 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            {successMessage}
+          </div>
+        )}
+        {errorMessage && (
+          <div className="mt-4 rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {errorMessage}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div
+          className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-2xl shadow-blue-500/10 backdrop-blur"
+          data-aos="fade-up"
+          data-aos-delay="80"
+        >
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-white">Tarifas Base</h2>
+            <p className="mt-1 text-sm text-blue-100/70">Defina los montos globales para cálculos por distancia y duración.</p>
+          </div>
+
+          <div className="space-y-5">
             <div>
-              <label htmlFor="distanceRate" className="block text-sm font-medium text-gray-700">Tarifa por Milla ($)</label>
+              <label htmlFor="distanceRate" className="block text-sm font-semibold text-blue-100/80">Tarifa por Milla ($)</label>
               <input
                 type="number"
                 id="distanceRate"
@@ -357,12 +376,12 @@ const Settings = () => {
                 onChange={handleBaseRateChange}
                 min="0"
                 step="0.01"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             </div>
-            
+
             <div>
-              <label htmlFor="durationRate" className="block text-sm font-medium text-gray-700">Tarifa por Hora ($)</label>
+              <label htmlFor="durationRate" className="block text-sm font-semibold text-blue-100/80">Tarifa por Hora ($)</label>
               <input
                 type="number"
                 id="durationRate"
@@ -371,89 +390,90 @@ const Settings = () => {
                 onChange={handleBaseRateChange}
                 min="0"
                 step="0.01"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             </div>
-            
+
             <button
               onClick={saveSettings}
               disabled={localLoading || isLoading}
-              className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="w-full rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/50"
             >
-              {(localLoading || isLoading) ? 'Guardando...' : 'Guardar Cambios'}
+              {(localLoading || isLoading) ? 'Guardando…' : 'Guardar cambios'}
             </button>
           </div>
         </div>
-        
-        {/* Factores de Recargo */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Factores de Recargo</h2>
-          
+
+        <div
+          className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-2xl shadow-blue-500/10 backdrop-blur"
+          data-aos="fade-up"
+          data-aos-delay="140"
+        >
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-white">Factores de Recargo</h2>
+            <p className="mt-1 text-sm text-blue-100/70">Personalice ajustes adicionales para reflejar temporadas, herramientas o servicios premium.</p>
+          </div>
+
           <div className="space-y-4">
             {editedSettings.surchargeFactors && editedSettings.surchargeFactors.length > 0 ? (
               editedSettings.surchargeFactors.map((factor) => (
-                <div key={factor.id || Math.random().toString()} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-md">
-                  <div className="flex-grow">
-                    <input
-                      type="text"
-                      value={factor.name ?? ''}
-                      onChange={(e) => handleSurchargeChange(factor.id, 'name', e.target.value)}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Nombre"
-                    />
-                  </div>
-                  
-                  <div className="w-24">
-                    <input
-                      type="number"
-                      value={factor.rate ?? ''}
-                      onChange={(e) => handleSurchargeChange(factor.id, 'rate', e.target.value)}
-                      min="0"
-                      step="0.01"
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Valor"
-                    />
-                  </div>
-                  
-                  <div className="w-32">
-                    <select
-                      value={factor.type ?? ''}
-                      onChange={(e) => handleSurchargeChange(factor.id, 'type', e.target.value)}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    >
-                      <option value="percentage">Porcentaje</option>
-                      <option value="fixed">Monto Fijo</option>
-                    </select>
-                  </div>
-                  
+                <div
+                  key={factor.id || Math.random().toString()}
+                  className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-blue-500/10 md:flex-row md:items-center"
+                >
+                  <input
+                    type="text"
+                    value={factor.name ?? ''}
+                    onChange={(e) => handleSurchargeChange(factor.id, 'name', e.target.value)}
+                    className="w-full rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    placeholder="Nombre"
+                  />
+                  <input
+                    type="number"
+                    value={factor.rate ?? ''}
+                    onChange={(e) => handleSurchargeChange(factor.id, 'rate', e.target.value)}
+                    min="0"
+                    step="0.01"
+                    className="w-full rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400 md:w-28"
+                    placeholder="Valor"
+                  />
+                  <select
+                    value={factor.type ?? ''}
+                    onChange={(e) => handleSurchargeChange(factor.id, 'type', e.target.value)}
+                    className="w-full rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400 md:w-32"
+                  >
+                    <option value="percentage">Porcentaje</option>
+                    <option value="fixed">Monto fijo</option>
+                  </select>
                   <button
                     onClick={() => handleRemoveSurchargeFactor(factor.id)}
                     disabled={localLoading || isLoading}
-                    className="p-2 text-red-600 hover:text-red-900"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-rose-400/40 bg-rose-500/10 text-rose-200 transition hover:bg-rose-500/20 hover:text-rose-100 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-rose-200/40"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                   </button>
                 </div>
               ))
             ) : (
-              <p className="text-gray-500">No hay factores de recargo configurados.</p>
+              <p className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-sm text-blue-100/60">
+                No hay factores de recargo configurados.
+              </p>
             )}
-            
-            <div className="mt-4 p-4 bg-gray-50 rounded-md">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Añadir Nuevo Factor</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner shadow-blue-500/10">
+              <h3 className="text-sm font-semibold text-white">Añadir nuevo factor</h3>
+              <p className="mt-1 text-xs text-blue-200/70">Combine nombre, valor y tipo para registrar ajustes personalizados.</p>
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
                 <input
                   type="text"
                   name="name"
                   value={newSurchargeFactor.name}
                   onChange={handleNewSurchargeChange}
-                  className="col-span-1 md:col-span-3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="md:col-span-2 rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   placeholder="Nombre del factor"
                 />
-                
                 <input
                   type="number"
                   name="rate"
@@ -461,101 +481,100 @@ const Settings = () => {
                   onChange={handleNewSurchargeChange}
                   min="0"
                   step="0.01"
-                  className="col-span-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   placeholder="Valor"
                 />
-                
                 <select
                   name="type"
                   value={newSurchargeFactor.type}
                   onChange={handleNewSurchargeChange}
-                  className="col-span-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
                   <option value="percentage">Porcentaje</option>
-                  <option value="fixed">Monto Fijo</option>
+                  <option value="fixed">Monto fijo</option>
                 </select>
-                
                 <button
                   onClick={handleAddSurchargeFactor}
                   disabled={localLoading || isLoading}
-                  className="col-span-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="md:col-span-4 rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/50"
                 >
-                  {(localLoading || isLoading) ? 'Añadiendo...' : 'Añadir'}
+                  {(localLoading || isLoading) ? 'Añadiendo…' : 'Añadir factor'}
                 </button>
               </div>
             </div>
           </div>
         </div>
-        
-        {/* Descuentos */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Descuentos</h2>
-          
+
+        <div
+          className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-2xl shadow-blue-500/10 backdrop-blur"
+          data-aos="fade-up"
+          data-aos-delay="200"
+        >
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-white">Descuentos</h2>
+            <p className="mt-1 text-sm text-blue-100/70">Gestione descuentos promocionales o acuerdos especiales.</p>
+          </div>
+
           <div className="space-y-4">
             {editedSettings.discounts && editedSettings.discounts.length > 0 ? (
               editedSettings.discounts.map((discount) => (
-                <div key={discount.id || Math.random().toString()} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-md">
-                  <div className="flex-grow">
-                    <input
-                      type="text"
-                      value={discount.name ?? ''}
-                      onChange={(e) => handleDiscountChange(discount.id, 'name', e.target.value)}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Nombre"
-                    />
-                  </div>
-                  
-                  <div className="w-24">
-                    <input
-                      type="number"
-                      value={discount.rate ?? ''}
-                      onChange={(e) => handleDiscountChange(discount.id, 'rate', e.target.value)}
-                      min="0"
-                      step="0.01"
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Valor"
-                    />
-                  </div>
-                  
-                  <div className="w-32">
-                    <select
-                      value={discount.type ?? ''}
-                      onChange={(e) => handleDiscountChange(discount.id, 'type', e.target.value)}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    >
-                      <option value="percentage">Porcentaje</option>
-                      <option value="fixed">Monto Fijo</option>
-                    </select>
-                  </div>
-                  
+                <div
+                  key={discount.id || Math.random().toString()}
+                  className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-blue-500/10 md:flex-row md:items-center"
+                >
+                  <input
+                    type="text"
+                    value={discount.name ?? ''}
+                    onChange={(e) => handleDiscountChange(discount.id, 'name', e.target.value)}
+                    className="w-full rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    placeholder="Nombre"
+                  />
+                  <input
+                    type="number"
+                    value={discount.rate ?? ''}
+                    onChange={(e) => handleDiscountChange(discount.id, 'rate', e.target.value)}
+                    min="0"
+                    step="0.01"
+                    className="w-full rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400 md:w-28"
+                    placeholder="Valor"
+                  />
+                  <select
+                    value={discount.type ?? ''}
+                    onChange={(e) => handleDiscountChange(discount.id, 'type', e.target.value)}
+                    className="w-full rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400 md:w-32"
+                  >
+                    <option value="percentage">Porcentaje</option>
+                    <option value="fixed">Monto fijo</option>
+                  </select>
                   <button
                     onClick={() => handleRemoveDiscount(discount.id)}
                     disabled={localLoading || isLoading}
-                    className="p-2 text-red-600 hover:text-red-900"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-rose-400/40 bg-rose-500/10 text-rose-200 transition hover:bg-rose-500/20 hover:text-rose-100 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-rose-200/40"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                   </button>
                 </div>
               ))
             ) : (
-              <p className="text-gray-500">No hay descuentos configurados.</p>
+              <p className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-sm text-blue-100/60">
+                No hay descuentos configurados.
+              </p>
             )}
-            
-            <div className="mt-4 p-4 bg-gray-50 rounded-md">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Añadir Nuevo Descuento</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner shadow-blue-500/10">
+              <h3 className="text-sm font-semibold text-white">Añadir nuevo descuento</h3>
+              <p className="mt-1 text-xs text-blue-200/70">Configure promociones en cuestión de segundos.</p>
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
                 <input
                   type="text"
                   name="name"
                   value={newDiscount.name}
                   onChange={handleNewDiscountChange}
-                  className="col-span-1 md:col-span-3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="md:col-span-2 rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   placeholder="Nombre del descuento"
                 />
-                
                 <input
                   type="number"
                   name="rate"
@@ -563,26 +582,24 @@ const Settings = () => {
                   onChange={handleNewDiscountChange}
                   min="0"
                   step="0.01"
-                  className="col-span-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   placeholder="Valor"
                 />
-                
                 <select
                   name="type"
                   value={newDiscount.type}
                   onChange={handleNewDiscountChange}
-                  className="col-span-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="rounded-xl border border-white/15 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
                   <option value="percentage">Porcentaje</option>
-                  <option value="fixed">Monto Fijo</option>
+                  <option value="fixed">Monto fijo</option>
                 </select>
-                
                 <button
                   onClick={handleAddDiscount}
                   disabled={localLoading || isLoading}
-                  className="col-span-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="md:col-span-4 rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/50"
                 >
-                  {(localLoading || isLoading) ? 'Añadiendo...' : 'Añadir'}
+                  {(localLoading || isLoading) ? 'Añadiendo…' : 'Añadir descuento'}
                 </button>
               </div>
             </div>

@@ -238,17 +238,20 @@ const AdminUsers = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="space-y-8">
+      <div
+        data-aos="fade-up"
+        className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-blue-500/10 backdrop-blur md:flex-row md:items-center md:justify-between"
+      >
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Gestión de usuarios</h1>
-          <p className="text-gray-600">Crea, actualiza o desactiva el acceso de los usuarios del sistema.</p>
+          <h1 className="text-3xl font-semibold text-white">Gestión de usuarios</h1>
+          <p className="mt-1 text-sm text-blue-100/70">Crea, actualiza o desactiva el acceso de los usuarios del sistema.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
             onClick={loadUsers}
-            className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+            className="flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/10 px-5 py-2.5 text-sm font-semibold text-blue-100/80 shadow-inner shadow-blue-500/10 transition-all hover:scale-105 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-blue-400/60 disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap"
             disabled={loading}
           >
             {loading ? 'Actualizando...' : 'Actualizar lista'}
@@ -256,7 +259,7 @@ const AdminUsers = () => {
           <button
             type="button"
             onClick={handleCreate}
-            className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            className="flex items-center justify-center gap-2 rounded-xl border border-blue-400/40 bg-gradient-to-r from-blue-500/80 via-sky-500/80 to-indigo-500/80 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-105 hover:shadow-blue-500/30 focus:outline-none focus:ring-2 focus:ring-blue-400/60 whitespace-nowrap"
           >
             Nuevo usuario
           </button>
@@ -264,78 +267,106 @@ const AdminUsers = () => {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <div
+          data-aos="fade-up"
+          data-aos-delay="50"
+          className="rounded-3xl border border-rose-400/40 bg-rose-500/20 px-6 py-4 text-sm font-medium text-rose-100 shadow-inner shadow-rose-500/20"
+        >
           {error}
         </div>
       )}
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div
+        data-aos="fade-up"
+        data-aos-delay="100"
+        className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl shadow-blue-500/10 backdrop-blur"
+      >
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-white/10 text-left text-sm text-blue-100/80">
+            <thead className="bg-white/5 text-sm uppercase tracking-[0.12em] text-blue-100">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Temporal</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expira</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funciones</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                <th className="px-6 py-4 font-semibold whitespace-nowrap">Usuario</th>
+                <th className="px-6 py-4 font-semibold whitespace-nowrap">Rol</th>
+                <th className="px-6 py-4 font-semibold whitespace-nowrap">Estado</th>
+                <th className="px-6 py-4 font-semibold whitespace-nowrap">Temporal</th>
+                <th className="px-6 py-4 font-semibold whitespace-nowrap">Expira</th>
+                <th className="px-6 py-4 font-semibold whitespace-nowrap">Funciones</th>
+                <th className="px-6 py-4 text-right font-semibold whitespace-nowrap">Acciones</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-gray-500">Cargando usuarios...</td>
+                  <td colSpan={7} className="px-6 py-12">
+                    <div className="flex flex-col items-center gap-3 text-blue-100/70">
+                      <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+                      <span className="text-sm">Cargando usuarios...</span>
+                    </div>
+                  </td>
                 </tr>
               ) : sortedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-gray-500">No hay usuarios registrados.</td>
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-blue-100/60">
+                    No hay usuarios registrados.
+                  </td>
                 </tr>
               ) : (
                 sortedUsers.map(user => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{user.full_name || 'Sin nombre'}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                      <div className="text-sm text-gray-400">{user.username}</div>
+                  <tr
+                    key={user.id}
+                    className="bg-white/5 transition hover:bg-white/10"
+                  >
+                    <td className="px-6 py-4 text-sm text-blue-100/80">
+                      <div className="text-base font-semibold text-white">{user.full_name || 'Sin nombre'}</div>
+                      <div className="text-sm text-blue-200/70">{user.email}</div>
+                      <div className="text-xs text-blue-200/50">{user.username}</div>
                     </td>
-                    <td className="px-4 py-3 text-gray-700 capitalize">{user.role}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-6 py-4 text-sm font-medium capitalize text-blue-100/80 whitespace-nowrap">{user.role}</td>
+                    <td className="px-6 py-4 text-sm">
                       {user.is_active === false ? (
-                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700">Inactivo</span>
+                        <span className="inline-flex items-center whitespace-nowrap rounded-full border border-rose-400/40 bg-rose-500/20 px-3 py-1 text-xs font-semibold text-rose-100 shadow-inner shadow-rose-500/20">
+                          Inactivo
+                        </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">Activo</span>
+                        <span className="inline-flex items-center whitespace-nowrap rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-100 shadow-inner shadow-emerald-500/20">
+                          Activo
+                        </span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-6 py-4 text-sm">
                       {user.is_temporary ? (
-                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700">Temporal</span>
+                        <span className="inline-flex items-center whitespace-nowrap rounded-full border border-amber-400/40 bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-100 shadow-inner shadow-amber-500/20">
+                          Temporal
+                        </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">Permanente</span>
+                        <span className="inline-flex items-center whitespace-nowrap rounded-full border border-sky-400/40 bg-sky-500/20 px-3 py-1 text-xs font-semibold text-sky-100 shadow-inner shadow-sky-500/20">
+                          Permanente
+                        </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-6 py-4 text-sm text-blue-100/70">
                       {user.is_temporary && user.expires_at ? new Date(user.expires_at).toLocaleString() : '—'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-6 py-4 text-sm text-blue-100/70">
                       {featureList(user)}
                     </td>
-                    <td className="px-4 py-3 text-right space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(user)}
-                        className="px-3 py-1 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(user)}
-                        className="px-3 py-1 text-sm rounded-md border border-red-200 text-red-600 hover:bg-red-50"
-                      >
-                        Eliminar
-                      </button>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(user)}
+                          className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-blue-100/80 shadow-inner shadow-blue-500/10 transition-all hover:scale-105 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-blue-400/60 whitespace-nowrap"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(user)}
+                          className="rounded-xl border border-rose-400/40 bg-rose-500/15 px-4 py-2 text-xs font-semibold text-rose-100 transition-all hover:scale-105 hover:bg-rose-500/25 focus:outline-none focus:ring-2 focus:ring-rose-400/60 whitespace-nowrap"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -346,185 +377,203 @@ const AdminUsers = () => {
       </div>
 
       {isDialogOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 relative">
-            <button
-              type="button"
-              onClick={closeDialog}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-              aria-label="Cerrar"
-            >
-              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
+        <div
+          className="fixed inset-0 z-40 flex min-h-screen items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm sm:py-10"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/10 bg-slate-900/85 px-6 py-8 shadow-2xl shadow-blue-500/20 backdrop-blur-lg">
+              <button
+                type="button"
+                onClick={closeDialog}
+                className="absolute right-4 top-4 rounded-full border border-white/10 bg-white/10 p-2 text-blue-100 transition hover:scale-105 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                aria-label="Cerrar"
+              >
+                <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
 
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              {editingUser ? 'Editar usuario' : 'Nuevo usuario'}
-            </h2>
+              <h2 className="mb-6 text-2xl font-semibold text-white">
+                {editingUser ? 'Editar usuario' : 'Nuevo usuario'}
+              </h2>
 
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Nombre completo</label>
-                  <input
-                    type="text"
-                    value={form.full_name}
-                    onChange={(e) => handleInputChange('full_name', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    required
-                  />
+              <form className="space-y-6" onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-blue-100/80">Nombre completo</label>
+                    <input
+                      type="text"
+                      value={form.full_name}
+                      onChange={(event) => handleInputChange('full_name', event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-100/80">Correo electrónico</label>
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(event) => handleInputChange('email', event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-100/80">Usuario</label>
+                    <input
+                      type="text"
+                      value={form.username}
+                      onChange={(event) => handleInputChange('username', event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-100/80">Rol</label>
+                    <select
+                      value={form.role}
+                      onChange={(event) => handleInputChange('role', event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      {ROLE_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value} className="bg-slate-900">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-100/80">Teléfono</label>
+                    <input
+                      type="tel"
+                      value={form.phone}
+                      onChange={(event) => handleInputChange('phone', event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-100/80">Departamento</label>
+                    <input
+                      type="text"
+                      value={form.department}
+                      onChange={(event) => handleInputChange('department', event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-100/80">Avatar URL</label>
+                    <input
+                      type="url"
+                      value={form.avatar_url}
+                      onChange={(event) => handleInputChange('avatar_url', event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-100/80">
+                      Contraseña{' '}
+                      {!editingUser ? (
+                        <span className="text-blue-200/60">(mínimo 8 caracteres)</span>
+                      ) : (
+                        <span className="text-blue-200/60">(opcional)</span>
+                      )}
+                    </label>
+                    <input
+                      type="password"
+                      value={form.password}
+                      onChange={(event) => handleInputChange('password', event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      placeholder={editingUser ? 'Dejar en blanco para mantener la contraseña' : 'Mínimo 8 caracteres'}
+                      minLength={editingUser ? undefined : 8}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Correo electrónico</label>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Usuario</label>
-                  <input
-                    type="text"
-                    value={form.username}
-                    onChange={(e) => handleInputChange('username', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Rol</label>
-                  <select
-                    value={form.role}
-                    onChange={(e) => handleInputChange('role', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  >
-                    {ROLE_OPTIONS.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Teléfono</label>
-                  <input
-                    type="tel"
-                    value={form.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Departamento</label>
-                  <input
-                    type="text"
-                    value={form.department}
-                    onChange={(e) => handleInputChange('department', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Avatar URL</label>
-                  <input
-                    type="url"
-                    value={form.avatar_url}
-                    onChange={(e) => handleInputChange('avatar_url', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder="https://..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Contraseña {editingUser && <span className="text-gray-400">(opcional)</span>}</label>
-                  <input
-                    type="password"
-                    value={form.password}
-                    onChange={(e) => handleInputChange('password', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder={editingUser ? 'Dejar en blanco para mantener la contraseña' : 'Mínimo 8 caracteres'}
-                    minLength={editingUser ? undefined : 8}
-                  />
-                </div>
-              </div>
 
-              <div className="border-t border-gray-200 pt-4">
-                <label className="flex flex-wrap items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={form.is_active}
-                    onChange={(e) => handleInputChange('is_active', e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">Cuenta activa</span>
-                </label>
-
-                <div className="mt-3 space-y-2">
-                  <label className="flex flex-wrap items-center gap-3">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner shadow-blue-500/10">
+                  <label className="flex flex-wrap items-center gap-3 text-sm text-blue-100/80">
                     <input
                       type="checkbox"
-                      checked={form.is_temporary}
-                      onChange={(e) => handleInputChange('is_temporary', e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      checked={form.is_active}
+                      onChange={(event) => handleInputChange('is_active', event.target.checked)}
+                      className="h-4 w-4 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-300"
                     />
-                    <span className="text-sm text-gray-700">Acceso temporal</span>
+                    Cuenta activa
                   </label>
-                  {form.is_temporary && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Expira el</label>
-                        <input
-                          type="datetime-local"
-                          value={form.expires_at}
-                          onChange={(e) => handleInputChange('expires_at', e.target.value)}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                          required
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              <div className="border-t border-gray-200 pt-4">
-                <p className="text-sm font-medium text-gray-700 mb-2">Permisos de funcionalidad</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {AVAILABLE_FEATURES.map(feature => (
-                    <label key={feature.value} className="flex flex-wrap items-center gap-3 rounded-md bg-gray-50 px-3 py-2">
+                  <div className="mt-4 space-y-3">
+                    <label className="flex flex-wrap items-center gap-3 text-sm text-blue-100/80">
                       <input
                         type="checkbox"
-                        checked={form.features.includes(feature.value)}
-                        onChange={() => toggleFeature(feature.value)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        checked={form.is_temporary}
+                        onChange={(event) => handleInputChange('is_temporary', event.target.checked)}
+                        className="h-4 w-4 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-300"
                       />
-                      <span className="text-sm text-gray-700">{feature.label}</span>
+                      Acceso temporal
                     </label>
-                  ))}
+                    {form.is_temporary && (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <label className="block text-sm font-medium text-blue-100/80">Expira el</label>
+                          <input
+                            type="datetime-local"
+                            value={form.expires_at}
+                            onChange={(event) => handleInputChange('expires_at', event.target.value)}
+                            className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            required
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Si no seleccionas ninguna opción, el usuario tendrá acceso completo por defecto.</p>
-              </div>
 
-              {formError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
-                  {formError}
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner shadow-blue-500/10">
+                  <p className="text-sm font-medium text-blue-100/80">Permisos de funcionalidad</p>
+                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {AVAILABLE_FEATURES.map(feature => (
+                      <label
+                        key={feature.value}
+                        className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-blue-100/80 transition hover:border-blue-400/60 hover:bg-blue-500/15"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.features.includes(feature.value)}
+                          onChange={() => toggleFeature(feature.value)}
+                          className="h-4 w-4 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-300"
+                        />
+                        {feature.label}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-blue-200/60">
+                    Si no seleccionas ninguna opción, el usuario tendrá acceso completo por defecto.
+                  </p>
                 </div>
-              )}
 
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeDialog}
-                  className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {saving ? 'Guardando...' : 'Guardar cambios'}
-                </button>
-              </div>
-            </form>
+                {formError && (
+                  <div className="rounded-2xl border border-rose-400/40 bg-rose-500/20 px-4 py-3 text-sm font-medium text-rose-100 shadow-inner shadow-rose-500/20">
+                    {formError}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={closeDialog}
+                    className="rounded-xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold text-blue-100/80 shadow-inner shadow-blue-500/10 transition-all hover:scale-105 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-blue-400/60 whitespace-nowrap"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-xl border border-blue-400/40 bg-gradient-to-r from-blue-500/80 via-indigo-500/80 to-blue-600/80 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-105 hover:shadow-blue-500/30 focus:outline-none focus:ring-2 focus:ring-blue-400/60 disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap"
+                  >
+                    {saving ? 'Guardando...' : 'Guardar cambios'}
+                  </button>
+                </div>
+              </form>
           </div>
         </div>
       )}

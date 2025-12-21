@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import { AppProvider, useAppContext } from './context/AppContext'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { useAppContext } from './context/AppContext'
 import { authService } from './services/authService'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -12,13 +12,12 @@ import AdminUsers from './pages/AdminUsers'
 import AccessDenied from './pages/AccessDenied'
 import AccessExpired from './pages/AccessExpired'
 import Layout from './components/Layout'
+import AOS from 'aos'
 
 // Componente principal de la aplicación
 function App() {
   return (
-    <AppProvider>
-      <AppRoutes />
-    </AppProvider>
+    <AppRoutes />
   )
 }
 
@@ -27,6 +26,7 @@ function AppRoutes() {
   const { user: _user, hasFeature, currentUser } = useAppContext()
   const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated())
   const navigate = useNavigate()
+  const location = useLocation()
   const isAdmin = currentUser?.role === 'admin'
 
   // Verificar si el usuario ya está autenticado al cargar la aplicación
@@ -65,6 +65,10 @@ function AppRoutes() {
     }
     return <Component />
   }
+
+  useEffect(() => {
+    AOS.refresh()
+  }, [location.pathname])
 
   return (
     <Routes>

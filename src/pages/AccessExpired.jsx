@@ -6,7 +6,7 @@ const plans = [
   {
     id: 'team',
     name: 'Plan Equipo',
-    price: '$39 / mes',
+    price: '$9 / mes',
     description: 'Pensado para operaciones que necesitan visibilidad completa y colaboración en tiempo real.',
     badge: 'Popular',
     highlight: true,
@@ -39,9 +39,13 @@ const plans = [
   }
 ]
 
-const buildMailto = (planName, emailHint) => {
+const buildMailto = (planName, emailHint, reason) => {
   const subject = encodeURIComponent(`Activar ${planName} - JGEx`)
-  const intro = emailHint ? `Mi correo registrado es ${emailHint}.` : 'Mi cuenta temporal ha expirado.'
+  const normalizedReason = (reason || '').toString().toUpperCase()
+  const contextLine = normalizedReason === 'ACCOUNT_DISABLED'
+    ? 'Mi cuenta aparece deshabilitada y necesito reactivarla.'
+    : 'Mi acceso temporal ha expirado.'
+  const intro = emailHint ? `${contextLine} Mi correo registrado es ${emailHint}.` : contextLine
   const body = encodeURIComponent(`Hola equipo JGEx,\n\nMe gustaría activar el ${planName}.\n${intro}\n\nGracias.`)
   return `mailto:${contactEmail}?subject=${subject}&body=${body}`
 }
@@ -49,9 +53,19 @@ const buildMailto = (planName, emailHint) => {
 const AccessExpired = () => {
   const { state } = useLocation()
   const email = state?.email || ''
+  const reason = (state?.reason || 'ACCESS_EXPIRED').toString().toUpperCase()
+  const isDisabled = reason === 'ACCOUNT_DISABLED'
+  const labelCopy = isDisabled ? 'Acceso deshabilitado' : 'Acceso temporal expirado'
+  const headingCopy = isDisabled
+    ? 'Reactiva tu operación con un plan activo de JGEx'
+    : 'Lleva tu operación al siguiente nivel con acceso completo a JGEx'
+  const descriptionCopy = isDisabled
+    ? 'Tu cuenta fue deshabilitada porque no hay un plan activo asociado. Elige la opción que mejor se ajuste a tu operación para recuperar todas las herramientas en minutos.'
+    : 'Tu acceso temporal ha llegado a su fin, pero puedes seguir aprovechando la plataforma con uno de nuestros planes. Selecciona la opción que mejor se adapte a tu equipo y contáctanos para habilitarlo en minutos.'
+  const infoMessage = state?.message
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
+  <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
       <div aria-hidden="true" className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-slate-900 to-slate-950" />
         <div className="absolute -top-32 -left-32 h-80 w-80 rounded-full bg-blue-500/30 blur-3xl" />
@@ -60,27 +74,53 @@ const AccessExpired = () => {
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
-        <header className="mx-auto max-w-3xl text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-blue-300/80">Acceso temporal expirado</p>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-white sm:text-5xl">
-            Lleva tu operación al siguiente nivel con acceso completo a JGEx
+        <header className="mx-auto max-w-3xl text-center" data-aos="fade-up" data-aos-offset="0">
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-blue-300/80">{labelCopy}</p>
+          <h1
+            className="mt-4 text-4xl font-bold tracking-tight text-white sm:text-5xl"
+            data-aos="fade-up"
+            data-aos-delay="120"
+            data-aos-offset="0"
+          >
+            {headingCopy}
           </h1>
-          <p className="mt-6 text-base text-blue-100/90 sm:text-lg">
-            Tu acceso temporal ha llegado a su fin, pero puedes seguir aprovechando la plataforma con uno de nuestros planes.
-            Selecciona la opción que mejor se adapte a tu equipo y contáctanos para habilitarlo en minutos.
+          <p
+            className="mt-6 text-base text-blue-100/90 sm:text-lg"
+            data-aos="fade-up"
+            data-aos-delay="180"
+            data-aos-offset="0"
+          >
+            {descriptionCopy}
           </p>
+          {infoMessage && (
+            <div
+              className="mt-6 rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-blue-100/90"
+              data-aos="fade-up"
+              data-aos-delay="240"
+              data-aos-offset="0"
+            >
+              {infoMessage}
+            </div>
+          )}
           {email && (
-            <p className="mt-4 text-sm text-blue-200/80">
+            <p
+              className="mt-4 text-sm text-blue-200/80"
+              data-aos="fade-up"
+              data-aos-delay="300"
+              data-aos-offset="0"
+            >
               Detectamos el correo <span className="font-semibold text-white">{email}</span>. Lo incluiremos automáticamente cuando nos contactes.
             </p>
           )}
         </header>
 
         <main className="mt-16 grid flex-1 gap-8 md:grid-cols-2">
-          {plans.map((plan) => (
+          {plans.map((plan, index) => (
             <article
               key={plan.id}
-              className={`group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-xl transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl ${plan.highlight ? 'ring-2 ring-blue-400/60' : ''}`}
+              data-aos="fade-up"
+              data-aos-delay={String(120 + index * 80)}
+              className={`group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 text-blue-50 shadow-[0_25px_45px_-25px_rgba(8,47,73,0.45)] transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl ${plan.highlight ? 'ring-2 ring-blue-400/60' : ''}`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -97,7 +137,10 @@ const AccessExpired = () => {
 
               <ul className="mt-6 space-y-3 text-sm text-blue-50">
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3">
+                  <li
+                    key={feature}
+                    className="flex items-start gap-3"
+                  >
                     <span className="mt-[6px] inline-block h-2 w-2 rounded-full bg-blue-400" aria-hidden="true" />
                     <span>{feature}</span>
                   </li>
@@ -106,8 +149,8 @@ const AccessExpired = () => {
 
               <div className="mt-10 flex flex-col gap-4">
                 <a
-                  href={buildMailto(plan.mailtoLabel, email)}
-                  className="inline-flex items-center justify-center rounded-xl bg-blue-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-400"
+                  href={buildMailto(plan.mailtoLabel, email, reason)}
+                  className="inline-flex items-center justify-center rounded-xl bg-blue-500 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:scale-[1.02] hover:bg-blue-400"
                 >
                   {plan.ctaLabel}
                 </a>
@@ -116,12 +159,19 @@ const AccessExpired = () => {
                 </p>
               </div>
 
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/10 via-white/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+              <div
+                className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/10 via-white/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+              />
             </article>
           ))}
         </main>
 
-        <footer className="mt-16 text-center text-sm text-blue-100/80">
+        <footer
+          className="mt-16 text-center text-sm text-blue-100/80"
+          data-aos="fade-up"
+          data-aos-delay="240"
+          data-aos-offset="0"
+        >
           <p>
             ¿Necesitas volver a intentar con otra cuenta?{' '}
             <Link to="/login" className="font-semibold text-blue-300 hover:text-blue-200">
