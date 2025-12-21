@@ -1,9 +1,44 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { settingsService } from '../services/settingsService'
 import { tripService } from '../services/tripService'
 import { orderService } from '../services/orderService'
 import { invoiceService } from '../services/invoiceService'
 import { authService } from '../services/authService'
+
+const ensureFeatureMap = (features) => {
+  if (!features) return {}
+  if (Array.isArray(features)) {
+    return features.reduce((acc, key) => {
+      if (typeof key === 'string') acc[key] = true
+      return acc
+    }, {})
+  }
+  if (typeof features === 'object') return features
+  return {}
+}
+
+const normalizeUser = (rawUser) => {
+  if (!rawUser) return null
+  const featureMap = ensureFeatureMap(rawUser.features)
+  return {
+    ...rawUser,
+    features: featureMap,
+    is_temporary: !!rawUser.is_temporary,
+    is_active: rawUser.is_active !== false,
+    expires_at: rawUser.expires_at || null
+  }
+}
+
+const isTemporaryExpired = (user) => {
+  if (!user?.is_temporary || !user?.expires_at) return false
+  try {
+    const expires = new Date(user.expires_at)
+    if (Number.isNaN(expires.getTime())) return false
+    return expires < new Date()
+  } catch {
+    return false
+  }
+}
 
 // Crear el contexto
 export const AppContext = createContext()
@@ -35,16 +70,40 @@ export const AppProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  const userFeatures = useMemo(() => currentUser?.features || {}, [currentUser])
+
+  const hasFeature = useCallback((featureKey) => {
+    if (!featureKey) return false
+    if (!currentUser) return false
+    if (featureKey === 'dashboard') return true
+    if (currentUser.role === 'admin') return true
+    if (!userFeatures || Object.keys(userFeatures).length === 0) return true
+    return !!userFeatures[featureKey]
+  }, [currentUser, userFeatures])
+
   // Cargar usuario desde localStorage al iniciar y suscribirse a cambios de autenticación
   useEffect(() => {
     // Check if we have a saved session and restore it
-    const user = authService.getCachedUser()
-    if (user) {
-      setCurrentUser(user)
-      // Also load the user's data when restoring session
-      loadUserData(user.id).catch(_err => {
-        setError('Error loading user data')
-      })
+    const cached = authService.getCachedUser()
+    if (cached) {
+      const normalizedUser = normalizeUser(cached)
+      if (normalizedUser) {
+        if (!normalizedUser.is_active) {
+          setCurrentUser(null)
+          setError('Tu cuenta está deshabilitada. Contacta al administrador.')
+          authService.logout().catch(() => {})
+        } else if (isTemporaryExpired(normalizedUser)) {
+          setCurrentUser(null)
+          setError('Tu acceso temporal ha expirado. Contacta al administrador para extenderlo.')
+          authService.logout().catch(() => {})
+        } else {
+          setCurrentUser(normalizedUser)
+          // Also load the user's data when restoring session
+          loadUserData(normalizedUser.id).catch(_err => {
+            setError('Error loading user data')
+          })
+        }
+      }
     }
     
     // Create a storage listener to handle session changes across tabs/windows
@@ -52,8 +111,20 @@ export const AppProvider = ({ children }) => {
       if (e.key === 'jgex_user') {
         if (e.newValue) {
           try {
-            const userData = JSON.parse(e.newValue)
-            setCurrentUser(userData)
+            const userData = normalizeUser(JSON.parse(e.newValue))
+            if (userData) {
+              if (!userData.is_active) {
+                setCurrentUser(null)
+                setError('Tu cuenta está deshabilitada. Contacta al administrador.')
+                authService.logout().catch(() => {})
+              } else if (isTemporaryExpired(userData)) {
+                setCurrentUser(null)
+                setError('Tu acceso temporal ha expirado. Contacta al administrador para extenderlo.')
+                authService.logout().catch(() => {})
+              } else {
+                setCurrentUser(userData)
+              }
+            }
           } catch (err) {
             setError('Invalid user session data')
           }
@@ -475,14 +546,32 @@ export const AppProvider = ({ children }) => {
   const login = async (username, password) => {
     
       const response = await authService.login(username, password)
-      setCurrentUser(response.user)
+      const normalized = normalizeUser(response.user)
+
+      if (!normalized) {
+        throw new Error('No se pudo cargar el perfil del usuario')
+      }
+
+      if (!normalized.is_active) {
+        await authService.logout()
+        setCurrentUser(null)
+        throw new Error('Tu cuenta está deshabilitada. Contacta al administrador.')
+      }
+
+      if (isTemporaryExpired(normalized)) {
+        await authService.logout()
+        setCurrentUser(null)
+        throw new Error('Tu acceso temporal ha expirado. Contacta al administrador para extenderlo.')
+      }
+
+      setCurrentUser(normalized)
       
       // Load user data after successful login
-      if (response.user && response.user.id) {
-        await loadUserData(response.user.id)
+      if (normalized.id) {
+        await loadUserData(normalized.id)
       }
       
-      return response.user
+      return normalized
   }
   
   // Función para cargar datos del usuario
@@ -507,6 +596,45 @@ export const AppProvider = ({ children }) => {
       return { trips: [], orders: [], invoices: [] }
     }
   }
+
+  const refreshCurrentUser = useCallback(async () => {
+    try {
+      const fetched = await authService.getCurrentUser()
+      if (!fetched) {
+        setCurrentUser(null)
+        return null
+      }
+
+      const normalized = normalizeUser(fetched)
+      if (!normalized) {
+        setCurrentUser(null)
+        return null
+      }
+
+      if (!normalized.is_active) {
+        await authService.logout()
+        setCurrentUser(null)
+        setError('Tu cuenta está deshabilitada. Contacta al administrador.')
+        return null
+      }
+
+      if (isTemporaryExpired(normalized)) {
+        await authService.logout()
+        setCurrentUser(null)
+        setError('Tu acceso temporal ha expirado. Contacta al administrador para extenderlo.')
+        return null
+      }
+
+      setCurrentUser(normalized)
+      if (normalized.id) {
+        await loadUserData(normalized.id)
+      }
+      return normalized
+    } catch (err) {
+      setError('No se pudo actualizar la sesión del usuario')
+      return null
+    }
+  }, [])
   
   // Función para cerrar sesión
   const logout = () => {
@@ -522,6 +650,7 @@ export const AppProvider = ({ children }) => {
     setTrips([])
     setOrders([])
     setInvoices([])
+    setError(null)
   }
 
   const rateSettingsRef = useRef(rateSettings);
@@ -671,12 +800,15 @@ export const AppProvider = ({ children }) => {
     currentUser,
     // Backward/compat aliases
     user: currentUser,
+    userFeatures,
+    hasFeature,
     rateSettings,
     trips,
     orders,
     invoices,
     isLoading,
     error,
+    refreshCurrentUser,
     updateRateSettings,
     addSurchargeFactor,
     updateSurchargeFactor,
@@ -694,8 +826,8 @@ export const AppProvider = ({ children }) => {
     setOrders,
     setInvoices,
     setTrips,
-    // Allow components like Login to set user directly
-    setUser: setCurrentUser
+    // Allow components like Login to set user directly (with normalization)
+    setUser: (user) => setCurrentUser(normalizeUser(user))
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

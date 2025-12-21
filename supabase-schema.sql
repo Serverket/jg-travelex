@@ -16,9 +16,17 @@ CREATE TABLE IF NOT EXISTS profiles (
     phone VARCHAR(20),
     department VARCHAR(50),
     is_active BOOLEAN DEFAULT true,
+    is_temporary BOOLEAN DEFAULT false,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    features JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Backfill profile columns for existing deployments
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_temporary BOOLEAN DEFAULT false;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '{}'::jsonb;
 
 -- Company settings table (singleton pattern)
 CREATE TABLE IF NOT EXISTS company_settings (
@@ -187,15 +195,15 @@ CREATE TABLE IF NOT EXISTS invoices (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_trips_user_id ON trips(user_id);
-CREATE INDEX idx_trips_trip_date ON trips(trip_date);
-CREATE INDEX idx_trips_status ON trips(status);
-CREATE INDEX idx_orders_user_id ON orders(user_id);
-CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_invoices_status ON invoices(status);
-CREATE INDEX idx_invoices_due_date ON invoices(due_date);
-CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
-CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_trips_user_id ON trips(user_id);
+CREATE INDEX IF NOT EXISTS idx_trips_trip_date ON trips(trip_date);
+CREATE INDEX IF NOT EXISTS idx_trips_status ON trips(status);
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
 
 -- Enable Row Level Security
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -211,39 +219,68 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE surcharge_factors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE discounts ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for profiles
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON profiles;
 CREATE POLICY "Public profiles are viewable by everyone" ON profiles
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
 CREATE POLICY "Users can insert their own profile" ON profiles
     FOR INSERT WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
 CREATE POLICY "Users can update their own profile" ON profiles
     FOR UPDATE USING (auth.uid() = id);
 
+-- Restrict updates to is_temporary, expires_at, features to admins only
+DROP POLICY IF EXISTS "Only admin can update user access fields" ON profiles;
+CREATE POLICY "Only admin can update user access fields" ON profiles
+    FOR UPDATE USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+        OR auth.uid() = id
+    )
+    WITH CHECK (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+        OR NOT EXISTS (
+            SELECT 1
+            FROM profiles prior
+            WHERE prior.id = profiles.id
+              AND (
+                  prior.is_temporary IS DISTINCT FROM profiles.is_temporary
+                  OR prior.expires_at IS DISTINCT FROM profiles.expires_at
+                  OR prior.features IS DISTINCT FROM profiles.features
+              )
+        )
+    );
+
 -- RLS Policies for trips
+DROP POLICY IF EXISTS "Users can view their own trips" ON trips;
 CREATE POLICY "Users can view their own trips" ON trips
     FOR SELECT USING (auth.uid() = user_id OR EXISTS (
         SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
     ));
 
+DROP POLICY IF EXISTS "Users can create their own trips" ON trips;
 CREATE POLICY "Users can create their own trips" ON trips
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own trips" ON trips;
 CREATE POLICY "Users can update their own trips" ON trips
     FOR UPDATE USING (auth.uid() = user_id OR EXISTS (
         SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
     ));
 
+DROP POLICY IF EXISTS "Admins can delete trips" ON trips;
 CREATE POLICY "Admins can delete trips" ON trips
     FOR DELETE USING (EXISTS (
         SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
     ));
 
 -- RLS Policies for surcharge_factors
+DROP POLICY IF EXISTS "Public can view surcharge factors" ON surcharge_factors;
 CREATE POLICY "Public can view surcharge factors" ON surcharge_factors
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Admins can insert surcharge factors" ON surcharge_factors;
 CREATE POLICY "Admins can insert surcharge factors" ON surcharge_factors
     FOR INSERT WITH CHECK (
         EXISTS (
@@ -251,6 +288,7 @@ CREATE POLICY "Admins can insert surcharge factors" ON surcharge_factors
         )
     );
 
+DROP POLICY IF EXISTS "Admins can update surcharge factors" ON surcharge_factors;
 CREATE POLICY "Admins can update surcharge factors" ON surcharge_factors
     FOR UPDATE USING (
         EXISTS (
@@ -258,6 +296,7 @@ CREATE POLICY "Admins can update surcharge factors" ON surcharge_factors
         )
     );
 
+DROP POLICY IF EXISTS "Admins can delete surcharge factors" ON surcharge_factors;
 CREATE POLICY "Admins can delete surcharge factors" ON surcharge_factors
     FOR DELETE USING (
         EXISTS (
@@ -266,9 +305,11 @@ CREATE POLICY "Admins can delete surcharge factors" ON surcharge_factors
     );
 
 -- RLS Policies for discounts
+DROP POLICY IF EXISTS "Public can view discounts" ON discounts;
 CREATE POLICY "Public can view discounts" ON discounts
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Admins can insert discounts" ON discounts;
 CREATE POLICY "Admins can insert discounts" ON discounts
     FOR INSERT WITH CHECK (
         EXISTS (
@@ -276,6 +317,7 @@ CREATE POLICY "Admins can insert discounts" ON discounts
         )
     );
 
+DROP POLICY IF EXISTS "Admins can update discounts" ON discounts;
 CREATE POLICY "Admins can update discounts" ON discounts
     FOR UPDATE USING (
         EXISTS (
@@ -283,6 +325,7 @@ CREATE POLICY "Admins can update discounts" ON discounts
         )
     );
 
+DROP POLICY IF EXISTS "Admins can delete discounts" ON discounts;
 CREATE POLICY "Admins can delete discounts" ON discounts
     FOR DELETE USING (
         EXISTS (
@@ -291,14 +334,17 @@ CREATE POLICY "Admins can delete discounts" ON discounts
     );
 
 -- RLS Policies for orders
+DROP POLICY IF EXISTS "Users can view their own orders" ON orders;
 CREATE POLICY "Users can view their own orders" ON orders
     FOR SELECT USING (auth.uid() = user_id OR EXISTS (
         SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
     ));
 
+DROP POLICY IF EXISTS "Users can create their own orders" ON orders;
 CREATE POLICY "Users can create their own orders" ON orders
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own orders" ON orders;
 CREATE POLICY "Users can update their own orders" ON orders
     FOR UPDATE USING (auth.uid() = user_id OR EXISTS (
         SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
@@ -315,24 +361,31 @@ END;
 $$ language 'plpgsql';
 
 -- Apply updated_at triggers to all tables
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
     FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_company_settings_updated_at ON company_settings;
 CREATE TRIGGER update_company_settings_updated_at BEFORE UPDATE ON company_settings
     FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_trips_updated_at ON trips;
 CREATE TRIGGER update_trips_updated_at BEFORE UPDATE ON trips
     FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_orders_updated_at ON orders;
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders
     FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_invoices_updated_at ON invoices;
 CREATE TRIGGER update_invoices_updated_at BEFORE UPDATE ON invoices
     FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_surcharge_factors_updated_at ON surcharge_factors;
 CREATE TRIGGER update_surcharge_factors_updated_at BEFORE UPDATE ON surcharge_factors
     FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_discounts_updated_at ON discounts;
 CREATE TRIGGER update_discounts_updated_at BEFORE UPDATE ON discounts
     FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
@@ -352,6 +405,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger to create profile on user signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
@@ -380,6 +434,7 @@ ON CONFLICT (code) DO NOTHING;
 -- Secure RLS Policies (user-scoped with admin override)
 
 -- Invoices
+DROP POLICY IF EXISTS "Users can view own invoices" ON invoices;
 CREATE POLICY "Users can view own invoices" ON invoices
     FOR SELECT USING (
         EXISTS (
@@ -393,6 +448,7 @@ CREATE POLICY "Users can view own invoices" ON invoices
         )
     );
 
+DROP POLICY IF EXISTS "Users can insert own invoices" ON invoices;
 CREATE POLICY "Users can insert own invoices" ON invoices
     FOR INSERT WITH CHECK (
         EXISTS (
@@ -406,6 +462,7 @@ CREATE POLICY "Users can insert own invoices" ON invoices
         )
     );
 
+DROP POLICY IF EXISTS "Users can update own invoices" ON invoices;
 CREATE POLICY "Users can update own invoices" ON invoices
     FOR UPDATE USING (
         EXISTS (
@@ -419,6 +476,7 @@ CREATE POLICY "Users can update own invoices" ON invoices
         )
     );
 
+DROP POLICY IF EXISTS "Admins can delete invoices" ON invoices;
 CREATE POLICY "Admins can delete invoices" ON invoices
     FOR DELETE USING (
         EXISTS (
@@ -427,6 +485,7 @@ CREATE POLICY "Admins can delete invoices" ON invoices
     );
 
 -- Trip Surcharges
+DROP POLICY IF EXISTS "Users can view own trip surcharges" ON trip_surcharges;
 CREATE POLICY "Users can view own trip surcharges" ON trip_surcharges
     FOR SELECT USING (
         EXISTS (
@@ -440,6 +499,7 @@ CREATE POLICY "Users can view own trip surcharges" ON trip_surcharges
         )
     );
 
+DROP POLICY IF EXISTS "Users can insert own trip surcharges" ON trip_surcharges;
 CREATE POLICY "Users can insert own trip surcharges" ON trip_surcharges
     FOR INSERT WITH CHECK (
         EXISTS (
@@ -453,6 +513,7 @@ CREATE POLICY "Users can insert own trip surcharges" ON trip_surcharges
         )
     );
 
+DROP POLICY IF EXISTS "Users can delete own trip surcharges" ON trip_surcharges;
 CREATE POLICY "Users can delete own trip surcharges" ON trip_surcharges
     FOR DELETE USING (
         EXISTS (
@@ -467,6 +528,7 @@ CREATE POLICY "Users can delete own trip surcharges" ON trip_surcharges
     );
 
 -- Trip Discounts
+DROP POLICY IF EXISTS "Users can view own trip discounts" ON trip_discounts;
 CREATE POLICY "Users can view own trip discounts" ON trip_discounts
     FOR SELECT USING (
         EXISTS (
@@ -480,6 +542,7 @@ CREATE POLICY "Users can view own trip discounts" ON trip_discounts
         )
     );
 
+DROP POLICY IF EXISTS "Users can insert own trip discounts" ON trip_discounts;
 CREATE POLICY "Users can insert own trip discounts" ON trip_discounts
     FOR INSERT WITH CHECK (
         EXISTS (
@@ -493,6 +556,7 @@ CREATE POLICY "Users can insert own trip discounts" ON trip_discounts
         )
     );
 
+DROP POLICY IF EXISTS "Users can delete own trip discounts" ON trip_discounts;
 CREATE POLICY "Users can delete own trip discounts" ON trip_discounts
     FOR DELETE USING (
         EXISTS (
@@ -507,6 +571,7 @@ CREATE POLICY "Users can delete own trip discounts" ON trip_discounts
     );
 
 -- Order Items
+DROP POLICY IF EXISTS "Users can view own order items" ON order_items;
 CREATE POLICY "Users can view own order items" ON order_items
     FOR SELECT USING (
         EXISTS (
@@ -520,6 +585,7 @@ CREATE POLICY "Users can view own order items" ON order_items
         )
     );
 
+DROP POLICY IF EXISTS "Users can insert own order items" ON order_items;
 CREATE POLICY "Users can insert own order items" ON order_items
     FOR INSERT WITH CHECK (
         EXISTS (
@@ -533,6 +599,7 @@ CREATE POLICY "Users can insert own order items" ON order_items
         )
     );
 
+DROP POLICY IF EXISTS "Users can update own order items" ON order_items;
 CREATE POLICY "Users can update own order items" ON order_items
     FOR UPDATE USING (
         EXISTS (
@@ -546,6 +613,7 @@ CREATE POLICY "Users can update own order items" ON order_items
         )
     );
 
+DROP POLICY IF EXISTS "Users can delete own order items" ON order_items;
 CREATE POLICY "Users can delete own order items" ON order_items
     FOR DELETE USING (
         EXISTS (
@@ -560,6 +628,7 @@ CREATE POLICY "Users can delete own order items" ON order_items
     );
 
 -- Audit Logs
+DROP POLICY IF EXISTS "Users can view own audit logs" ON audit_logs;
 CREATE POLICY "Users can view own audit logs" ON audit_logs
     FOR SELECT USING (
         audit_logs.user_id = auth.uid() OR EXISTS (
@@ -567,11 +636,13 @@ CREATE POLICY "Users can view own audit logs" ON audit_logs
         )
     );
 
+DROP POLICY IF EXISTS "Users can create own audit logs" ON audit_logs;
 CREATE POLICY "Users can create own audit logs" ON audit_logs
     FOR INSERT WITH CHECK (
         audit_logs.user_id = auth.uid()
     );
 
+DROP POLICY IF EXISTS "Admins can modify audit logs" ON audit_logs;
 CREATE POLICY "Admins can modify audit logs" ON audit_logs
     FOR UPDATE USING (
         EXISTS (
@@ -579,6 +650,7 @@ CREATE POLICY "Admins can modify audit logs" ON audit_logs
         )
     );
 
+DROP POLICY IF EXISTS "Admins can delete audit logs" ON audit_logs;
 CREATE POLICY "Admins can delete audit logs" ON audit_logs
     FOR DELETE USING (
         EXISTS (

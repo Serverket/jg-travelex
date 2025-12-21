@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
 import ApiHealthIndicator from './ApiHealthIndicator'
 import Logo from './Logo'
+import { useAppContext } from '../context/AppContext'
 
 const Layout = ({ onLogout }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { currentUser, hasFeature } = useAppContext()
+  const isAdmin = currentUser?.role === 'admin'
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen)
@@ -17,6 +20,15 @@ const Layout = ({ onLogout }) => {
   const navLinkClass = ({ isActive }) => {
     return `block px-4 py-2 rounded-md ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`
   }
+
+  const visibleNavItems = useMemo(() => ([
+    { to: '/dashboard', label: 'Dashboard', show: hasFeature('dashboard') },
+    { to: '/calculator', label: 'Calculadora', show: hasFeature('calculator') },
+    { to: '/tracking', label: 'Seguimiento', show: hasFeature('tracking') },
+    { to: '/invoices', label: 'Facturas', show: hasFeature('invoices') },
+    { to: '/settings', label: 'Configuración', show: hasFeature('settings') || isAdmin },
+    { to: '/admin/users', label: 'Usuarios', show: isAdmin }
+  ]), [hasFeature, isAdmin])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -36,11 +48,9 @@ const Layout = ({ onLogout }) => {
             
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center space-x-4">
-              <NavLink to="/dashboard" className={navLinkClass}>Dashboard</NavLink>
-              <NavLink to="/calculator" className={navLinkClass}>Calculadora</NavLink>
-              <NavLink to="/tracking" className={navLinkClass}>Seguimiento</NavLink>
-              <NavLink to="/invoices" className={navLinkClass}>Facturas</NavLink>
-              <NavLink to="/settings" className={navLinkClass}>Configuración</NavLink>
+              {visibleNavItems.filter(item => item.show).map(item => (
+                <NavLink key={item.to} to={item.to} className={navLinkClass}>{item.label}</NavLink>
+              ))}
               <button 
                 onClick={onLogout}
                 className="px-4 py-2 rounded-md text-red-600 hover:bg-red-50"
@@ -79,11 +89,16 @@ const Layout = ({ onLogout }) => {
         {isMobileMenuOpen && (
           <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:hidden mt-2 bg-white shadow-lg rounded-md absolute right-0 left-0 z-20 mx-4`}>
             <div className="py-2">
-              <NavLink to="/dashboard" className="block px-4 py-2 hover:bg-gray-100" onClick={closeMobileMenu}>Dashboard</NavLink>
-              <NavLink to="/calculator" className="block px-4 py-2 hover:bg-gray-100" onClick={closeMobileMenu}>Calculadora</NavLink>
-              <NavLink to="/tracking" className="block px-4 py-2 hover:bg-gray-100" onClick={closeMobileMenu}>Seguimiento</NavLink>
-              <NavLink to="/invoices" className="block px-4 py-2 hover:bg-gray-100" onClick={closeMobileMenu}>Facturas</NavLink>
-              <NavLink to="/settings" className="block px-4 py-2 hover:bg-gray-100" onClick={closeMobileMenu}>Configuración</NavLink>
+              {visibleNavItems.filter(item => item.show).map(item => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className="block px-4 py-2 hover:bg-gray-100"
+                  onClick={closeMobileMenu}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
               <button 
                 onClick={(e) => {
                   closeMobileMenu();

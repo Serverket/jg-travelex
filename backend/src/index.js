@@ -22,6 +22,12 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
+const millis = (value, fallback) => {
+  if (value == null) return fallback;
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 // -----------------------------
 // Auth helpers and middleware
 // -----------------------------
@@ -44,12 +50,23 @@ async function requireAdmin(req, res, next) {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('id, role')
+      .select('id, role, is_active, is_temporary, expires_at, features')
       .eq('id', user.id)
       .single();
     if (error) return res.status(403).json({ error: 'Forbidden' });
+    if (!profile || profile.is_active === false) return res.status(403).json({ error: 'Account disabled' });
+    if (profile.is_temporary && profile.expires_at && new Date(profile.expires_at) < new Date()) {
+      return res.status(403).json({ error: 'Account expired' });
+    }
     if (profile?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-    req.user = { id: user.id, role: profile.role };
+    const features = (profile.features && typeof profile.features === 'object') ? profile.features : {};
+    req.user = {
+      id: user.id,
+      role: profile.role,
+      features,
+      isTemporary: !!profile.is_temporary,
+      expiresAt: profile.expires_at || null
+    };
     return next();
   } catch (e) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -62,15 +79,61 @@ async function requireAuth(req, res, next) {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('id, role')
+      .select('id, role, is_active, is_temporary, expires_at, features')
       .eq('id', user.id)
       .single();
-    if (error) return res.status(401).json({ error: 'Unauthorized' });
-    req.user = { id: user.id, role: profile?.role || 'user' };
+    if (error || !profile) return res.status(401).json({ error: 'Unauthorized' });
+    if (profile.is_active === false) return res.status(403).json({ error: 'Account disabled' });
+    if (profile.is_temporary && profile.expires_at && new Date(profile.expires_at) < new Date()) {
+      return res.status(403).json({ error: 'Account expired' });
+    }
+    const features = (profile.features && typeof profile.features === 'object') ? profile.features : {};
+    req.user = {
+      id: user.id,
+      role: profile.role || 'user',
+      features,
+      isTemporary: !!profile.is_temporary,
+      expiresAt: profile.expires_at || null
+    };
     return next();
   } catch (e) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+}
+
+// -----------------------------
+// Helper utilities
+// -----------------------------
+
+const ALLOWED_ROLES = ['admin', 'user', 'driver'];
+
+function normalizeFeaturesInput(features) {
+  if (!features) return {};
+  if (Array.isArray(features)) {
+    return features.reduce((acc, key) => {
+      if (typeof key === 'string') acc[key] = true;
+      return acc;
+    }, {});
+  }
+  if (typeof features === 'object') return features;
+  return {};
+}
+
+function coerceRole(role) {
+  if (!role) return 'user';
+  if (!ALLOWED_ROLES.includes(role)) {
+    throw new Error(`Invalid role. Allowed roles: ${ALLOWED_ROLES.join(', ')}`);
+  }
+  return role;
+}
+
+function generateTemporaryPassword(length = 12) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@$!&*';
+  let pwd = '';
+  for (let i = 0; i < length; i += 1) {
+    pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return pwd;
 }
 
 app.get('/health', async (req, res) => {
@@ -1005,6 +1068,246 @@ app.delete('/discounts/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// -----------------------------
+// Admin User Management Endpoints
+// -----------------------------
+
+app.get('/admin/users', requireAdmin, async (_req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const {
+      email,
+      username,
+      full_name,
+      password,
+      role,
+      phone,
+      department,
+      is_temporary,
+      expires_at,
+      features,
+      is_active,
+      avatar_url
+    } = req.body || {};
+
+    if (!email || !username || !full_name) {
+      return res.status(400).json({ error: 'Missing required fields: email, username, full_name' });
+    }
+
+    const targetRole = coerceRole(role);
+    const normalizedFeatures = normalizeFeaturesInput(features);
+    const passwordToUse = (typeof password === 'string' && password.length >= 8)
+      ? password
+      : generateTemporaryPassword();
+    const generatedPassword = passwordToUse !== password;
+
+    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password: passwordToUse,
+      email_confirm: true,
+      user_metadata: { full_name, username }
+    });
+    if (authError) throw authError;
+
+    const userId = authUser?.user?.id;
+    if (!userId) throw new Error('Failed to create auth user');
+
+    const profilePayload = {
+      id: userId,
+      email,
+      username,
+      full_name,
+      role: targetRole,
+      phone,
+      department,
+      is_temporary: !!is_temporary,
+      expires_at: expires_at || null,
+      features: normalizedFeatures,
+      is_active: is_active !== false,
+      avatar_url: avatar_url || null
+    };
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .upsert(profilePayload, { onConflict: 'id' })
+      .select('*')
+      .single();
+    if (profileError) {
+      await supabase.auth.admin.deleteUser(userId);
+      throw profileError;
+    }
+
+    res.status(201).json({ ...profile, tempPassword: generatedPassword ? passwordToUse : null });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.patch('/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: 'Missing user id' });
+
+    const payload = req.body || {};
+    const profileUpdates = {};
+    const authUpdates = {};
+
+    if (payload.email != null) {
+      authUpdates.email = payload.email;
+      profileUpdates.email = payload.email;
+    }
+
+    if (payload.password != null) {
+      if (typeof payload.password !== 'string' || payload.password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+      }
+      authUpdates.password = payload.password;
+    }
+
+    if (payload.username != null) profileUpdates.username = payload.username;
+    if (payload.full_name != null) profileUpdates.full_name = payload.full_name;
+    if (payload.phone != null) profileUpdates.phone = payload.phone;
+    if (payload.department != null) profileUpdates.department = payload.department;
+    if (payload.avatar_url !== undefined) profileUpdates.avatar_url = payload.avatar_url || null;
+
+    if (payload.role !== undefined) {
+      profileUpdates.role = coerceRole(payload.role);
+    }
+
+    if (payload.is_temporary !== undefined) {
+      profileUpdates.is_temporary = !!payload.is_temporary;
+    }
+
+    if (payload.expires_at !== undefined) {
+      profileUpdates.expires_at = payload.expires_at || null;
+    }
+
+    if (payload.is_active !== undefined) {
+      profileUpdates.is_active = !!payload.is_active;
+    }
+
+    if (payload.features !== undefined) {
+      profileUpdates.features = normalizeFeaturesInput(payload.features);
+    }
+
+    if (Object.keys(authUpdates).length) {
+      const { error: authError } = await supabase.auth.admin.updateUserById(id, authUpdates);
+      if (authError) throw authError;
+    }
+
+    let updatedProfile = null;
+    if (Object.keys(profileUpdates).length) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(profileUpdates)
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      updatedProfile = data;
+    } else {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      updatedProfile = data;
+    }
+
+    res.json(updatedProfile);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete('/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: 'Missing user id' });
+
+    const { error: authError } = await supabase.auth.admin.deleteUser(id);
+    if (authError) throw authError;
+
+    const { error } = await supabase.from('profiles').delete().eq('id', id);
+    if (error) throw error;
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+function scheduleRenderKeepAlive() {
+  const targetUrl = process.env.RENDER_KEEPALIVE_URL;
+  if (!targetUrl || typeof fetch !== 'function') return;
+  const interval = millis(process.env.RENDER_KEEPALIVE_INTERVAL_MS, 10 * 60 * 1000);
+  if (!interval || interval <= 0) return;
+  let failures = 0;
+  const run = async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+      await fetch(targetUrl, {
+        method: 'GET',
+        headers: { 'User-Agent': 'jg-travelex-keepalive/1.0' },
+        signal: controller.signal
+      });
+      failures = 0;
+    } catch (err) {
+      failures += 1;
+      if (failures === 1 || failures % 10 === 0) {
+        console.warn('Render keepalive failed', err?.message || err);
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  setTimeout(run, 5000);
+  setInterval(run, interval);
+}
+
+function scheduleSupabaseKeepAlive() {
+  const disabled = String(process.env.SUPABASE_KEEPALIVE_DISABLED || '').toLowerCase() === 'true';
+  if (disabled) return;
+  const interval = millis(process.env.SUPABASE_KEEPALIVE_INTERVAL_MS, 12 * 60 * 60 * 1000);
+  if (!interval || interval <= 0) return;
+  let failures = 0;
+  const run = async () => {
+    try {
+      const { error } = await supabase.from('company_settings').select('id').limit(1);
+      if (error) throw error;
+      failures = 0;
+    } catch (err) {
+      failures += 1;
+      if (failures === 1 || failures % 5 === 0) {
+        console.warn('Supabase keepalive failed', err?.message || err);
+      }
+    }
+  };
+  setTimeout(run, 10000);
+  setInterval(run, interval);
+}
+
+function startKeepAlives() {
+  if (process.env.NODE_ENV === 'test') return;
+  scheduleRenderKeepAlive();
+  scheduleSupabaseKeepAlive();
+}
+
 app.listen(PORT, () => {
   console.log(`JG Travelex backend listening on port ${PORT}`);
+  startKeepAlives();
 });

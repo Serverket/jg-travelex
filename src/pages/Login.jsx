@@ -94,7 +94,11 @@ const Login = ({ onLogin: _onLogin }) => {
       }
     } catch (err) {
       console.error('Auth error:', err);
-      setError(err.message || 'Error de autenticación. Por favor intente nuevamente.');
+      const message = err?.message || 'Error de autenticación. Por favor intente nuevamente.';
+      setError(message);
+      if (message.toLowerCase().includes('acceso temporal ha expirado')) {
+        navigate('/access/expired', { state: { email } });
+      }
     } finally {
       setIsLoading(false);
     }

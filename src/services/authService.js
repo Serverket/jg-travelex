@@ -17,19 +17,22 @@ export const authService = {
   async login(email, password) {
     const response = await supabaseService.signIn(email, password);
     
-    if (response.session) {
+    const profileData = response.profile || {};
+    const combinedUser = {
+      id: response.user?.id,
+      email: response.user?.email,
+      ...profileData
+    };
+
+    if (response.session && combinedUser.id) {
       localStorage.setItem(SESSION_KEY, JSON.stringify(response.session));
-      localStorage.setItem(USER_KEY, JSON.stringify({
-        id: response.user.id,
-        email: response.user.email,
-        ...response.profile
-      }));
+      localStorage.setItem(USER_KEY, JSON.stringify(combinedUser));
     }
     
     return {
       message: 'Login successful',
-      user: response.user,
-      profile: response.profile,
+      user: combinedUser,
+      profile: profileData,
       session: response.session
     };
   },

@@ -154,6 +154,56 @@ export const backendService = {
   },
 
   // ---------------------
+  // Admin Users
+  // ---------------------
+  async listUsers() {
+    const res = await fetch(`${baseUrl}/admin/users`, { headers: await buildAuthHeaders({}) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `List users failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async createUser(data) {
+    const res = await fetch(`${baseUrl}/admin/users`, {
+      method: 'POST',
+      headers: await buildAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Create user failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async updateUser(id, data) {
+    const res = await fetch(`${baseUrl}/admin/users/${id}`, {
+      method: 'PATCH',
+      headers: await buildAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Update user failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  async deleteUser(id) {
+    const res = await fetch(`${baseUrl}/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: await buildAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Delete user failed (${res.status})`);
+    }
+    return res.json();
+  },
+
+  // ---------------------
   // Trips (auth required)
   // ---------------------
   async getTrips(filters = {}) {

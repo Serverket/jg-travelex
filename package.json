@@ -8,9 +8,9 @@
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "backend:dev": "npm --prefix backend run dev",
-    "backend:start": "npm --prefix backend start",
-    "dev:all": "npm run backend:dev & npm run dev",
+  "backend:dev": "npm --prefix backend run dev",
+  "backend:start": "npm --prefix backend start",
+  "local:dev": "node scripts/run-local.js",
     "create-admin": "node scripts/create-admin-supabase.js",
     "db:reset": "node scripts/reset-database.js",
     "test:api": "node scripts/test-api.js"

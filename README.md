@@ -104,7 +104,7 @@ grant execute on function public.exec_sql(text) to service_role;
 npm run create-admin
 ```
 
-> **Note**: Do not use `scripts/create-admin.js`. It is deprecated and incompatible with the current schema (no `password` column in `profiles`). Always use `npm run create-admin` which runs `scripts/create-admin-supabase.js`.
+> **Note**: The old `scripts/create-admin.js` helper has been removed. Always use `npm run create-admin`, which runs `scripts/create-admin-supabase.js`.
 
 6. **Start the app (backend and frontend)**
 ```bash
@@ -114,8 +114,8 @@ npm run backend:dev
 # In another terminal, start frontend (Vite on :5173)
 npm run dev
 
-# Or run both concurrently (local dev convenience)
-npm run dev:all
+# Or start everything together (backend + frontend)
+npm run local:dev
 ```
 
 **Backend endpoints**:
@@ -131,6 +131,12 @@ npm run dev:all
     ```
 
 > **Note**: `CORS_ORIGIN` supports multiple origins separated by commas (e.g., `https://yourapp.vercel.app,http://localhost:5173`).
+
+### ♻️ Free-tier keep-alive
+
+- **Render**: the backend schedules a lightweight GET to `RENDER_KEEPALIVE_URL` (default `/health`) every `RENDER_KEEPALIVE_INTERVAL_MS` (default 600,000 ms). Update `render.yaml` or your dashboard with your public service URL so the loop can keep the free instance warm.
+- **Supabase**: the server touches `company_settings` every `SUPABASE_KEEPALIVE_INTERVAL_MS` (default 43,200,000 ms ≈ 12 h) to avoid free-project suspension after a week with no traffic. Set `SUPABASE_KEEPALIVE_DISABLED=true` to opt out.
+- Pair this with an external uptime monitor (e.g., UptimeRobot) if you need an additional safety net; keep intervals ≥5 minutes to avoid Render’s service-initiated traffic guardrails.
 
 ## Tech Stack
 
@@ -162,9 +168,10 @@ npm run dev:all
 │   ├── 📄 manifest.json     # PWA manifest
 │   └── 📄 sw.js             # Service Worker
 ├── 📁 scripts/              # Maintenance scripts
-│   ├── 📄 create-admin-supabase.js  # Recommended: creates Auth user + admin profile
+│   ├── 📄 create-admin-supabase.js  # Creates Auth user + admin profile via Supabase API
 │   ├── 📄 reset-database.js         # Resets DB via exec_sql and seeds schema
-│   └── 📄 create-admin.js           # Legacy (deprecated) script; not compatible with current schema
+│   ├── 📄 run-local.js              # Spins up frontend + backend for local testing
+│   └── 📄 test-api.js               # Smoke test against the backend API
 ├── 📁 src/                  # Frontend source code
 │   ├── 📁 components/       # Reusable components
 │   ├── 📁 context/          # Global application context
@@ -188,7 +195,7 @@ npm run dev:all
 ### Admin user
 - Create an admin with: `npm run create-admin` (interactive). The script provisions a Supabase Auth user and a matching row in `profiles` with role `admin`. You choose the email/username/password during the prompt.
 
-- Legacy: `scripts/create-admin.js` is deprecated and incompatible with the current schema (it assumes a `password` column in `profiles`). Use `npm run create-admin` instead.
+- The legacy `scripts/create-admin.js` helper has been removed; always use `npm run create-admin`.
 
 ### Core features
 

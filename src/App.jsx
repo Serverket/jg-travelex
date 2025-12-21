@@ -8,6 +8,9 @@ import DistanceCalculator from './pages/DistanceCalculator'
 import TripTracking from './pages/TripTracking'
 import Invoices from './pages/Invoices'
 import Settings from './pages/Settings'
+import AdminUsers from './pages/AdminUsers'
+import AccessDenied from './pages/AccessDenied'
+import AccessExpired from './pages/AccessExpired'
 import Layout from './components/Layout'
 
 // Componente principal de la aplicación
@@ -21,9 +24,10 @@ function App() {
 
 // Componente para gestionar rutas y autenticación
 function AppRoutes() {
-  const { user: _user } = useAppContext()
+  const { user: _user, hasFeature, currentUser } = useAppContext()
   const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated())
   const navigate = useNavigate()
+  const isAdmin = currentUser?.role === 'admin'
 
   // Verificar si el usuario ya está autenticado al cargar la aplicación
   useEffect(() => {
@@ -51,11 +55,26 @@ function AppRoutes() {
     navigate('/login')
   }
 
+  const guard = (featureKey, Component, options = {}) => {
+    if (!isAuthenticated) return <Navigate to="/login" />
+    if (options.requireAdmin && !isAdmin) {
+      return <AccessDenied feature={options.featureLabel || 'admin'} />
+    }
+    if (featureKey && !hasFeature(featureKey)) {
+      return <AccessDenied feature={options.featureLabel || featureKey} />
+    }
+    return <Component />
+  }
+
   return (
     <Routes>
       <Route 
         path="/login" 
         element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />} 
+      />
+      <Route 
+        path="/access/expired"
+        element={<AccessExpired />}
       />
       <Route 
         path="/" 
@@ -66,23 +85,27 @@ function AppRoutes() {
       >
         <Route 
           path="/dashboard" 
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} 
+          element={guard('dashboard', Dashboard)} 
         />
         <Route 
           path="/calculator" 
-          element={isAuthenticated ? <DistanceCalculator /> : <Navigate to="/login" />} 
+          element={guard('calculator', DistanceCalculator)} 
         />
         <Route 
           path="/tracking" 
-          element={isAuthenticated ? <TripTracking /> : <Navigate to="/login" />} 
+          element={guard('tracking', TripTracking)} 
         />
         <Route 
           path="/invoices" 
-          element={isAuthenticated ? <Invoices /> : <Navigate to="/login" />} 
+          element={guard('invoices', Invoices)} 
         />
         <Route 
           path="/settings" 
-          element={isAuthenticated ? <Settings /> : <Navigate to="/login" />} 
+          element={guard('settings', Settings)} 
+        />
+        <Route
+          path="/admin/users"
+          element={guard('admin_users', AdminUsers, { requireAdmin: true, featureLabel: 'panel de usuarios' })}
         />
       </Route>
     </Routes>

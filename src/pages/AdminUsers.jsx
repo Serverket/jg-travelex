@@ -1,0 +1,535 @@
+import { useEffect, useMemo, useState } from 'react'
+import { adminService } from '../services/adminService'
+import { useToast } from '../context/ToastContext'
+import { useAppContext } from '../context/AppContext'
+
+const ROLE_OPTIONS = [
+  { value: 'admin', label: 'Administrador' },
+  { value: 'user', label: 'Usuario' },
+  { value: 'driver', label: 'Conductor' }
+]
+
+const AVAILABLE_FEATURES = [
+  { value: 'calculator', label: 'Calculadora' },
+  { value: 'tracking', label: 'Seguimiento de viajes' },
+  { value: 'orders', label: 'Órdenes' },
+  { value: 'invoices', label: 'Facturas' },
+  { value: 'settings', label: 'Configuración' },
+  { value: 'admin_users', label: 'Panel de usuarios' }
+]
+
+const INITIAL_FORM_STATE = {
+  email: '',
+  username: '',
+  full_name: '',
+  password: '',
+  role: 'user',
+  phone: '',
+  department: '',
+  is_temporary: false,
+  expires_at: '',
+  features: [],
+  is_active: true,
+  avatar_url: ''
+}
+
+const toFeatureArray = (features) => {
+  if (!features) return []
+  if (Array.isArray(features)) return features
+  return Object.entries(features)
+    .filter(([, enabled]) => Boolean(enabled))
+    .map(([key]) => key)
+}
+
+const formatDateTimeLocal = (value) => {
+  if (!value) return ''
+  try {
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return ''
+    const tzOffset = date.getTimezoneOffset() * 60000
+    const localISOTime = new Date(date.getTime() - tzOffset).toISOString().slice(0, 16)
+    return localISOTime
+  } catch {
+    return ''
+  }
+}
+
+const toISODate = (value) => {
+  if (!value) return null
+  try {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? null : date.toISOString()
+  } catch {
+    return null
+  }
+}
+
+const AdminUsers = () => {
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [formError, setFormError] = useState(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
+  const [form, setForm] = useState(INITIAL_FORM_STATE)
+  const toast = useToast()
+  const { currentUser, refreshCurrentUser } = useAppContext()
+
+  const loadUsers = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await adminService.listUsers()
+      setUsers(data || [])
+    } catch (err) {
+      setError(err.message || 'No se pudieron obtener los usuarios')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  const resetForm = () => {
+    setForm(INITIAL_FORM_STATE)
+    setFormError(null)
+  }
+
+  const handleCreate = () => {
+    setEditingUser(null)
+    resetForm()
+    setIsDialogOpen(true)
+  }
+
+  const handleEdit = (user) => {
+    setEditingUser(user)
+    setForm({
+      email: user.email || '',
+      username: user.username || '',
+      full_name: user.full_name || '',
+      password: '',
+      role: user.role || 'user',
+      phone: user.phone || '',
+      department: user.department || '',
+      is_temporary: !!user.is_temporary,
+      expires_at: formatDateTimeLocal(user.expires_at),
+      features: toFeatureArray(user.features),
+      is_active: user.is_active !== false,
+      avatar_url: user.avatar_url || ''
+    })
+    setFormError(null)
+    setIsDialogOpen(true)
+  }
+
+  const closeDialog = () => {
+    setIsDialogOpen(false)
+    setEditingUser(null)
+    resetForm()
+  }
+
+  const handleInputChange = (field, value) => {
+    setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const toggleFeature = (featureKey) => {
+    setForm(prev => {
+      const current = new Set(prev.features)
+      if (current.has(featureKey)) current.delete(featureKey)
+      else current.add(featureKey)
+      return { ...prev, features: Array.from(current) }
+    })
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setFormError(null)
+
+    if (!form.email || !form.username || !form.full_name) {
+      setFormError('Email, usuario y nombre completo son obligatorios')
+      return
+    }
+
+    if (!editingUser && form.password && form.password.length < 8) {
+      setFormError('La contraseña debe tener al menos 8 caracteres')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const payload = {
+        email: form.email,
+        username: form.username,
+        full_name: form.full_name,
+        role: form.role,
+        phone: form.phone || null,
+        department: form.department || null,
+        is_temporary: form.is_temporary,
+        expires_at: form.is_temporary ? toISODate(form.expires_at) : null,
+        features: form.features,
+        is_active: form.is_active,
+        avatar_url: form.avatar_url || null
+      }
+
+      if (form.password) {
+        payload.password = form.password
+      }
+
+      if (editingUser) {
+        const updated = await adminService.updateUser(editingUser.id, payload)
+        setUsers(prev => prev.map(u => (u.id === updated.id ? updated : u)))
+        toast.success('Usuario actualizado correctamente')
+        if (editingUser.id === currentUser?.id) {
+          refreshCurrentUser()
+        }
+      } else {
+        const created = await adminService.createUser(payload)
+        const { tempPassword, ...profile } = created
+        setUsers(prev => [profile, ...prev])
+        if (tempPassword) {
+          toast.info(`Contraseña temporal: ${tempPassword}`, { title: 'Usuario creado' })
+        } else {
+          toast.success('Usuario creado correctamente')
+        }
+      }
+
+      closeDialog()
+    } catch (err) {
+      setFormError(err.message || 'No se pudo guardar el usuario')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (user) => {
+    if (user.id === currentUser?.id) {
+      toast.error('No puedes eliminar tu propio usuario')
+      return
+    }
+    const confirmed = window.confirm(`¿Eliminar al usuario ${user.full_name || user.email}?`)
+    if (!confirmed) return
+
+    try {
+      await adminService.deleteUser(user.id)
+      setUsers(prev => prev.filter(u => u.id !== user.id))
+      toast.success('Usuario eliminado correctamente')
+    } catch (err) {
+      toast.error(err.message || 'No se pudo eliminar el usuario')
+    }
+  }
+
+  const sortedUsers = useMemo(() => {
+    return [...users].sort((a, b) => {
+      const aName = (a.full_name || a.email || '').toLowerCase()
+      const bName = (b.full_name || b.email || '').toLowerCase()
+      return aName.localeCompare(bName)
+    })
+  }, [users])
+
+  const featureList = (user) => {
+    const list = toFeatureArray(user.features)
+    if (!list.length) return 'Todos'
+    return list.map(key => {
+      const match = AVAILABLE_FEATURES.find(f => f.value === key)
+      return match ? match.label : key
+    }).join(', ')
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Gestión de usuarios</h1>
+          <p className="text-gray-600">Crea, actualiza o desactiva el acceso de los usuarios del sistema.</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={loadUsers}
+            className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+            disabled={loading}
+          >
+            {loading ? 'Actualizando...' : 'Actualizar lista'}
+          </button>
+          <button
+            type="button"
+            onClick={handleCreate}
+            className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+          >
+            Nuevo usuario
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Temporal</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expira</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funciones</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-gray-500">Cargando usuarios...</td>
+                </tr>
+              ) : sortedUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-gray-500">No hay usuarios registrados.</td>
+                </tr>
+              ) : (
+                sortedUsers.map(user => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{user.full_name || 'Sin nombre'}</div>
+                      <div className="text-sm text-gray-500">{user.email}</div>
+                      <div className="text-sm text-gray-400">{user.username}</div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 capitalize">{user.role}</td>
+                    <td className="px-4 py-3">
+                      {user.is_active === false ? (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700">Inactivo</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">Activo</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {user.is_temporary ? (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700">Temporal</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">Permanente</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {user.is_temporary && user.expires_at ? new Date(user.expires_at).toLocaleString() : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {featureList(user)}
+                    </td>
+                    <td className="px-4 py-3 text-right space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(user)}
+                        className="px-3 py-1 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(user)}
+                        className="px-3 py-1 text-sm rounded-md border border-red-200 text-red-600 hover:bg-red-50"
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {isDialogOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 relative">
+            <button
+              type="button"
+              onClick={closeDialog}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              aria-label="Cerrar"
+            >
+              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              {editingUser ? 'Editar usuario' : 'Nuevo usuario'}
+            </h2>
+
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nombre completo</label>
+                  <input
+                    type="text"
+                    value={form.full_name}
+                    onChange={(e) => handleInputChange('full_name', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Correo electrónico</label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Usuario</label>
+                  <input
+                    type="text"
+                    value={form.username}
+                    onChange={(e) => handleInputChange('username', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Rol</label>
+                  <select
+                    value={form.role}
+                    onChange={(e) => handleInputChange('role', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  >
+                    {ROLE_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Teléfono</label>
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Departamento</label>
+                  <input
+                    type="text"
+                    value={form.department}
+                    onChange={(e) => handleInputChange('department', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Avatar URL</label>
+                  <input
+                    type="url"
+                    value={form.avatar_url}
+                    onChange={(e) => handleInputChange('avatar_url', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Contraseña {editingUser && <span className="text-gray-400">(opcional)</span>}</label>
+                  <input
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder={editingUser ? 'Dejar en blanco para mantener la contraseña' : 'Mínimo 8 caracteres'}
+                    minLength={editingUser ? undefined : 8}
+                  />
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={form.is_active}
+                    onChange={(e) => handleInputChange('is_active', e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Cuenta activa</span>
+                </label>
+
+                <div className="mt-3 space-y-2">
+                  <label className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      checked={form.is_temporary}
+                      onChange={(e) => handleInputChange('is_temporary', e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">Acceso temporal</span>
+                  </label>
+                  {form.is_temporary && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Expira el</label>
+                        <input
+                          type="datetime-local"
+                          value={form.expires_at}
+                          onChange={(e) => handleInputChange('expires_at', e.target.value)}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Permisos de funcionalidad</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {AVAILABLE_FEATURES.map(feature => (
+                    <label key={feature.value} className="flex items-center space-x-3 bg-gray-50 rounded-md px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={form.features.includes(feature.value)}
+                        onChange={() => toggleFeature(feature.value)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">{feature.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Si no seleccionas ninguna opción, el usuario tendrá acceso completo por defecto.</p>
+              </div>
+
+              {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+                  {formError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeDialog}
+                  className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {saving ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default AdminUsers
