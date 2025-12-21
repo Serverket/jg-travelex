@@ -13,3 +13,23 @@ body {
   min-width: 320px;
   min-height: 100vh;
 }
+
+@layer base {
+  table {
+    width: 100%;
+  }
+
+  th,
+  td {
+    word-break: break-word;
+  }
+
+  img,
+  svg,
+  video,
+  canvas,
+  audio {
+    max-width: 100%;
+    height: auto;
+  }
+}

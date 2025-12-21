@@ -498,16 +498,16 @@ const Invoices = () => {
       
       {/* Pestañas */}
       <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+        <nav className="-mb-px flex flex-wrap gap-3">
           <button
             onClick={() => setActiveTab('orders')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'orders' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'orders' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
           >
             Órdenes Pendientes
           </button>
           <button
             onClick={() => setActiveTab('invoices')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'invoices' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'invoices' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
           >
             Facturas Emitidas
           </button>
@@ -538,26 +538,26 @@ const Invoices = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">ID</th>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sm:px-6"
                         onClick={() => handleSort('date')}
                       >
                         Fecha {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origen</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destino</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Origen</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Destino</th>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sm:px-6"
                         onClick={() => handleSort('price')}
                       >
                         Precio {sortConfig.key === 'price' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Estado</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -567,27 +567,27 @@ const Invoices = () => {
                       
                       return (
                         <tr key={order.id} className={selectedOrderId === order.id ? 'bg-blue-50' : ''}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
                             {order.id}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
                             {order.created_at ? new Date(order.created_at).toLocaleDateString() + ' ' + new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={order.items && order.items[0]?.tripData?.origin || 'No origin'}>
+                          <td className="px-4 py-3 text-sm text-gray-500 break-words sm:px-6 sm:py-4" title={order.items && order.items[0]?.tripData?.origin || 'No origin'}>
                             {formatAddress(order.items && order.items[0]?.tripData?.origin)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={order.items && order.items[0]?.tripData?.destination || 'No destination'}>
+                          <td className="px-4 py-3 text-sm text-gray-500 break-words sm:px-6 sm:py-4" title={order.items && order.items[0]?.tripData?.destination || 'No destination'}>
                             {formatAddress(order.items && order.items[0]?.tripData?.destination)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
                             ${order.items && order.items[0]?.tripData?.price || order.total_amount || 0}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <td className="px-4 py-3 text-sm sm:px-6 sm:py-4">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${hasInvoice ? 'bg-green-100 text-green-800' : (order.status === 'completed' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800')}`}>
                               {hasInvoice ? 'Facturada' : (order.status === 'completed' ? 'Completada' : 'Pendiente')}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <td className="px-4 py-3 text-right text-sm font-medium sm:px-6 sm:py-4">
                             {hasInvoice ? (
                               <span className="text-gray-400">Facturada</span>
                             ) : (
@@ -629,52 +629,52 @@ const Invoices = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Factura</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">ID Factura</th>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sm:px-6"
                         onClick={() => handleSort('date')}
                       >
                         Fecha {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origen</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destino</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Origen</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Destino</th>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sm:px-6"
                         onClick={() => handleSort('price')}
                       >
                         Monto {sortConfig.key === 'price' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Estado</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {sortedItems(invoices).map((invoice) => (
                       <tr key={invoice.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
                           {invoice.id}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
                           {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() + ' ' + new Date(invoice.invoice_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : (invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() + ' ' + new Date(invoice.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A')}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin || 'No origin'}>
+                        <td className="px-4 py-3 text-sm text-gray-500 break-words sm:px-6 sm:py-4" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin || 'No origin'}>
                           {formatAddress(invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination || 'No destination'}>
+                        <td className="px-4 py-3 text-sm text-gray-500 break-words sm:px-6 sm:py-4" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination || 'No destination'}>
                           {formatAddress(invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-3 text-sm text-gray-500 sm:px-6 sm:py-4">
                           ${invoice.total_amount || (invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.price) || invoice.orderData?.total_amount || 0}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="px-4 py-3 text-sm sm:px-6 sm:py-4">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${invoice.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
                             {invoice.status === 'paid' ? 'Pagada' : 'Emitida'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <td className="px-4 py-3 text-right text-sm font-medium sm:px-6 sm:py-4">
                           <button
                             onClick={() => generateInvoicePDF(invoice)}
                             disabled={isGeneratingInvoice}

@@ -93,25 +93,35 @@ const DataTable = ({
     )
   }
 
+  const fromIndex = pagination ? (currentPage - 1) * itemsPerPage + 1 : 1
+  const toIndex = pagination ? Math.min(currentPage * itemsPerPage, sortedData.length) : sortedData.length
+
   return (
-    <div className={`bg-white rounded-lg shadow ${className}`}>
+    <div className={`bg-white rounded-xl shadow-sm ring-1 ring-gray-100 ${className}`}>
       {/* Barra de búsqueda */}
       {searchable && (
-        <div className="p-4 border-b">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <div className="flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xs">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
               </svg>
             </div>
             <input
               type="text"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 sm:text-sm"
+              className="block w-full rounded-md border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm leading-5 placeholder-gray-500 focus:border-blue-300 focus:outline-none focus:ring focus:ring-blue-200 focus:ring-opacity-50"
               placeholder="Buscar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          {pagination && sortedData.length > itemsPerPage && (
+            <p className="text-sm text-gray-500 sm:text-right">
+              Mostrando <span className="font-medium">{fromIndex}</span> a{' '}
+              <span className="font-medium">{toIndex}</span> de{' '}
+              <span className="font-medium">{sortedData.length}</span>
+            </p>
+          )}
         </div>
       )}
 
@@ -124,10 +134,10 @@ const DataTable = ({
                 <th
                   key={column.accessor}
                   scope="col"
-                  className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${column.sortable !== false ? 'cursor-pointer hover:bg-gray-100' : ''}`}
+                  className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 ${column.sortable !== false ? 'cursor-pointer hover:bg-gray-100' : ''}`}
                   onClick={() => column.sortable !== false && handleSort(column.accessor)}
                 >
-                  <div className="flex items-center">
+                  <div className="flex items-center gap-1">
                     {column.header}
                     {column.sortable !== false && renderSortIndicator(column.accessor)}
                   </div>
@@ -140,7 +150,10 @@ const DataTable = ({
               paginatedData.map((row, rowIndex) => (
                 <tr key={rowIndex} className="hover:bg-gray-50">
                   {columns.map((column) => (
-                    <td key={`${rowIndex}-${column.accessor}`} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td
+                      key={`${rowIndex}-${column.accessor}`}
+                      className="px-4 py-3 text-sm text-gray-600 align-top break-words md:whitespace-nowrap"
+                    >
                       {column.cell ? column.cell(row) : row[column.accessor]}
                     </td>
                   ))}
@@ -148,7 +161,7 @@ const DataTable = ({
               ))
             ) : (
               <tr>
-                <td colSpan={columns.length} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={columns.length} className="px-4 py-6 text-center text-sm text-gray-500">
                   {emptyMessage}
                 </td>
               </tr>
@@ -159,23 +172,18 @@ const DataTable = ({
 
       {/* Paginación */}
       {pagination && totalPages > 1 && (
-        <div className="px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Mostrando <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> a{' '}
-                <span className="font-medium">
-                  {Math.min(currentPage * itemsPerPage, sortedData.length)}
-                </span>{' '}
-                de <span className="font-medium">{sortedData.length}</span> resultados
-              </p>
-            </div>
-            <div>
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+        <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm text-gray-600 sm:hidden">
+            Mostrando <span className="font-medium">{fromIndex}</span> a{' '}
+            <span className="font-medium">{toIndex}</span> de{' '}
+            <span className="font-medium">{sortedData.length}</span>
+          </div>
+          <div className="flex justify-center sm:justify-end">
+            <nav className="relative z-0 inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'}`}
+                  className={`relative inline-flex items-center rounded-l-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium ${currentPage === 1 ? 'cursor-not-allowed text-gray-300' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
                   <span className="sr-only">Anterior</span>
                   <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -199,7 +207,7 @@ const DataTable = ({
                     <button
                       key={pageNumber}
                       onClick={() => handlePageChange(pageNumber)}
-                      className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${currentPage === pageNumber ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
+                      className={`relative inline-flex items-center border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${currentPage === pageNumber ? 'z-10 border-blue-500 bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
                     >
                       {pageNumber}
                     </button>
@@ -209,7 +217,7 @@ const DataTable = ({
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'}`}
+                  className={`relative inline-flex items-center rounded-r-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium ${currentPage === totalPages ? 'cursor-not-allowed text-gray-300' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
                   <span className="sr-only">Siguiente</span>
                   <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -218,7 +226,6 @@ const DataTable = ({
                 </button>
               </nav>
             </div>
-          </div>
         </div>
       )}
     </div>

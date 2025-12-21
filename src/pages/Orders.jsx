@@ -154,12 +154,12 @@ const Orders = () => {
       <h1 className="text-2xl font-bold text-gray-800">Gestión de Pedidos</h1>
       
       {/* Filter Controls */}
-      <div className="flex items-center space-x-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-gray-700">Filtrar por estado:</span>
         <select 
           value={orderStatusFilter}
           onChange={(e) => setOrderStatusFilter(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-auto"
         >
           <option value="all">Todos los pedidos</option>
           <option value="pending">Pendientes</option>
@@ -226,17 +226,17 @@ const Orders = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedItems(filteredOrders).map((order) => (
                   <tr key={order.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 break-words md:px-6 md:whitespace-nowrap">
                       #{order.id.slice(0, 8)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-gray-600 md:px-6 md:whitespace-nowrap">
                       {new Date(order.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      <div className="max-w-xs">
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      <div className="max-w-xs space-y-1 text-xs md:max-w-sm">
                         {order.trips?.length > 0 ? (
                           order.trips.map((trip, index) => (
-                            <div key={index} className="text-xs mb-1">
+                            <div key={index} className="break-words">
                               {trip.origin} → {trip.destination}
                             </div>
                           ))
@@ -245,10 +245,10 @@ const Orders = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                    <td className="px-4 py-3 text-sm font-semibold text-gray-900 md:px-6 md:whitespace-nowrap">
                       ${parseFloat(order.total_amount || 0).toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-4 py-3 text-sm md:px-6 md:whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                         ${order.status === 'completed' ? 'bg-green-100 text-green-800' : 
                           order.status === 'canceled' ? 'bg-red-100 text-red-800' : 
@@ -259,9 +259,9 @@ const Orders = () => {
                       </span>
                     </td>
                     {user?.role === 'admin' && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-4 py-3 text-sm md:px-6 md:whitespace-nowrap">
                         {order.status === 'pending' && (
-                          <div className="flex space-x-2">
+                          <div className="flex flex-wrap gap-2">
                             <button
                               onClick={() => updateOrderStatus(order.id, 'completed')}
                               className="text-green-600 hover:text-green-900 font-medium"

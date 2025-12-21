@@ -195,7 +195,7 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
         <div className="text-sm text-gray-500">
           Welcome back, {user?.full_name || user?.username || 'User'}
@@ -203,32 +203,32 @@ const Dashboard = () => {
       </div>
       
       {/* Tarjetas de estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-lg bg-white p-4 shadow">
           <h2 className="text-gray-500 text-sm font-medium">Total de Viajes</h2>
           <p className="text-2xl font-bold text-gray-800">{stats.totalTrips}</p>
         </div>
         
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div className="rounded-lg bg-white p-4 shadow">
           <h2 className="text-gray-500 text-sm font-medium">Distancia Total (millas)</h2>
           <p className="text-2xl font-bold text-gray-800">{stats.totalDistance}</p>
         </div>
         
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div className="rounded-lg bg-white p-4 shadow">
           <h2 className="text-gray-500 text-sm font-medium">Ingresos Totales ($)</h2>
           <p className="text-2xl font-bold text-gray-800">{stats.totalRevenue}</p>
         </div>
         
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div className="rounded-lg bg-white p-4 shadow">
           <h2 className="text-gray-500 text-sm font-medium">Órdenes Pendientes</h2>
           <p className="text-2xl font-bold text-gray-800">{stats.pendingOrders}</p>
         </div>
       </div>
       
       {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-700 font-medium mb-4">Viajes por Día (Últimos 7 días)</h2>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-lg bg-white p-4 shadow">
+          <h2 className="mb-4 font-medium text-gray-700">Viajes por Día (Últimos 7 días)</h2>
           {tripsByDay.labels.length > 0 && (
             <Line 
               data={tripsByDay} 
@@ -243,8 +243,8 @@ const Dashboard = () => {
           )}
         </div>
         
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-gray-700 font-medium mb-4">Ingresos por Mes</h2>
+        <div className="rounded-lg bg-white p-4 shadow">
+          <h2 className="mb-4 font-medium text-gray-700">Ingresos por Mes</h2>
           {revenueByMonth.labels.length > 0 && (
             <Bar 
               data={revenueByMonth} 
@@ -261,8 +261,8 @@ const Dashboard = () => {
       </div>
       
       {/* Actividad reciente */}
-      <div className="bg-white p-4 rounded-lg shadow">
-        <h2 className="text-gray-700 font-medium mb-4">Actividad Reciente</h2>
+      <div className="rounded-lg bg-white p-4 shadow">
+        <h2 className="mb-4 font-medium text-gray-700">Actividad Reciente</h2>
         
         {trips.length === 0 ? (
           <p className="text-gray-500">No hay viajes registrados aún.</p>
@@ -281,19 +281,19 @@ const Dashboard = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {trips.slice(-5).reverse().map((trip) => (
                   <tr key={trip.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-gray-600 break-words md:px-6 md:whitespace-nowrap">
                       {new Date(trip.trip_date || trip.created_at || trip.date).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-gray-600 break-words md:px-6 md:whitespace-nowrap">
                       {trip.origin_address || trip.origin || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-gray-600 break-words md:px-6 md:whitespace-nowrap">
                       {trip.destination_address || trip.destination || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-gray-600 md:px-6 md:whitespace-nowrap">
                       {trip.distance_miles || trip.distance || 0} millas
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-gray-600 md:px-6 md:whitespace-nowrap">
                       ${trip.final_price || trip.price || 0}
                     </td>
                   </tr>

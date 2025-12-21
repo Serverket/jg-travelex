@@ -530,49 +530,60 @@ const DistanceCalculator = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Calculadora de Distancias</h1>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold text-gray-800">Calculadora de Distancias</h1>
+        {(distance || duration) && price && (
+          <p className="text-sm text-gray-500">
+            Precio estimado: <span className="font-semibold text-gray-700">${price}</span>
+          </p>
+        )}
+      </div>
       
       {/* Selector de método de cálculo */}
       <div className="bg-white p-4 rounded-lg shadow">
         <h2 className="text-lg font-medium text-gray-700 mb-4">Método de Cálculo</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <input
-              type="radio"
-              id="method-manual"
-              name="calculation-method"
-              value="manual"
-              checked={calculationMethod === 'manual'}
-              onChange={() => setCalculationMethod('manual')}
-              className="mr-2"
-            />
-            <label htmlFor="method-manual" className="text-sm text-gray-700">
-              Cálculo Inteligente
-            </label>
-            <p className="text-xs text-gray-500 mt-1">Ingrese origen, destino, distancia y duración manualmente</p>
-          </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <label htmlFor="method-manual" className="flex cursor-pointer flex-col rounded-lg border border-gray-200 p-3 transition hover:border-blue-400">
+            <div className="flex items-start gap-3">
+              <input
+                type="radio"
+                id="method-manual"
+                name="calculation-method"
+                value="manual"
+                checked={calculationMethod === 'manual'}
+                onChange={() => setCalculationMethod('manual')}
+                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-700">Cálculo Inteligente</p>
+                <p className="mt-1 text-xs text-gray-500">Ingrese origen, destino, distancia y duración manualmente.</p>
+              </div>
+            </div>
+          </label>
           
-          <div>
-            <input
-              type="radio"
-              id="method-google"
-              name="calculation-method"
-              value="google"
-              checked={calculationMethod === 'google'}
-              onChange={() => setCalculationMethod('google')}
-              disabled={!googleMapsApiKeyAvailable}
-              className="mr-2"
-            />
-            <label htmlFor="method-google" className={`text-sm ${!googleMapsApiKeyAvailable ? 'text-gray-400' : 'text-gray-700'}`}>
-              Google Maps
-            </label>
-            <p className="text-xs text-gray-500 mt-1">
-              {googleMapsApiKeyAvailable 
-                ? 'Cálculo preciso usando la API de Google Maps' 
-                : 'Requiere API key de Google Maps (no disponible)'}
-            </p>
-          </div>
+          <label htmlFor="method-google" className={`flex cursor-pointer flex-col rounded-lg border p-3 transition ${googleMapsApiKeyAvailable ? 'border-gray-200 hover:border-blue-400' : 'border-gray-200 bg-gray-50 cursor-not-allowed'}`}>
+            <div className="flex items-start gap-3">
+              <input
+                type="radio"
+                id="method-google"
+                name="calculation-method"
+                value="google"
+                checked={calculationMethod === 'google'}
+                onChange={() => setCalculationMethod('google')}
+                disabled={!googleMapsApiKeyAvailable}
+                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 disabled:text-gray-400"
+              />
+              <div>
+                <p className={`text-sm font-medium ${!googleMapsApiKeyAvailable ? 'text-gray-400' : 'text-gray-700'}`}>Google Maps</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {googleMapsApiKeyAvailable 
+                    ? 'Cálculo preciso usando la API de Google Maps.' 
+                    : 'Requiere API key de Google Maps (no disponible).'}
+                </p>
+              </div>
+            </div>
+          </label>
         </div>
       </div>
       
@@ -624,7 +635,7 @@ const DistanceCalculator = () => {
                   </ul>
                 </div>
               )}
-              <div className="mt-4 space-x-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   onClick={saveTrip}
                   className="py-1 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
@@ -651,14 +662,14 @@ const DistanceCalculator = () => {
       </div>
       
       {/* Factores de recargo y descuentos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Factores de recargo */}
         <div className="bg-white p-4 rounded-lg shadow">
           <h2 className="text-lg font-medium text-gray-700 mb-4">Factores de Recargo</h2>
           
           <div className="space-y-2">
             {surchargeFactors.map((factor) => (
-              <div key={factor.id} className="flex items-center">
+              <div key={factor.id} className="flex flex-wrap items-center gap-3">
                 <input
                   type="checkbox"
                   id={`surcharge-${factor.id}`}
@@ -680,7 +691,7 @@ const DistanceCalculator = () => {
           
           <div className="space-y-2">
             {discounts.map((discount) => (
-              <div key={discount.id} className="flex items-center">
+              <div key={discount.id} className="flex flex-wrap items-center gap-3">
                 <input
                   type="checkbox"
                   id={`discount-${discount.id}`}

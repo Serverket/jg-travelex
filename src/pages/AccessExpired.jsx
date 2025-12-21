@@ -82,12 +82,12 @@ const AccessExpired = () => {
               key={plan.id}
               className={`group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-xl transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl ${plan.highlight ? 'ring-2 ring-blue-400/60' : ''}`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-2xl font-semibold text-white">{plan.name}</h2>
                   <p className="mt-1 text-sm uppercase tracking-widest text-blue-300/80">Incluye</p>
                 </div>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-blue-100/90">
+                <span className="self-start rounded-full bg-white/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-blue-100/90 sm:self-center">
                   {plan.badge}
                 </span>
               </div>

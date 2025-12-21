@@ -34,8 +34,8 @@ const Layout = ({ onLogout }) => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 py-3 md:h-16 md:flex-nowrap md:gap-6">
             <div className="flex items-center">
               <Logo 
                 size="small" 
@@ -47,7 +47,7 @@ const Layout = ({ onLogout }) => {
             </div>
             
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center space-x-4">
+            <nav className="hidden items-center gap-3 md:flex">
               {visibleNavItems.filter(item => item.show).map(item => (
                 <NavLink key={item.to} to={item.to} className={navLinkClass}>{item.label}</NavLink>
               ))}
@@ -60,7 +60,7 @@ const Layout = ({ onLogout }) => {
             </nav>
             
             {/* Mobile menu button */}
-            <div className="md:hidden flex items-center">
+            <div className="flex items-center md:hidden">
               <button 
                 onClick={toggleMobileMenu}
                 className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
@@ -87,13 +87,13 @@ const Layout = ({ onLogout }) => {
         
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
-          <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:hidden mt-2 bg-white shadow-lg rounded-md absolute right-0 left-0 z-20 mx-4`}>
-            <div className="py-2">
+          <div className="md:hidden">
+            <div className="mx-4 mt-2 rounded-md bg-white shadow-lg ring-1 ring-black/5">
               {visibleNavItems.filter(item => item.show).map(item => (
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  className="block px-4 py-2 hover:bg-gray-100"
+                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
                   onClick={closeMobileMenu}
                 >
                   {item.label}
@@ -104,7 +104,7 @@ const Layout = ({ onLogout }) => {
                   closeMobileMenu();
                   onLogout(e);
                 }}
-                className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
+                className="block w-full px-4 py-2 text-left text-red-600 hover:bg-red-50"
               >
                 Cerrar Sesión
               </button>
@@ -114,7 +114,7 @@ const Layout = ({ onLogout }) => {
       </header>
       
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <Outlet />
       </main>
       
