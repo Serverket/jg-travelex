@@ -3,8 +3,8 @@ services:
     name: jg-travelex-backend
     env: node
     plan: free
-    buildCommand: npm install --prefix backend
-    startCommand: node backend/src/index.js
+  buildCommand: bun install --cwd backend
+  startCommand: bun --cwd backend run start
     envVars:
       - key: SUPABASE_URL
         sync: false

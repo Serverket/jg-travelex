@@ -1,10 +1,29 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { AppContext } from '../context/AppContext';
 import ApiHealthIndicator from '../components/ApiHealthIndicator';
 import { useToast } from '../context/ToastContext';
 import Logo from '../components/Logo';
+
+const ENV_BACKGROUND_IMAGES = (import.meta.env.VITE_LOGIN_BG_IMAGES || '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
+
+const DEFAULT_BACKGROUND_IMAGES = [
+  '/destinations/KeysSevenMileBridges.jpg.webp',
+  '/destinations/SombreroBeach-MarathonFL.jpg.webp',
+  '/destinations/bradentonbeachcheap.jpg.webp',
+  '/destinations/cocoabeachcheap.jpg.webp',
+  '/destinations/fortmyersbeachcheap.jpg.webp',
+  '/destinations/gainesvillecheap.jpg.webp',
+  '/destinations/jaxxx.jpg.webp',
+  '/destinations/newsmyrnacheap.jpg.webp',
+  '/destinations/pensacolabeachcheap.jpg.webp',
+  '/destinations/ponceinletcheap.jpg.webp',
+  '/destinations/splitsville.jpg.webp'
+];
 
 const Login = ({ onLogin: _onLogin }) => {
   const [email, setEmail] = useState('');
@@ -18,27 +37,12 @@ const Login = ({ onLogin: _onLogin }) => {
   const { setUser } = useContext(AppContext);
   const toast = useToast();
 
-  // Background slideshow images (Florida-only, local assets)
-  // Highest priority: VITE_LOGIN_BG_IMAGES (comma-separated paths under /public)
-  // Else: default list under /public/destinations/
-  const envBgList = (import.meta.env.VITE_LOGIN_BG_IMAGES || '').split(',').map(s => s.trim()).filter(Boolean);
-  const defaultLocal = [
-    '/destinations/KeysSevenMileBridges.jpg.webp',
-    '/destinations/SombreroBeach-MarathonFL.jpg.webp',
-    '/destinations/bradentonbeachcheap.jpg.webp',
-    '/destinations/cocoabeachcheap.jpg.webp',
-    '/destinations/fortmyersbeachcheap.jpg.webp',
-    '/destinations/gainesvillecheap.jpg.webp',
-    '/destinations/jaxxx.jpg.webp',
-    '/destinations/newsmyrnacheap.jpg.webp',
-    '/destinations/pensacolabeachcheap.jpg.webp',
-    '/destinations/ponceinletcheap.jpg.webp',
-    '/destinations/splitsville.jpg.webp'
-  ];
-
-  const backgroundImages = envBgList.length > 0 ? envBgList : defaultLocal;
+  const backgroundImages = ENV_BACKGROUND_IMAGES.length > 0 ? ENV_BACKGROUND_IMAGES : DEFAULT_BACKGROUND_IMAGES;
   const [bgIndex, setBgIndex] = useState(0);
+  const [loadedImages, setLoadedImages] = useState(() => new Set());
+  const [logoReady, setLogoReady] = useState(false);
   const overlayGradientClass = 'bg-gradient-to-br from-slate-950/85 via-slate-900/75 to-slate-950/90';
+  const prevBgIndexRef = useRef(bgIndex);
 
   const ambienceGlowPrimary = 'bg-blue-500/30';
   const ambienceGlowSecondary = 'bg-indigo-500/30';
@@ -56,6 +60,42 @@ const Login = ({ onLogin: _onLogin }) => {
     
     return () => clearInterval(interval)
   }, [backgroundImages.length]);
+
+  useEffect(() => {
+    setLoadedImages(new Set());
+  }, [backgroundImages]);
+
+  useEffect(() => {
+    prevBgIndexRef.current = bgIndex;
+  }, [bgIndex]);
+
+  useEffect(() => {
+    const nextSrc = backgroundImages[(bgIndex + 1) % backgroundImages.length];
+    if (!nextSrc || loadedImages.has(nextSrc)) return;
+
+    const image = new Image();
+    const handleLoad = () => {
+      setLoadedImages(prev => {
+        if (prev.has(nextSrc)) return prev;
+        const updated = new Set(prev);
+        updated.add(nextSrc);
+        return updated;
+      });
+    };
+    image.onload = handleLoad;
+    image.src = nextSrc;
+    if (image.complete) {
+      handleLoad();
+    }
+  }, [bgIndex, backgroundImages, loadedImages]);
+
+  useEffect(() => {
+    if (logoReady) return;
+    const activeSrc = backgroundImages[bgIndex];
+    if (activeSrc && loadedImages.has(activeSrc)) {
+      setLogoReady(true);
+    }
+  }, [bgIndex, backgroundImages, loadedImages, logoReady]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -121,16 +161,42 @@ const Login = ({ onLogin: _onLogin }) => {
     }
   };
 
+  const previousBgIndex = prevBgIndexRef.current;
+  const activeBackgroundSrc = backgroundImages[bgIndex];
+  const activeImageLoaded = activeBackgroundSrc ? loadedImages.has(activeBackgroundSrc) : false;
+
   return (
-  <div className="relative min-h-screen overflow-hidden bg-slate-950">
+    <div className="relative min-h-screen overflow-hidden bg-slate-950">
       <div className="absolute inset-0" aria-hidden="true">
-        {backgroundImages.map((src, index) => (
-          <div
-            key={index}
-            className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out ${index === bgIndex ? 'opacity-100' : 'opacity-0'}`}
-            style={{ backgroundImage: `url(${src})` }}
-          />
-        ))}
+        {backgroundImages.map((src, index) => {
+          const isActive = index === bgIndex;
+          const isPreviousActive = previousBgIndex !== bgIndex && index === previousBgIndex;
+          const isLoaded = loadedImages.has(src);
+          const shouldShow = (isActive && isLoaded) || (isPreviousActive && !activeImageLoaded);
+          return (
+            <div
+              key={index}
+              className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-out will-change-opacity ${
+                shouldShow ? 'opacity-100' : 'opacity-0'
+              }`}
+              style={{ backgroundImage: `url(${src})` }}
+            >
+              <img
+                src={src}
+                alt=""
+                className="invisible h-0 w-0"
+                onLoad={() => {
+                  setLoadedImages(prev => {
+                    if (prev.has(src)) return prev;
+                    const updated = new Set(prev);
+                    updated.add(src);
+                    return updated;
+                  });
+                }}
+              />
+            </div>
+          );
+        })}
         <div className={`absolute inset-0 ${overlayGradientClass} backdrop-blur`} />
       </div>
 
@@ -153,12 +219,18 @@ const Login = ({ onLogin: _onLogin }) => {
 
               <div className="relative z-10 sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="mb-6 flex justify-center">
-                  <Logo
-                    size="large"
-                    showDropShadow={true}
-                    variant="original"
-                    className="transition-transform hover:scale-105"
-                  />
+                  <div
+                    className={`group inline-flex transform-gpu transition-all duration-700 ease-out ${
+                      logoReady ? 'scale-100 opacity-100' : 'scale-90 opacity-0'
+                    }`}
+                  >
+                    <Logo
+                      size="large"
+                      showDropShadow={true}
+                      variant="original"
+                      className="transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
                 </div>
                 <h2 className="text-center text-3xl font-semibold tracking-tight text-white">
                   {isRegistering ? 'Crear su cuenta' : 'Iniciar sesión en JG Travelex'}

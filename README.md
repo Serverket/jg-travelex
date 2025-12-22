@@ -1,10 +1,12 @@
 <div align="center">
 
+![JG Travelex Logo](./public/icons/jg_logo.png)
+
 # JG Travelex - Trip Management System
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Node.js](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)
+![Bun](https://img.shields.io/badge/bun-%3E%3D1.0.0-black.svg)
 ![React](https://img.shields.io/badge/react-18.2.0-blue.svg)
 ![Supabase](https://img.shields.io/badge/supabase-2.56.0-3ecf8e.svg)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
@@ -26,9 +28,9 @@
 - ⚙️ **Configurable rates**, surcharges and discounts
 - 🔒 **Role-based access control** (admin/user)
 - 📱 **Modern responsive design** with Tailwind CSS
-- ✨ **New in v1.1.0**: Enhanced code quality with comprehensive ESLint configuration
-- 🛡️ **New in v1.1.0**: Improved error handling and type safety
-- ⚡ **New in v1.1.0**: Optimized React Hook dependencies for better performance
+- ✨ **New in v2.0.0**: Enhanced code quality with comprehensive ESLint configuration
+- 🛡️ **New in v2.0.0**: Improved error handling and type safety
+- ⚡ **New in v2.0.0**: Optimized React Hook dependencies for better performance
 
 ---
 
@@ -36,7 +38,10 @@
 
 ### 📋 Prerequisites
 
-- **Node.js 16+** and npm
+- **Bun 1.0+** (includes a Node-compatible runtime)
+- **Supabase CLI** (https://supabase.com/docs/guides/cli) for local stacks
+- **Docker** (required by Supabase CLI)
+- **psql** command-line client (ships with PostgreSQL)
 - **Supabase account** (https://supabase.com)
 - **Google Maps API key** (for distance calculations)
 
@@ -50,7 +55,7 @@ cd jg-travelex
 
 2. **Install dependencies**
 ```bash
-npm install
+bun install
 ```
 
 3. **Configure environment variables**
@@ -80,7 +85,7 @@ VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
    - **Option A** (recommended first time): Open Supabase Dashboard → SQL Editor and run the contents of `supabase-schema.sql`.
    - **Option B** (scripted): Ensure an RPC function `exec_sql(sql text)` exists in your database, then run:
 ```bash
-npm run db:reset
+bun run db:reset
 ```
 
 If `exec_sql` does not exist, create it in Supabase SQL Editor first (security: service role only runs this in scripts):
@@ -101,21 +106,18 @@ grant execute on function public.exec_sql(text) to service_role;
 
 5. **Create the admin user**
 ```bash
-npm run create-admin
+bun run create-admin
 ```
 
-> **Note**: The old `scripts/create-admin.js` helper has been removed. Always use `npm run create-admin`, which runs `scripts/create-admin-supabase.js`.
+> **Note**: The old `scripts/create-admin.js` helper has been removed. Always use `bun run create-admin`, which runs `scripts/create-admin-supabase.js`.
 
 6. **Start the app (backend and frontend)**
 ```bash
 # Start backend (Express on :8000)
-npm run backend:dev
+bun run backend:dev              # or: bun --cwd backend run dev
 
 # In another terminal, start frontend (Vite on :5173)
-npm run dev
-
-# Or start everything together (backend + frontend)
-npm run local:dev
+bun run dev
 ```
 
 **Backend endpoints**:
@@ -170,7 +172,6 @@ npm run local:dev
 ├── 📁 scripts/              # Maintenance scripts
 │   ├── 📄 create-admin-supabase.js  # Creates Auth user + admin profile via Supabase API
 │   ├── 📄 reset-database.js         # Resets DB via exec_sql and seeds schema
-│   ├── 📄 run-local.js              # Spins up frontend + backend for local testing
 │   └── 📄 test-api.js               # Smoke test against the backend API
 ├── 📁 src/                  # Frontend source code
 │   ├── 📁 components/       # Reusable components
@@ -193,9 +194,9 @@ npm run local:dev
 ## Usage
 
 ### Admin user
-- Create an admin with: `npm run create-admin` (interactive). The script provisions a Supabase Auth user and a matching row in `profiles` with role `admin`. You choose the email/username/password during the prompt.
+- Create an admin with: `bun run create-admin` (interactive). The script provisions a Supabase Auth user and a matching row in `profiles` with role `admin`. You choose the email/username/password during the prompt.
 
-- The legacy `scripts/create-admin.js` helper has been removed; always use `npm run create-admin`.
+- The legacy `scripts/create-admin.js` helper has been removed; always use `bun run create-admin`.
 
 ### Core features
 
@@ -232,7 +233,7 @@ This suite verifies DB access, admin presence, CRUD basics, and that invoices us
    - `VITE_SUPABASE_ANON_KEY`
    - `VITE_BACKEND_URL` (your deployed backend URL)
    - `VITE_GOOGLE_MAPS_API_KEY`
-3. Build command: `npm run build`
+3. Build command: `bun run build`
 4. Output directory: `dist`
 5. Deploy
 
@@ -259,7 +260,9 @@ Note: the app expects a singleton row in `company_settings` with id `11111111-11
 
 MIT
 
-## What's New in v1.1.0
+This project is licensed under the [MIT License](./LICENSE)..
+
+## What's New in v2.0.0
 
 ### Code Quality Improvements
 - ✅ **Zero ESLint warnings/errors** - Clean, maintainable codebase
@@ -274,8 +277,6 @@ MIT
 - 🔍 Improved debugging capabilities
 - 📝 Enhanced code readability and documentation
 - 🚀 Faster development workflow with resolved linting issues
-
-See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
 ## :brain: Acknowledgments
 _"Whoever loves discipline loves knowledge, but whoever hates correction is stupid."_
