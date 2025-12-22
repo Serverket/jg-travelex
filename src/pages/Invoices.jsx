@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useId, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppContext } from '../context/AppContext'
 import { orderService } from '../services/orderService'
 import { invoiceService } from '../services/invoiceService'
@@ -33,6 +34,195 @@ const formatAddress = (address, maxLength = 30) => {
     `${address.substring(0, maxLength)}...` : 
     address;
 };
+
+const ResponsiveField = ({ displayValue, fullValue }) => {
+  const [isTooltipVisible, setIsTooltipVisible] = useState(false)
+  const [tooltipPlacement, setTooltipPlacement] = useState('bottom')
+  const [tooltipStyle, setTooltipStyle] = useState({ top: 0, left: 0 })
+  const [isTouchDevice, setIsTouchDevice] = useState(false)
+  const hideTimerRef = useRef(null)
+  const fieldRef = useRef(null)
+  const tooltipRef = useRef(null)
+  const tooltipId = useId()
+
+  const resolvedDisplay = displayValue ?? 'N/A'
+  const displayText = String(resolvedDisplay)
+  const rawText = fullValue != null ? String(fullValue) : displayText
+  const showIndicator = rawText.length > 18 && rawText !== 'N/A'
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hoverQuery = window.matchMedia ? window.matchMedia('(hover: none)') : null
+
+    const updateTouchState = () => {
+      const hoverNone = hoverQuery ? hoverQuery.matches : false
+      const hasTouch = typeof navigator !== 'undefined' && (navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0)
+      const fallbackTouch = typeof window !== 'undefined' && 'ontouchstart' in window
+      setIsTouchDevice(Boolean(hoverNone || hasTouch || fallbackTouch))
+    }
+
+    updateTouchState()
+    const listener = (event) => setIsTouchDevice(event.matches)
+    if (hoverQuery) {
+      if (typeof hoverQuery.addEventListener === 'function') {
+        hoverQuery.addEventListener('change', listener)
+        return () => hoverQuery.removeEventListener('change', listener)
+      } else if (typeof hoverQuery.addListener === 'function') {
+        hoverQuery.addListener(listener)
+        return () => hoverQuery.removeListener(listener)
+      }
+    }
+    return undefined
+  }, [])
+
+  const clearHideTimer = () => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
+  }
+
+  const showTooltip = (autoHideMs) => {
+    if (!showIndicator) return
+    clearHideTimer()
+    setTooltipPlacement('bottom')
+    setIsTooltipVisible(true)
+    if (autoHideMs) {
+      hideTimerRef.current = setTimeout(() => {
+        setIsTooltipVisible(false)
+        hideTimerRef.current = null
+      }, autoHideMs)
+    }
+  }
+
+  const hideTooltip = () => {
+    clearHideTimer()
+    setIsTooltipVisible(false)
+  }
+
+  useEffect(() => () => clearHideTimer(), [])
+
+  const updateTooltipPosition = () => {
+    if (typeof window === 'undefined') return
+    if (!isTooltipVisible || !fieldRef.current || !tooltipRef.current) return
+    const rect = fieldRef.current.getBoundingClientRect()
+    const tooltipRect = tooltipRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    const preferredPlacement = spaceBelow >= tooltipRect.height + 12 || spaceBelow >= spaceAbove ? 'bottom' : 'top'
+    let top = preferredPlacement === 'bottom'
+      ? rect.bottom + 8
+      : rect.top - tooltipRect.height - 8
+    let left = rect.left
+    const horizontalPadding = 12
+    const verticalPadding = 8
+
+    if (left + tooltipRect.width > window.innerWidth - horizontalPadding) {
+      left = window.innerWidth - tooltipRect.width - horizontalPadding
+    }
+    if (left < horizontalPadding) {
+      left = horizontalPadding
+    }
+
+    if (top + tooltipRect.height > window.innerHeight - verticalPadding) {
+      top = window.innerHeight - tooltipRect.height - verticalPadding
+    }
+    if (top < verticalPadding) {
+      top = verticalPadding
+    }
+
+    setTooltipPlacement(preferredPlacement)
+    setTooltipStyle({ top, left })
+  }
+
+  useLayoutEffect(() => {
+    if (!isTooltipVisible) return undefined
+    updateTooltipPosition()
+
+    const handleScrollOrResize = () => updateTooltipPosition()
+    window.addEventListener('scroll', handleScrollOrResize, true)
+    window.addEventListener('resize', handleScrollOrResize)
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true)
+      window.removeEventListener('resize', handleScrollOrResize)
+    }
+  }, [isTooltipVisible])
+
+  const handleIndicatorClick = (event) => {
+    if (!showIndicator) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (isTooltipVisible) {
+      hideTooltip()
+    } else {
+      showTooltip(4000)
+    }
+  }
+
+  const handleHoverStart = () => showIndicator && showTooltip()
+  const handleHoverEnd = () => showIndicator && hideTooltip()
+
+  const handleContainerClick = (event) => {
+    if (!showIndicator || !isTouchDevice) return
+    handleIndicatorClick(event)
+  }
+
+  const showToggleButton = showIndicator && isTouchDevice
+
+  const containerClass = `relative inline-flex max-w-[8rem] items-center gap-1 md:max-w-[12rem] lg:max-w-none ${showIndicator ? 'cursor-help' : ''}`
+  const tooltipPlacementClass = tooltipPlacement === 'top'
+    ? 'origin-bottom-left'
+    : 'origin-top-left'
+
+  const tooltipNode = (showIndicator && isTooltipVisible && typeof document !== 'undefined')
+    ? createPortal(
+        <span
+          id={tooltipId}
+          role="tooltip"
+          ref={tooltipRef}
+          className={`pointer-events-none fixed z-50 max-w-[22rem] rounded-xl border border-white/10 bg-slate-900/95 px-3 py-2 text-xs font-medium text-blue-50 shadow-lg shadow-blue-900/40 ${tooltipPlacementClass}`}
+          style={{ top: tooltipStyle.top, left: tooltipStyle.left }}
+        >
+          {rawText}
+        </span>,
+        document.body
+      )
+    : null
+
+  return (
+    <>
+      <span
+        className={containerClass}
+        ref={fieldRef}
+        onMouseEnter={handleHoverStart}
+        onMouseLeave={handleHoverEnd}
+        onFocus={handleHoverStart}
+        onBlur={handleHoverEnd}
+        onClick={handleContainerClick}
+        title={rawText}
+        aria-describedby={showIndicator && isTooltipVisible ? tooltipId : undefined}
+      >
+        <span className="block truncate">{displayText}</span>
+        {showToggleButton && (
+          <>
+            <button
+              type="button"
+              className="ml-1 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-blue-200/50 bg-blue-500/10 text-[0.7rem] text-blue-100/80 shadow-sm transition hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-400/60 lg:hidden"
+              onClick={handleIndicatorClick}
+              aria-label={`Mostrar texto completo: ${rawText}`}
+            >
+              <span aria-hidden="true">🔍</span>
+            </button>
+          </>
+        )}
+        {showIndicator && !showToggleButton && (
+          <span className="ml-1 hidden text-[0.75rem] text-blue-200/70 md:inline-flex" aria-hidden="true">🔍</span>
+        )}
+      </span>
+      {tooltipNode}
+    </>
+  )
+}
 
 const Invoices = () => {
   const { user } = useAppContext()
@@ -595,21 +785,28 @@ const Invoices = () => {
                   <tbody className="divide-y divide-white/5">
                     {sortedItems(orders).map((order) => {
                       const hasInvoice = invoices.some(invoice => invoice.order_id === order.id || invoice.orderId === order.id)
+                      const primaryTrip = order.items?.[0]?.tripData
+                      const originFull = primaryTrip?.origin ?? 'No disponible'
+                      const destinationFull = primaryTrip?.destination ?? 'No disponible'
+                      const originDisplay = formatAddress(originFull)
+                      const destinationDisplay = formatAddress(destinationFull)
 
                       return (
                         <tr
                           key={order.id}
                           className={selectedOrderId === order.id ? 'bg-blue-500/10' : 'bg-white/5'}
                         >
-                          <td className="px-6 py-4 text-sm font-semibold text-white">{order.id}</td>
+                          <td className="px-6 py-4 text-sm font-semibold text-white">
+                            <ResponsiveField displayValue={order.id} fullValue={order.id} />
+                          </td>
                           <td className="px-6 py-4 text-sm text-blue-100/80">
                             {order.created_at ? `${new Date(order.created_at).toLocaleDateString()} ${new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'N/A'}
                           </td>
-                          <td className="px-6 py-4 text-xs text-blue-100/70" title={order.items && order.items[0]?.tripData?.origin || 'No origin'}>
-                            {formatAddress(order.items && order.items[0]?.tripData?.origin)}
+                          <td className="px-6 py-4 text-xs text-blue-100/70">
+                            <ResponsiveField displayValue={originDisplay} fullValue={originFull} />
                           </td>
-                          <td className="px-6 py-4 text-xs text-blue-100/70" title={order.items && order.items[0]?.tripData?.destination || 'No destination'}>
-                            {formatAddress(order.items && order.items[0]?.tripData?.destination)}
+                          <td className="px-6 py-4 text-xs text-blue-100/70">
+                            <ResponsiveField displayValue={destinationDisplay} fullValue={destinationFull} />
                           </td>
                           <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
                             ${order.items && order.items[0]?.tripData?.price || order.total_amount || 0}
@@ -704,50 +901,61 @@ const Invoices = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {sortedItems(invoices).map((invoice) => (
-                      <tr
-                        key={invoice.id}
-                        className="bg-white/5"
-                      >
-                        <td className="px-6 py-4 text-sm font-semibold text-white">{invoice.id}</td>
-                        <td className="px-6 py-4 text-sm text-blue-100/80">
-                          {invoice.invoice_date
-                            ? `${new Date(invoice.invoice_date).toLocaleDateString()} ${new Date(invoice.invoice_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                            : invoice.created_at
-                              ? `${new Date(invoice.created_at).toLocaleDateString()} ${new Date(invoice.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                              : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-blue-100/70" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin || 'No origin'}>
-                          {formatAddress(invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin)}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-blue-100/70" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination || 'No destination'}>
-                          {formatAddress(invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination)}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
-                          ${invoice.total_amount || (invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.price) || invoice.orderData?.total_amount || 0}
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          <span
-                            className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
-                              invoice.status === 'paid'
-                                ? 'bg-emerald-500/20 text-emerald-200'
-                                : 'bg-blue-500/20 text-blue-100'
-                            }`}
-                          >
-                            {invoice.status === 'paid' ? 'Pagada' : 'Emitida'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right text-sm">
-                          <button
-                            onClick={() => generateInvoicePDF(invoice)}
-                            disabled={isGeneratingInvoice}
-                            className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/40 whitespace-nowrap"
-                          >
-                            {isGeneratingInvoice ? 'Generando…' : 'Descargar PDF'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {sortedItems(invoices).map((invoice) => {
+                      const invoiceIdentifier = invoice.invoice_number || invoice.id
+                      const orderTrip = invoice.orderData?.items?.[0]?.tripData
+                      const originFull = orderTrip?.origin ?? 'No disponible'
+                      const destinationFull = orderTrip?.destination ?? 'No disponible'
+                      const originDisplay = formatAddress(originFull)
+                      const destinationDisplay = formatAddress(destinationFull)
+
+                      return (
+                        <tr
+                          key={invoice.id}
+                          className="bg-white/5"
+                        >
+                          <td className="px-6 py-4 text-sm font-semibold text-white">
+                            <ResponsiveField displayValue={invoiceIdentifier} fullValue={invoiceIdentifier} />
+                          </td>
+                          <td className="px-6 py-4 text-sm text-blue-100/80">
+                            {invoice.invoice_date
+                              ? `${new Date(invoice.invoice_date).toLocaleDateString()} ${new Date(invoice.invoice_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                              : invoice.created_at
+                                ? `${new Date(invoice.created_at).toLocaleDateString()} ${new Date(invoice.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 text-xs text-blue-100/70">
+                            <ResponsiveField displayValue={originDisplay} fullValue={originFull} />
+                          </td>
+                          <td className="px-6 py-4 text-xs text-blue-100/70">
+                            <ResponsiveField displayValue={destinationDisplay} fullValue={destinationFull} />
+                          </td>
+                          <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
+                            ${invoice.total_amount || (invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.price) || invoice.orderData?.total_amount || 0}
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            <span
+                              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
+                                invoice.status === 'paid'
+                                  ? 'bg-emerald-500/20 text-emerald-200'
+                                  : 'bg-blue-500/20 text-blue-100'
+                              }`}
+                            >
+                              {invoice.status === 'paid' ? 'Pagada' : 'Emitida'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right text-sm">
+                            <button
+                              onClick={() => generateInvoicePDF(invoice)}
+                              disabled={isGeneratingInvoice}
+                              className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/40 whitespace-nowrap"
+                            >
+                              {isGeneratingInvoice ? 'Generando…' : 'Descargar PDF'}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

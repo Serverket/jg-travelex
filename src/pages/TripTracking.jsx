@@ -504,6 +504,7 @@ const TripTracking = () => {
                         <thead className="bg-white/5 text-blue-100 text-sm uppercase tracking-[0.12em]">
                           <tr>
                             <th className="px-4 py-3 font-semibold whitespace-nowrap">Fecha</th>
+                            <th className="px-4 py-3 font-semibold whitespace-nowrap">Usuario</th>
                             <th className="px-4 py-3 font-semibold whitespace-nowrap">Origen</th>
                             <th className="px-4 py-3 font-semibold whitespace-nowrap">Destino</th>
                             <th className="px-4 py-3 font-semibold whitespace-nowrap">Distancia</th>
@@ -512,36 +513,48 @@ const TripTracking = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                          {filteredTrips.map((trip) => (
-                            <tr
-                              key={`trip-${trip.id}`}
-                              className="bg-white/5"
-                            >
-                              <td className="px-4 py-3 text-sm text-blue-100/80">
-                                {new Date(trip.trip_date || trip.created_at || trip.date).toLocaleDateString()}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-blue-100/80">
-                                {trip.origin_address || trip.origin || 'N/A'}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-blue-100/80">
-                                {trip.destination_address || trip.destination || 'N/A'}
-                              </td>
-                              <td className="px-4 py-3 text-sm font-semibold text-white">
-                                {trip.distance_miles || trip.distance || 0} mi
-                              </td>
-                              <td className="px-4 py-3 text-sm font-semibold text-white whitespace-nowrap">
-                                ${trip.final_price || trip.price || 0}
-                              </td>
-                              <td className="px-4 py-3 text-right text-sm">
-                                <button
-                                  onClick={() => handleDeleteTrip(trip)}
-                                  className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20 hover:text-rose-100 whitespace-nowrap"
-                                >
-                                  Eliminar
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                          {filteredTrips.map((trip) => {
+                            const tripUser = trip?.profiles?.full_name
+                              || trip?.profiles?.email
+                              || trip?.profiles?.username
+                              || trip?.user_name
+                              || trip?.username
+                              || 'N/A';
+
+                            return (
+                              <tr
+                                key={`trip-${trip.id}`}
+                                className="bg-white/5"
+                              >
+                                <td className="px-4 py-3 text-sm text-blue-100/80">
+                                  {new Date(trip.trip_date || trip.created_at || trip.date).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-blue-100/80">
+                                  {tripUser}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-blue-100/80">
+                                  {trip.origin_address || trip.origin || 'N/A'}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-blue-100/80">
+                                  {trip.destination_address || trip.destination || 'N/A'}
+                                </td>
+                                <td className="px-4 py-3 text-sm font-semibold text-white">
+                                  {trip.distance_miles || trip.distance || 0} mi
+                                </td>
+                                <td className="px-4 py-3 text-sm font-semibold text-white whitespace-nowrap">
+                                  ${trip.final_price || trip.price || 0}
+                                </td>
+                                <td className="px-4 py-3 text-right text-sm">
+                                  <button
+                                    onClick={() => handleDeleteTrip(trip)}
+                                    className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20 hover:text-rose-100 whitespace-nowrap"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -562,35 +575,44 @@ const TripTracking = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                          {filteredOrders.map((order) => (
-                            <tr
-                              key={`order-${order.id}`}
-                              className="bg-white/5"
-                            >
-                              <td className="px-4 py-3 text-sm text-blue-100/80">
-                                {new Date(order.created_at || order.order_date).toLocaleDateString()}
-                              </td>
-                              <td className="px-4 py-3 text-sm">
-                                <span
-                                  className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
-                                    order.status === 'completed'
-                                      ? 'bg-emerald-500/20 text-emerald-200'
-                                      : order.status === 'pending'
-                                        ? 'bg-amber-400/20 text-amber-100'
-                                        : 'bg-rose-500/20 text-rose-200'
-                                  }`}
-                                >
-                                  {order.status || 'pending'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-sm font-semibold text-white whitespace-nowrap">
-                                ${order.total_amount || 0}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-blue-100/80">
-                                {order.user_name || order.username || 'N/A'}
-                              </td>
-                            </tr>
-                          ))}
+                          {filteredOrders.map((order) => {
+                            const orderUser = order?.profiles?.full_name
+                              || order?.profiles?.email
+                              || order?.profiles?.username
+                              || order?.user_name
+                              || order?.username
+                              || 'N/A';
+
+                            return (
+                              <tr
+                                key={`order-${order.id}`}
+                                className="bg-white/5"
+                              >
+                                <td className="px-4 py-3 text-sm text-blue-100/80">
+                                  {new Date(order.created_at || order.order_date).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-3 text-sm">
+                                  <span
+                                    className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
+                                      order.status === 'completed'
+                                        ? 'bg-emerald-500/20 text-emerald-200'
+                                        : order.status === 'pending'
+                                          ? 'bg-amber-400/20 text-amber-100'
+                                          : 'bg-rose-500/20 text-rose-200'
+                                    }`}
+                                  >
+                                    {order.status || 'pending'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-sm font-semibold text-white whitespace-nowrap">
+                                  ${order.total_amount || 0}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-blue-100/80">
+                                  {orderUser}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
