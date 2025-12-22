@@ -1,23 +1,40 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 
 const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [loading, setLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [dropdownPosition, setDropdownPosition] = useState(null)
+  const [hoveredSuggestionId, setHoveredSuggestionId] = useState(null)
   const timeoutRef = useRef(null)
+  const containerRef = useRef(null)
   const inputRef = useRef(null)
+  const dropdownRef = useRef(null)
 
   useEffect(() => {
     if (typeof value === 'string') {
       setQuery(value)
+    } else if (value && typeof value === 'object' && value.description) {
+      setQuery(value.description)
     }
   }, [value])
 
-  // Función para buscar lugares usando la API de Nominatim (OpenStreetMap)
-  const searchPlaces = async (searchQuery) => {
+  const updateDropdownPosition = useCallback(() => {
+    if (!inputRef.current) return
+    const rect = inputRef.current.getBoundingClientRect()
+    setDropdownPosition({
+      top: rect.bottom + 6,
+      left: rect.left,
+      width: rect.width
+    })
+  }, [])
+
+  const searchPlaces = useCallback(async (searchQuery) => {
     if (!searchQuery || searchQuery.length < 3) {
       setSuggestions([])
+      setDropdownPosition(null)
       return
     }
 
@@ -27,21 +44,23 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`,
         {
           headers: {
-            'Accept-Language': 'es', // Preferencia de idioma
-            'User-Agent': 'JGExpress Trip Calculator' // Identificación de la aplicación
+            'Accept-Language': 'es',
+            'User-Agent': 'JGExpress Trip Calculator'
           }
         }
       )
-      
+
       if (response.ok) {
         const data = await response.json()
-        setSuggestions(data.map(item => ({
-          id: item.place_id,
-          description: item.display_name,
-          lat: parseFloat(item.lat),
-          lng: parseFloat(item.lon),
-          address: item.display_name
-        })))
+        setSuggestions(
+          data.map((item) => ({
+            id: item.place_id,
+            description: item.display_name,
+            lat: parseFloat(item.lat),
+            lng: parseFloat(item.lon),
+            address: item.display_name
+          }))
+        )
       } else {
         console.error('Error en la búsqueda de lugares:', response.statusText)
         setSuggestions([])
@@ -52,9 +71,8 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  // Manejar cambios en el input con debounce
   useEffect(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
@@ -63,9 +81,10 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
     if (query.length >= 3) {
       timeoutRef.current = setTimeout(() => {
         searchPlaces(query)
-      }, 500) // Esperar 500ms después de que el usuario deje de escribir
+      }, 500)
     } else {
       setSuggestions([])
+      setDropdownPosition(null)
     }
 
     return () => {
@@ -73,14 +92,15 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [query])
+  }, [query, searchPlaces])
 
-  // Manejar selección de lugar
   const handleSelectPlace = (place) => {
     setQuery(place.description)
     setSuggestions([])
     setShowSuggestions(false)
-    
+    setDropdownPosition(null)
+    setHoveredSuggestionId(null)
+
     if (onPlaceSelected) {
       onPlaceSelected({
         id: place.id,
@@ -92,11 +112,15 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
     }
   }
 
-  // Cerrar sugerencias al hacer clic fuera del componente
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (inputRef.current && !inputRef.current.contains(event.target)) {
+      const insideInput = containerRef.current?.contains(event.target) ?? false
+      const insideDropdown = dropdownRef.current?.contains(event.target) ?? false
+
+      if (!insideInput && !insideDropdown) {
         setShowSuggestions(false)
+        setHoveredSuggestionId(null)
+        setDropdownPosition(null)
       }
     }
 
@@ -106,40 +130,105 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
     }
   }, [])
 
+  useLayoutEffect(() => {
+    if (showSuggestions && suggestions.length > 0) {
+      updateDropdownPosition()
+    } else {
+      setDropdownPosition(null)
+    }
+  }, [showSuggestions, suggestions.length, query, updateDropdownPosition])
+
+  useEffect(() => {
+    if (!showSuggestions || suggestions.length === 0) return
+
+    const handleWindowChange = () => updateDropdownPosition()
+    window.addEventListener('resize', handleWindowChange)
+    window.addEventListener('scroll', handleWindowChange, true)
+
+    return () => {
+      window.removeEventListener('resize', handleWindowChange)
+      window.removeEventListener('scroll', handleWindowChange, true)
+    }
+  }, [showSuggestions, suggestions.length, updateDropdownPosition])
+
+  const suggestionsDropdown =
+    showSuggestions && suggestions.length > 0 && dropdownPosition
+      ? createPortal(
+          <div
+            ref={dropdownRef}
+            style={{
+              position: 'fixed',
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+              backgroundColor: '#020617',
+              color: '#f8fafc',
+              borderRadius: '12px',
+              border: '1px solid rgba(148, 163, 184, 0.22)',
+              boxShadow: '0 20px 45px rgba(15, 23, 42, 0.55)',
+              zIndex: 1000,
+              maxHeight: '240px',
+              overflowY: 'auto',
+              padding: '6px'
+            }}
+          >
+            {suggestions.map((place, index) => {
+              const isHovered = hoveredSuggestionId === place.id
+              return (
+                <div
+                  key={place.id}
+                  onMouseEnter={() => setHoveredSuggestionId(place.id)}
+                  onMouseLeave={() => setHoveredSuggestionId(null)}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    handleSelectPlace(place)
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    marginBottom: index === suggestions.length - 1 ? 0 : 4,
+                    backgroundColor: isHovered ? 'rgba(30, 64, 175, 0.55)' : 'rgba(15, 23, 42, 0.95)',
+                    border: '1px solid rgba(148, 163, 184, 0.18)',
+                    transition: 'background-color 120ms ease'
+                  }}
+                >
+                  <div style={{ fontWeight: 600, lineHeight: 1.35 }}>{place.description}</div>
+                </div>
+              )
+            })}
+          </div>,
+          document.body
+        )
+      : null
+
   return (
-    <div className="relative w-full" ref={inputRef}>
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setShowSuggestions(true)}
-        placeholder={placeholder || 'Buscar lugar...'}
-        className="block w-full rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm text-white placeholder-white/40 shadow-inner shadow-blue-500/10 transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
-      />
-      
-      {loading && (
-        <div className="absolute right-3 top-2.5">
-          <svg className="h-5 w-5 animate-spin text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-        </div>
-      )}
-      
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-white/10 bg-slate-900 shadow-xl shadow-slate-900/40">
-          {suggestions.map((place) => (
-            <div
-              key={place.id}
-              className="border-b border-white/5 p-3 text-sm text-blue-100/90 transition hover:bg-white/5 hover:text-white last:border-b-0 cursor-pointer"
-              onClick={() => handleSelectPlace(place)}
-            >
-              <div className="font-medium leading-snug">{place.description}</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <>
+      <div className="relative w-full" ref={containerRef}>
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onFocus={() => {
+            setShowSuggestions(true)
+            requestAnimationFrame(updateDropdownPosition)
+          }}
+          placeholder={placeholder || 'Buscar lugar...'}
+          className="block w-full px-4 py-2 text-sm text-white transition border shadow-inner rounded-xl border-white/15 bg-slate-950 placeholder-white/40 shadow-slate-950/40 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+
+        {loading && (
+          <div className="absolute right-3 top-2.5">
+            <svg className="w-5 h-5 text-blue-400 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </div>
+        )}
+      </div>
+      {suggestionsDropdown}
+    </>
   )
 }
 

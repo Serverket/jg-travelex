@@ -104,8 +104,8 @@ async function resetDatabase() {
 
     console.log('✅ Database schema created successfully!\n');
     console.log('📋 Next steps:');
-    console.log('1. Run "npm run create-admin" to create an admin user');
-    console.log('2. Start your application with "npm run dev"');
+  console.log('1. Run "bun run create-admin" to create an admin user');
+  console.log('2. Start your application with "bun run dev"');
     console.log('3. Login with your admin credentials\n');
 
   } catch (error) {

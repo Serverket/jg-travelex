@@ -77,7 +77,7 @@ async function runTests() {
       .single();
 
     if (error && error.code === 'PGRST116') {
-      throw new Error('No admin profile found. Run: npm run create-admin');
+  throw new Error('No admin profile found. Run: bun run create-admin');
     }
     if (error) throw error;
     if (!data || data.role !== 'admin') {
@@ -93,7 +93,7 @@ async function runTests() {
     if (error) throw error;
     const users = data?.users || [];
     const found = users.some(u => u.id === adminProfileId);
-    if (!found) throw new Error('Admin auth user not found. Run: npm run create-admin');
+  if (!found) throw new Error('Admin auth user not found. Run: bun run create-admin');
   });
 
   // Test 4: Trips Table

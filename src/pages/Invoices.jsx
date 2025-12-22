@@ -86,6 +86,25 @@ const Invoices = () => {
     });
   };
 
+  const renderResponsiveField = (displayValue, fullValue) => {
+    const resolvedDisplay = displayValue ?? 'N/A'
+    const displayText = String(resolvedDisplay)
+    const rawText = fullValue != null ? String(fullValue) : displayText
+    const showIndicator = rawText.length > 18 && rawText !== 'N/A'
+
+    return (
+      <span
+        className="inline-flex max-w-[8rem] items-center gap-1 md:max-w-[12rem] lg:max-w-none"
+        title={rawText}
+      >
+        <span className="block truncate">{displayText}</span>
+        {showIndicator && (
+          <span className="ml-1 text-xs text-blue-200/70 lg:hidden" aria-hidden="true">↕️</span>
+        )}
+      </span>
+    )
+  }
+
   // Handle column header click for sorting
   const handleSort = (key) => {
     setSortConfig(prevConfig => ({
@@ -595,21 +614,28 @@ const Invoices = () => {
                   <tbody className="divide-y divide-white/5">
                     {sortedItems(orders).map((order) => {
                       const hasInvoice = invoices.some(invoice => invoice.order_id === order.id || invoice.orderId === order.id)
+                      const primaryTrip = order.items?.[0]?.tripData
+                      const originFull = primaryTrip?.origin ?? 'No disponible'
+                      const destinationFull = primaryTrip?.destination ?? 'No disponible'
+                      const originDisplay = formatAddress(originFull)
+                      const destinationDisplay = formatAddress(destinationFull)
 
                       return (
                         <tr
                           key={order.id}
                           className={selectedOrderId === order.id ? 'bg-blue-500/10' : 'bg-white/5'}
                         >
-                          <td className="px-6 py-4 text-sm font-semibold text-white">{order.id}</td>
+                          <td className="px-6 py-4 text-sm font-semibold text-white">
+                            {renderResponsiveField(order.id, order.id)}
+                          </td>
                           <td className="px-6 py-4 text-sm text-blue-100/80">
                             {order.created_at ? `${new Date(order.created_at).toLocaleDateString()} ${new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'N/A'}
                           </td>
-                          <td className="px-6 py-4 text-xs text-blue-100/70" title={order.items && order.items[0]?.tripData?.origin || 'No origin'}>
-                            {formatAddress(order.items && order.items[0]?.tripData?.origin)}
+                          <td className="px-6 py-4 text-xs text-blue-100/70">
+                            {renderResponsiveField(originDisplay, originFull)}
                           </td>
-                          <td className="px-6 py-4 text-xs text-blue-100/70" title={order.items && order.items[0]?.tripData?.destination || 'No destination'}>
-                            {formatAddress(order.items && order.items[0]?.tripData?.destination)}
+                          <td className="px-6 py-4 text-xs text-blue-100/70">
+                            {renderResponsiveField(destinationDisplay, destinationFull)}
                           </td>
                           <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
                             ${order.items && order.items[0]?.tripData?.price || order.total_amount || 0}
@@ -704,50 +730,61 @@ const Invoices = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {sortedItems(invoices).map((invoice) => (
-                      <tr
-                        key={invoice.id}
-                        className="bg-white/5"
-                      >
-                        <td className="px-6 py-4 text-sm font-semibold text-white">{invoice.id}</td>
-                        <td className="px-6 py-4 text-sm text-blue-100/80">
-                          {invoice.invoice_date
-                            ? `${new Date(invoice.invoice_date).toLocaleDateString()} ${new Date(invoice.invoice_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                            : invoice.created_at
-                              ? `${new Date(invoice.created_at).toLocaleDateString()} ${new Date(invoice.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                              : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-blue-100/70" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin || 'No origin'}>
-                          {formatAddress(invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.origin)}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-blue-100/70" title={invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination || 'No destination'}>
-                          {formatAddress(invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.destination)}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
-                          ${invoice.total_amount || (invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.price) || invoice.orderData?.total_amount || 0}
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          <span
-                            className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
-                              invoice.status === 'paid'
-                                ? 'bg-emerald-500/20 text-emerald-200'
-                                : 'bg-blue-500/20 text-blue-100'
-                            }`}
-                          >
-                            {invoice.status === 'paid' ? 'Pagada' : 'Emitida'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right text-sm">
-                          <button
-                            onClick={() => generateInvoicePDF(invoice)}
-                            disabled={isGeneratingInvoice}
-                            className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/40 whitespace-nowrap"
-                          >
-                            {isGeneratingInvoice ? 'Generando…' : 'Descargar PDF'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {sortedItems(invoices).map((invoice) => {
+                      const invoiceIdentifier = invoice.invoice_number || invoice.id
+                      const orderTrip = invoice.orderData?.items?.[0]?.tripData
+                      const originFull = orderTrip?.origin ?? 'No disponible'
+                      const destinationFull = orderTrip?.destination ?? 'No disponible'
+                      const originDisplay = formatAddress(originFull)
+                      const destinationDisplay = formatAddress(destinationFull)
+
+                      return (
+                        <tr
+                          key={invoice.id}
+                          className="bg-white/5"
+                        >
+                          <td className="px-6 py-4 text-sm font-semibold text-white">
+                            {renderResponsiveField(invoiceIdentifier, invoiceIdentifier)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-blue-100/80">
+                            {invoice.invoice_date
+                              ? `${new Date(invoice.invoice_date).toLocaleDateString()} ${new Date(invoice.invoice_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                              : invoice.created_at
+                                ? `${new Date(invoice.created_at).toLocaleDateString()} ${new Date(invoice.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 text-xs text-blue-100/70">
+                            {renderResponsiveField(originDisplay, originFull)}
+                          </td>
+                          <td className="px-6 py-4 text-xs text-blue-100/70">
+                            {renderResponsiveField(destinationDisplay, destinationFull)}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
+                            ${invoice.total_amount || (invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.price) || invoice.orderData?.total_amount || 0}
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            <span
+                              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
+                                invoice.status === 'paid'
+                                  ? 'bg-emerald-500/20 text-emerald-200'
+                                  : 'bg-blue-500/20 text-blue-100'
+                              }`}
+                            >
+                              {invoice.status === 'paid' ? 'Pagada' : 'Emitida'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right text-sm">
+                            <button
+                              onClick={() => generateInvoicePDF(invoice)}
+                              disabled={isGeneratingInvoice}
+                              className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/40 whitespace-nowrap"
+                            >
+                              {isGeneratingInvoice ? 'Generando…' : 'Descargar PDF'}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

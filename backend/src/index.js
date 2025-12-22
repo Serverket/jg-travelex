@@ -239,7 +239,8 @@ app.get('/trips', requireAuth, async (req, res) => {
         profiles:profiles!trips_user_id_fkey (
           id,
           full_name,
-          email
+          email,
+          username
         ),
         trip_surcharges (*, surcharge_factors (*)),
         trip_discounts (*, discounts (*))
@@ -291,7 +292,8 @@ app.get('/trips/:id', requireAuth, async (req, res) => {
         profiles:profiles!trips_user_id_fkey (
           id,
           full_name,
-          email
+          email,
+          username
         ),
         trip_surcharges (*, surcharge_factors (*)),
         trip_discounts (*, discounts (*))
@@ -448,6 +450,12 @@ app.delete('/trips/:id/discounts/:discountId', requireAuth, async (req, res) => 
 function orderSelect() {
   return `
     *,
+    profiles:profiles!orders_user_id_fkey (
+      id,
+      full_name,
+      email,
+      username
+    ),
     order_items (
       *,
       trips (*)
