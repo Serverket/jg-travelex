@@ -4,8 +4,9 @@ import { BrowserRouter } from 'react-router-dom'
 import { AppProvider } from './context/AppContext'
 import { ToastProvider } from './context/ToastContext'
 import App from './App.jsx'
-import './index.css'
 import AOS from 'aos'
+import 'leaflet/dist/leaflet.css'
+import './index.css'
 import 'aos/dist/aos.css'
 
 AOS.init({
