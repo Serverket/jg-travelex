@@ -3,6 +3,15 @@ import { useAppContext } from '../context/AppContext'
 import { orderService } from '../services/orderService'
 import { tripService } from '../services/tripService'
 import { invoiceService } from '../services/invoiceService'
+import ShareModal from '../components/ShareModal'
+import {
+  formatDurationBilingual,
+  formatPriceLabel,
+  buildShareMessage,
+  buildWhatsAppLink,
+  buildMailtoLink,
+  ensureBilingualLocation
+} from '../utils/share'
 
 const Orders = () => {
   const { user } = useAppContext()
@@ -15,6 +24,7 @@ const Orders = () => {
     direction: 'desc' // Newest first by default
   })
   const [lastUpdated, setLastUpdated] = useState(null)
+  const [shareContext, setShareContext] = useState({ open: false, mode: 'whatsapp', payload: null })
 
   // Load orders with periodic refresh
   useEffect(() => {
@@ -175,6 +185,84 @@ const Orders = () => {
     return `${lastUpdated.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} · ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
   }, [lastUpdated])
 
+  const extractTripShareData = (trip, orderFallbackAmount) => {
+    if (!trip) {
+      return {
+        origin: ensureBilingualLocation(null),
+        destination: ensureBilingualLocation(null),
+        duration: formatDurationBilingual({ minutes: null }),
+        price: formatPriceLabel(orderFallbackAmount)
+      }
+    }
+
+    const origin = ensureBilingualLocation(trip.origin_address || trip.origin)
+    const destination = ensureBilingualLocation(trip.destination_address || trip.destination)
+    const durationMinutes = Number.isFinite(trip.duration_minutes)
+      ? Number(trip.duration_minutes)
+      : (() => {
+          const rawDuration = trip.duration
+          if (rawDuration == null) return null
+          const numeric = Number.parseFloat(rawDuration)
+          return Number.isFinite(numeric) ? numeric * 60 : null
+        })()
+    const durationLabel = formatDurationBilingual({ minutes: durationMinutes })
+    const priceValue = trip.final_price ?? trip.price ?? orderFallbackAmount
+    const priceLabel = formatPriceLabel(priceValue)
+
+    return {
+      origin,
+      destination,
+      duration: durationLabel,
+      price: priceLabel
+    }
+  }
+
+  const handleOpenShare = (mode, payload) => {
+    setShareContext({ open: true, mode, payload })
+  }
+
+  const handleCloseShare = () => {
+    setShareContext((prev) => ({ ...prev, open: false, payload: null }))
+  }
+
+  const handleSubmitShare = (recipient) => {
+    if (!shareContext.payload) {
+      handleCloseShare()
+      return
+    }
+    const message = buildShareMessage(shareContext.payload)
+    const link = shareContext.mode === 'whatsapp'
+      ? buildWhatsAppLink(recipient, message)
+      : buildMailtoLink(recipient, message)
+
+    const target = shareContext.mode === 'whatsapp' ? '_blank' : '_self'
+    window.open(link, target, 'noopener')
+    handleCloseShare()
+  }
+
+  const shareMessagePreview = shareContext.payload ? buildShareMessage(shareContext.payload) : ''
+
+  const WhatsAppIcon = (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
+      <path
+        d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75 0 1.722.45 3.338 1.237 4.736L2.25 21.75l5.184-1.212A9.708 9.708 0 0 0 12 21.75c5.385 0 9.75-4.365 9.75-9.75s-4.365-9.75-9.75-9.75Z"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8.97 9.332c.248-.536.59-.553.802-.553.211 0 .424-.005.612.287.248.372.79 1.159.87 1.236.08.077.132.18.026.316-.106.136-.398.458-.516.607-.137.17-.28.192-.51.064-.23-.128-.972-.358-1.852-1.106-.685-.59-1.147-1.319-1.282-1.548-.134-.23-.014-.354.115-.466.118-.1.264-.26.396-.408.132-.148.185-.248.264-.408Z"
+        fill="currentColor"
+        stroke="none"
+      />
+    </svg>
+  )
+
+  const MailIcon = (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
+      <rect x="3.75" y="5.25" width="16.5" height="13.5" rx="2.25" />
+      <path d="m4.5 6 7.38 6.15a1.125 1.125 0 0 0 1.44 0L20.7 6" />
+    </svg>
+  )
+
   const metricCards = useMemo(() => ([
     {
       label: 'Pedidos visibles',
@@ -250,6 +338,7 @@ const Orders = () => {
   };
 
   return (
+    <>
     <div className="space-y-8">
       <div
         className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-blue-500/5 backdrop-blur"
@@ -399,24 +488,52 @@ const Orders = () => {
                     </td>
                     {user?.role === 'admin' && (
                       <td className="px-6 py-4 text-sm">
-                        {order.status === 'pending' ? (
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => updateOrderStatus(order.id, 'completed')}
-                              className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-200 transition hover:bg-emerald-500/20 hover:text-emerald-100 whitespace-nowrap"
-                            >
-                              Completar
-                            </button>
-                            <button
-                              onClick={() => updateOrderStatus(order.id, 'canceled')}
-                              className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-sm font-medium text-rose-200 transition hover:bg-rose-500/20 hover:text-rose-100 whitespace-nowrap"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-blue-200/60">Sin acciones</span>
-                        )}
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          {order.status === 'pending' ? (
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={() => updateOrderStatus(order.id, 'completed')}
+                                className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-200 transition hover:bg-emerald-500/20 hover:text-emerald-100 whitespace-nowrap"
+                              >
+                                Completar
+                              </button>
+                              <button
+                                onClick={() => updateOrderStatus(order.id, 'canceled')}
+                                className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-sm font-medium text-rose-200 transition hover:bg-rose-500/20 hover:text-rose-100 whitespace-nowrap"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-blue-200/60">Sin acciones</span>
+                          )}
+                          {(() => {
+                            const primaryTrip = order.trips?.[0] || order.items?.[0]?.tripData
+                            const sharePayload = extractTripShareData(primaryTrip, order.total_amount)
+                            return (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenShare('whatsapp', sharePayload)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/15 text-emerald-200 transition hover:bg-emerald-500/25"
+                                  title="Compartir por WhatsApp / Share via WhatsApp"
+                                  aria-label="Compartir por WhatsApp / Share via WhatsApp"
+                                >
+                                  <WhatsAppIcon className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenShare('email', sharePayload)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-100 transition hover:bg-blue-500/25"
+                                  title="Compartir por correo / Share via email"
+                                  aria-label="Compartir por correo / Share via email"
+                                >
+                                  <MailIcon className="h-4 w-4" />
+                                </button>
+                              </div>
+                            )
+                          })()}
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -427,6 +544,14 @@ const Orders = () => {
         )}
       </div>
     </div>
+    <ShareModal
+      open={shareContext.open}
+      mode={shareContext.mode}
+      onClose={handleCloseShare}
+      onSubmit={handleSubmitShare}
+      messagePreview={shareMessagePreview}
+    />
+    </>
   )
 }
 

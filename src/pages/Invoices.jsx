@@ -7,6 +7,15 @@ import { tripService } from '../services/tripService'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
 import { useToast } from '../context/ToastContext'
+import ShareModal from '../components/ShareModal'
+import {
+  formatDurationBilingual,
+  formatPriceLabel,
+  buildShareMessage,
+  buildWhatsAppLink,
+  buildMailtoLink,
+  ensureBilingualLocation
+} from '../utils/share'
 
 // Helper function to format address for display, showing lot number and street name
 const formatAddress = (address, maxLength = 30) => {
@@ -240,6 +249,7 @@ const Invoices = () => {
     key: 'date',
     direction: 'desc' // Newest first by default
   })
+  const [shareContext, setShareContext] = useState({ open: false, mode: 'whatsapp', payload: null })
 
   // Sort function that works for both orders and invoices
   const sortedItems = (items) => {
@@ -275,6 +285,83 @@ const Invoices = () => {
       return 0;
     });
   };
+
+  const extractTripShareData = (trip, fallbackAmount) => {
+    if (!trip) {
+      return {
+        origin: ensureBilingualLocation(null),
+        destination: ensureBilingualLocation(null),
+        duration: formatDurationBilingual({ minutes: null }),
+        price: formatPriceLabel(fallbackAmount)
+      }
+    }
+
+    const origin = ensureBilingualLocation(trip.origin_address || trip.origin)
+    const destination = ensureBilingualLocation(trip.destination_address || trip.destination)
+    const durationMinutes = Number.isFinite(trip.duration_minutes)
+      ? Number(trip.duration_minutes)
+      : (() => {
+          const rawDuration = trip.duration
+          if (rawDuration == null) return null
+          const numeric = Number.parseFloat(rawDuration)
+          return Number.isFinite(numeric) ? numeric * 60 : null
+        })()
+    const durationLabel = formatDurationBilingual({ minutes: durationMinutes })
+    const priceValue = trip.final_price ?? trip.price ?? fallbackAmount
+    const priceLabel = formatPriceLabel(priceValue)
+
+    return {
+      origin,
+      destination,
+      duration: durationLabel,
+      price: priceLabel
+    }
+  }
+
+  const handleOpenShare = (mode, payload) => {
+    setShareContext({ open: true, mode, payload })
+  }
+
+  const handleCloseShare = () => {
+    setShareContext((prev) => ({ ...prev, open: false, payload: null }))
+  }
+
+  const handleSubmitShare = (recipient) => {
+    if (!shareContext.payload) {
+      handleCloseShare()
+      return
+    }
+    const message = buildShareMessage(shareContext.payload)
+    const link = shareContext.mode === 'whatsapp'
+      ? buildWhatsAppLink(recipient, message)
+      : buildMailtoLink(recipient, message)
+    const target = shareContext.mode === 'whatsapp' ? '_blank' : '_self'
+    window.open(link, target, 'noopener')
+    handleCloseShare()
+  }
+
+  const shareMessagePreview = shareContext.payload ? buildShareMessage(shareContext.payload) : ''
+
+  const WhatsAppIcon = (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
+      <path
+        d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75 0 1.722.45 3.338 1.237 4.736L2.25 21.75l5.184-1.212A9.708 9.708 0 0 0 12 21.75c5.385 0 9.75-4.365 9.75-9.75s-4.365-9.75-9.75-9.75Z"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8.97 9.332c.248-.536.59-.553.802-.553.211 0 .424-.005.612.287.248.372.79 1.159.87 1.236.08.077.132.18.026.316-.106.136-.398.458-.516.607-.137.17-.28.192-.51.064-.23-.128-.972-.358-1.852-1.106-.685-.59-1.147-1.319-1.282-1.548-.134-.23-.014-.354.115-.466.118-.1.264-.26.396-.408.132-.148.185-.248.264-.408Z"
+        fill="currentColor"
+        stroke="none"
+      />
+    </svg>
+  )
+
+  const MailIcon = (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
+      <rect x="3.75" y="5.25" width="16.5" height="13.5" rx="2.25" />
+      <path d="m4.5 6 7.38 6.15a1.125 1.125 0 0 0 1.44 0L20.7 6" />
+    </svg>
+  )
 
   // Handle column header click for sorting
   const handleSort = (key) => {
@@ -673,65 +760,66 @@ const Invoices = () => {
   }
 
   return (
-    <div className="space-y-8">
-      <div
-        className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-blue-500/5 backdrop-blur"
-        data-aos="fade-up"
-      >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold text-white">Gestión de Facturas</h1>
-            <p className="mt-2 max-w-2xl text-sm text-blue-100/75">
-              Centralice todo el flujo de facturación: detecte órdenes listas, genere comprobantes y descargue PDFs con un par de clics.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4 text-sm text-blue-100/70 shadow-inner shadow-blue-500/10">
-            <p className="font-medium text-blue-100">Estado del Servicio</p>
-            <p className="mt-1 text-xs text-blue-200/70">Pedidos y facturas se sincronizan cada 10 segundos en segundo plano.</p>
-          </div>
-        </div>
-        {error && (
-          <div className="mt-5 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-            {error}
-          </div>
-        )}
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => setActiveTab('orders')}
-            className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap ${
-              activeTab === 'orders'
-                ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-inner shadow-blue-500/30'
-                : 'border-white/10 bg-white/5 text-blue-100/70 hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-white'
-            }`}
-          >
-            Órdenes Pendientes
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('invoices')}
-            className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap ${
-              activeTab === 'invoices'
-                ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-inner shadow-blue-500/30'
-                : 'border-white/10 bg-white/5 text-blue-100/70 hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-white'
-            }`}
-          >
-            Facturas Emitidas
-          </button>
-        </div>
-      </div>
-
-      <div
-        className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 shadow-2xl shadow-blue-500/10 backdrop-blur"
-        data-aos="fade-up"
-        data-aos-delay="120"
-      >
-        {activeTab === 'orders' ? (
-          <div>
-            <div className="border-b border-white/10 px-6 py-5">
-              <h2 className="text-xl font-semibold text-white">Órdenes pendientes de facturación</h2>
-              <p className="mt-1 text-sm text-blue-100/70">Seleccione una orden para generar una factura al instante.</p>
+    <>
+      <div className="space-y-8">
+        <div
+          className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-blue-500/5 backdrop-blur"
+          data-aos="fade-up"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold text-white">Gestión de Facturas</h1>
+              <p className="mt-2 max-w-2xl text-sm text-blue-100/75">
+                Centralice todo el flujo de facturación: detecte órdenes listas, genere comprobantes y descargue PDFs con un par de clics.
+              </p>
             </div>
+            <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4 text-sm text-blue-100/70 shadow-inner shadow-blue-500/10">
+              <p className="font-medium text-blue-100">Estado del Servicio</p>
+              <p className="mt-1 text-xs text-blue-200/70">Pedidos y facturas se sincronizan cada 10 segundos en segundo plano.</p>
+            </div>
+          </div>
+          {error && (
+            <div className="mt-5 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+              {error}
+            </div>
+          )}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setActiveTab('orders')}
+              className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap ${
+                activeTab === 'orders'
+                  ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-inner shadow-blue-500/30'
+                  : 'border-white/10 bg-white/5 text-blue-100/70 hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-white'
+              }`}
+            >
+              Órdenes Pendientes
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('invoices')}
+              className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap ${
+                activeTab === 'invoices'
+                  ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-inner shadow-blue-500/30'
+                  : 'border-white/10 bg-white/5 text-blue-100/70 hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-white'
+              }`}
+            >
+              Facturas Emitidas
+            </button>
+          </div>
+        </div>
+
+        <div
+          className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 shadow-2xl shadow-blue-500/10 backdrop-blur"
+          data-aos="fade-up"
+          data-aos-delay="120"
+        >
+          {activeTab === 'orders' ? (
+            <div>
+              <div className="border-b border-white/10 px-6 py-5">
+                <h2 className="text-xl font-semibold text-white">Órdenes pendientes de facturación</h2>
+                <p className="mt-1 text-sm text-blue-100/70">Seleccione una orden para generar una factura al instante.</p>
+              </div>
 
             {loading ? (
               <div className="space-y-3 px-6 py-10">
@@ -790,6 +878,7 @@ const Invoices = () => {
                       const destinationFull = primaryTrip?.destination ?? 'No disponible'
                       const originDisplay = formatAddress(originFull)
                       const destinationDisplay = formatAddress(destinationFull)
+                      const sharePayload = extractTripShareData(primaryTrip, order.total_amount)
 
                       return (
                         <tr
@@ -825,16 +914,38 @@ const Invoices = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right text-sm">
-                            {hasInvoice ? (
-                              <span className="text-xs text-blue-200/60">Facturada</span>
-                            ) : (
-                              <button
-                                onClick={() => handleCreateInvoice(order.id)}
-                                className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white whitespace-nowrap"
-                              >
-                                Generar factura
-                              </button>
-                            )}
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenShare('whatsapp', sharePayload)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/15 text-emerald-200 transition hover:bg-emerald-500/25"
+                                  title="Compartir por WhatsApp / Share via WhatsApp"
+                                  aria-label="Compartir por WhatsApp / Share via WhatsApp"
+                                >
+                                  <WhatsAppIcon className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenShare('email', sharePayload)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-100 transition hover:bg-blue-500/25"
+                                  title="Compartir por correo / Share via email"
+                                  aria-label="Compartir por correo / Share via email"
+                                >
+                                  <MailIcon className="h-4 w-4" />
+                                </button>
+                              </div>
+                              {hasInvoice ? (
+                                <span className="text-xs text-blue-200/60">Facturada</span>
+                              ) : (
+                                <button
+                                  onClick={() => handleCreateInvoice(order.id)}
+                                  className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white whitespace-nowrap"
+                                >
+                                  Generar factura
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       )
@@ -908,6 +1019,7 @@ const Invoices = () => {
                       const destinationFull = orderTrip?.destination ?? 'No disponible'
                       const originDisplay = formatAddress(originFull)
                       const destinationDisplay = formatAddress(destinationFull)
+                      const sharePayload = extractTripShareData(orderTrip, invoice.total_amount || invoice.orderData?.total_amount)
 
                       return (
                         <tr
@@ -945,13 +1057,35 @@ const Invoices = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right text-sm">
-                            <button
-                              onClick={() => generateInvoicePDF(invoice)}
-                              disabled={isGeneratingInvoice}
-                              className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/40 whitespace-nowrap"
-                            >
-                              {isGeneratingInvoice ? 'Generando…' : 'Descargar PDF'}
-                            </button>
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenShare('whatsapp', sharePayload)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/15 text-emerald-200 transition hover:bg-emerald-500/25"
+                                  title="Compartir por WhatsApp / Share via WhatsApp"
+                                  aria-label="Compartir por WhatsApp / Share via WhatsApp"
+                                >
+                                  <WhatsAppIcon className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenShare('email', sharePayload)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-100 transition hover:bg-blue-500/25"
+                                  title="Compartir por correo / Share via email"
+                                  aria-label="Compartir por correo / Share via email"
+                                >
+                                  <MailIcon className="h-4 w-4" />
+                                </button>
+                              </div>
+                              <button
+                                onClick={() => generateInvoicePDF(invoice)}
+                                disabled={isGeneratingInvoice}
+                                className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/40 whitespace-nowrap"
+                              >
+                                {isGeneratingInvoice ? 'Generando…' : 'Descargar PDF'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )
@@ -964,6 +1098,14 @@ const Invoices = () => {
         )}
       </div>
     </div>
+    <ShareModal
+      open={shareContext.open}
+      mode={shareContext.mode}
+      onClose={handleCloseShare}
+      onSubmit={handleSubmitShare}
+      messagePreview={shareMessagePreview}
+    />
+    </>
   )
 }
 
