@@ -127,6 +127,20 @@ const OpenStreetMap = ({ origin, destination, onRouteCalculated }) => {
     <div className="relative">
       <div ref={mapRef} className="h-96 w-full rounded overflow-hidden" />
       <style>{`
+        .leaflet-container .custom-marker {
+          background-color: #1E3A8A;
+          color: #fff;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+          border: 2px solid #fff;
+          box-shadow: 0 8px 16px rgba(15, 23, 42, 0.35);
+          width: 30px;
+          height: 30px;
+          line-height: 30px;
+        }
         .leaflet-routing-container,
         .leaflet-routing-container .leaflet-routing-geocoders,
         .leaflet-routing-container .leaflet-routing-alt,
