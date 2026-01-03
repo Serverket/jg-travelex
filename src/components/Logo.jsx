@@ -11,20 +11,20 @@ const Logo = ({
 }) => {
   // Size variants for different use cases
   const sizeClasses = {
-    small: 'h-5 w-auto md:h-6',
-    medium: 'h-6 w-auto md:h-8 lg:h-9', 
-    large: 'h-12 w-auto md:h-14 lg:h-16',
-    xlarge: 'h-16 w-auto md:h-20 lg:h-24',
-    hero: 'h-20 w-auto md:h-28 lg:h-32'
+    small: 'h-6 w-auto',
+    medium: 'h-8 w-auto', 
+    large: 'h-16 w-auto',
+    xlarge: 'h-24 w-auto',
+    hero: 'h-32 w-auto'
   }
 
   // Text size variants to match logo sizes
   const textSizeClasses = {
-    small: 'text-[0.65rem] md:text-xs',
-    medium: 'text-sm md:text-base', 
-    large: 'text-lg md:text-xl lg:text-2xl',
-    xlarge: 'text-xl md:text-2xl lg:text-3xl',
-    hero: 'text-2xl md:text-3xl lg:text-4xl'
+    small: 'text-xs',
+    medium: 'text-sm', 
+    large: 'text-lg',
+    xlarge: 'text-xl',
+    hero: 'text-2xl'
   }
 
   // Drop shadow classes
