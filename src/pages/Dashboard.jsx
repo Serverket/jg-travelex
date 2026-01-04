@@ -318,7 +318,7 @@ const Dashboard = () => {
               <tbody className="divide-y divide-white/5">
                 {trips.slice(-5).reverse().map((trip) => (
                   <tr key={trip.id} className="transition hover:bg-white/5">
-                    <td className="px-4 py-3 md:px-6">
+                    <td className="px-4 py-3 md:px-6 whitespace-nowrap">
                       {new Date(trip.trip_date || trip.created_at || trip.date).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 md:px-6">
@@ -330,7 +330,7 @@ const Dashboard = () => {
                     <td className="px-4 py-3 md:px-6">
                       {trip.distance_miles || trip.distance || 0} millas
                     </td>
-                    <td className="px-4 py-3 md:px-6">
+                    <td className="px-4 py-3 md:px-6 whitespace-nowrap">
                       ${trip.final_price || trip.price || 0}
                     </td>
                   </tr>
