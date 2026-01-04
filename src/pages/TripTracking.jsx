@@ -526,7 +526,7 @@ const TripTracking = () => {
                                 key={`trip-${trip.id}`}
                                 className="bg-white/5"
                               >
-                                <td className="px-4 py-3 text-sm text-blue-100/80">
+                                <td className="px-4 py-3 text-sm text-blue-100/80 whitespace-nowrap">
                                   {new Date(trip.trip_date || trip.created_at || trip.date).toLocaleDateString()}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-blue-100/80">
@@ -588,7 +588,7 @@ const TripTracking = () => {
                                 key={`order-${order.id}`}
                                 className="bg-white/5"
                               >
-                                <td className="px-4 py-3 text-sm text-blue-100/80">
+                                <td className="px-4 py-3 text-sm text-blue-100/80 whitespace-nowrap">
                                   {new Date(order.created_at || order.order_date).toLocaleDateString()}
                                 </td>
                                 <td className="px-4 py-3 text-sm">
