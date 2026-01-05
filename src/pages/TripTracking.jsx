@@ -4,7 +4,7 @@ import { tripService } from '../services/tripService'
 import { orderService } from '../services/orderService'
 
 const REFRESH_INTERVAL_MS = 15000
-const RECENT_LIMIT = 6
+const STALE_ACTIVE_TRIP_THRESHOLD_MS = 1000 * 60 * 60 * 3 // 3 hours without updates triggers alert
 
 const numberFormatter = new Intl.NumberFormat('es-ES')
 const milesFormatter = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
@@ -14,15 +14,6 @@ const dateFormatter = new Intl.DateTimeFormat('es-ES', { dateStyle: 'short', tim
 const ACTIVE_TRIP_STATUSES = new Set(['pending', 'confirmed', 'in_progress'])
 const COMPLETED_TRIP_STATUSES = new Set(['completed'])
 
-const STATUS_THEME = {
-  completed: 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100',
-  in_progress: 'border-sky-400/40 bg-sky-500/15 text-sky-100',
-  confirmed: 'border-indigo-400/40 bg-indigo-500/15 text-indigo-100',
-  pending: 'border-amber-400/40 bg-amber-500/15 text-amber-100',
-  cancelled: 'border-rose-400/40 bg-rose-500/15 text-rose-100',
-  canceled: 'border-rose-400/40 bg-rose-500/15 text-rose-100'
-}
-
 const STATUS_PRIORITY = {
   completed: 5,
   in_progress: 4,
@@ -30,6 +21,24 @@ const STATUS_PRIORITY = {
   pending: 2,
   cancelled: 1,
   canceled: 1
+}
+
+const STATUS_LABELS = {
+  completed: 'Completados',
+  in_progress: 'En progreso',
+  confirmed: 'Confirmados',
+  pending: 'Pendientes',
+  cancelled: 'Cancelados',
+  other: 'Otros estados'
+}
+
+const STATUS_ACCENTS = {
+  completed: 'border-emerald-400/30 bg-emerald-500/10',
+  in_progress: 'border-sky-400/30 bg-sky-500/10',
+  confirmed: 'border-indigo-400/30 bg-indigo-500/10',
+  pending: 'border-amber-400/30 bg-amber-500/10',
+  cancelled: 'border-rose-400/30 bg-rose-500/10',
+  other: 'border-slate-400/20 bg-slate-500/5'
 }
 
 const initialSnapshot = {
@@ -44,7 +53,8 @@ const initialSnapshot = {
     totalRevenue: 0,
     pendingOrders: 0
   },
-  recentTrips: [],
+  statusInsights: [],
+  operationalAlerts: [],
   updatedAt: null
 }
 
@@ -75,6 +85,14 @@ const coerceMiles = (trip) => {
   return 0
 }
 
+const coerceDurationMinutes = (trip) => {
+  const rawMinutes = Number.parseFloat(trip?.duration_minutes ?? trip?.durationMinutes)
+  if (Number.isFinite(rawMinutes) && rawMinutes > 0) return rawMinutes
+  const rawDuration = Number.parseFloat(trip?.duration ?? trip?.durationHours)
+  if (Number.isFinite(rawDuration) && rawDuration > 0) return rawDuration * 60
+  return 0
+}
+
 const formatDurationLabel = (minutes) => {
   if (!Number.isFinite(minutes) || minutes <= 0) return null
   const wholeMinutes = Math.round(minutes)
@@ -83,6 +101,30 @@ const formatDurationLabel = (minutes) => {
   if (hours > 0 && mins > 0) return `${hours} h ${mins} min`
   if (hours > 0) return `${hours} h`
   return `${wholeMinutes} min`
+}
+
+const relativeTimeFormatter = typeof Intl !== 'undefined' && typeof Intl.RelativeTimeFormat !== 'undefined'
+  ? new Intl.RelativeTimeFormat('es-ES', { numeric: 'auto' })
+  : null
+
+const formatRelativeTime = (isoString) => {
+  if (!isoString) return 'Sin registro'
+  const reference = new Date(isoString)
+  if (Number.isNaN(reference.getTime())) return 'Sin registro'
+  if (!relativeTimeFormatter) return reference.toLocaleString('es-ES')
+
+  const diffMs = reference.getTime() - Date.now()
+  const diffMinutes = Math.round(diffMs / (1000 * 60))
+  const absMinutes = Math.abs(diffMinutes)
+
+  if (absMinutes < 1) return 'Hace instantes'
+  if (absMinutes < 60) return relativeTimeFormatter.format(diffMinutes, 'minute')
+
+  const diffHours = Math.round(diffMinutes / 60)
+  if (Math.abs(diffHours) < 24) return relativeTimeFormatter.format(diffHours, 'hour')
+
+  const diffDays = Math.round(diffHours / 24)
+  return relativeTimeFormatter.format(diffDays, 'day')
 }
 
 const buildSnapshot = async (user) => {
@@ -99,16 +141,27 @@ const buildSnapshot = async (user) => {
   const orders = Array.isArray(rawOrders) ? rawOrders : []
 
   const orderStatusByTrip = new Map()
+  const orderInfoByTrip = new Map()
   orders.forEach((order) => {
     const normalizedOrderStatus = normalizeStatus(order?.status)
     const priority = STATUS_PRIORITY[normalizedOrderStatus] ?? 0
     const items = Array.isArray(order?.order_items) ? order.order_items : []
+    const amount = Number.parseFloat(order?.total_amount ?? order?.subtotal ?? order?.amount)
+    const customerName = order?.customer_name ?? order?.client_name ?? order?.customer ?? null
+    const reference = order?.order_number ?? order?.reference ?? null
+
     items.forEach((item) => {
       const tripId = item?.trip_id || item?.trip?.id || item?.trips?.id
       if (!tripId) return
       const current = orderStatusByTrip.get(tripId)
       if (!current || priority >= current.priority) {
         orderStatusByTrip.set(tripId, { status: normalizedOrderStatus, priority })
+        orderInfoByTrip.set(tripId, {
+          orderId: order?.id ?? null,
+          amount: Number.isFinite(amount) ? amount : 0,
+          customer: typeof customerName === 'string' ? customerName : null,
+          reference
+        })
       }
     })
   })
@@ -155,21 +208,105 @@ const buildSnapshot = async (user) => {
     return status && status !== 'completed' ? count + 1 : count
   }, 0)
 
-  const recentTrips = orderedTrips
-    .slice(0, RECENT_LIMIT)
-    .map(({ raw, timestamp }) => ({
+  const statusBuckets = {
+    completed: [],
+    in_progress: [],
+    confirmed: [],
+    pending: [],
+    cancelled: [],
+    other: []
+  }
+
+  const operationalAlerts = []
+  const now = Date.now()
+
+  orderedTrips.forEach(({ raw, timestamp }) => {
+    const status = normalizeStatus(raw?.status)
+    const override = orderStatusByTrip.get(raw?.id)
+    const effectiveStatus = override?.status || status || 'other'
+    const normalizedEffectiveStatus = effectiveStatus === 'canceled' ? 'cancelled' : effectiveStatus
+    const normalizedRawStatus = status === 'canceled' ? 'cancelled' : status
+    const bucketKey = statusBuckets[normalizedEffectiveStatus] ? normalizedEffectiveStatus : 'other'
+    const miles = coerceMiles(raw)
+    const durationMinutes = coerceDurationMinutes(raw)
+    const orderInfo = orderInfoByTrip.get(raw?.id)
+
+    const detail = {
       id: raw?.id || raw?.trip_number || fallbackId(),
       origin: raw?.origin_address || raw?.origin || 'Origen no disponible',
       destination: raw?.destination_address || raw?.destination || 'Destino no disponible',
-      miles: coerceMiles(raw),
-      durationMinutes: Number.parseFloat(raw?.duration_minutes ?? raw?.duration ?? 0),
-      status: (() => {
-        const base = normalizeStatus(raw?.status)
-        const override = orderStatusByTrip.get(raw?.id)?.status
-        return override || base || 'sin estado'
-      })(),
-      timestamp
-    }))
+      miles,
+      durationMinutes,
+      lastUpdate: timestamp ? timestamp.toISOString() : null,
+      order: orderInfo || null,
+      status: normalizedEffectiveStatus,
+      rawStatus: normalizedRawStatus || null
+    }
+
+    statusBuckets[bucketKey].push(detail)
+
+    if (ACTIVE_TRIP_STATUSES.has(normalizedEffectiveStatus)) {
+      const issues = []
+      if (!override) issues.push('Sin pedido asociado')
+      if (override && status && override.status !== normalizedRawStatus) issues.push('Estado de viaje distinto al pedido')
+      if (!timestamp) {
+        issues.push('Sin registro de última actualización')
+      } else if (now - timestamp.getTime() > STALE_ACTIVE_TRIP_THRESHOLD_MS) {
+        issues.push('Actualización pendiente hace más de 3 h')
+      }
+      if (miles <= 0 && durationMinutes <= 0) {
+        issues.push('Sin distancia ni duración registradas')
+      }
+      if (issues.length > 0) {
+        operationalAlerts.push({
+          ...detail,
+          issues
+        })
+      }
+    }
+  })
+
+  const statusInsights = Object.entries(statusBuckets)
+    .map(([key, items]) => {
+      if (!items || items.length === 0) {
+        return key === 'other' ? null : {
+          status: key,
+          label: STATUS_LABELS[key] || STATUS_LABELS.other,
+          accent: STATUS_ACCENTS[key] || STATUS_ACCENTS.other,
+          count: 0,
+          averageMiles: 0,
+          averageDuration: 0,
+          totalRevenue: 0,
+          sampleTrips: []
+        }
+      }
+
+      const totalMiles = items.reduce((sum, item) => sum + (Number.isFinite(item.miles) ? item.miles : 0), 0)
+      const totalDuration = items.reduce((sum, item) => sum + (Number.isFinite(item.durationMinutes) ? item.durationMinutes : 0), 0)
+      const totalRevenue = items.reduce((sum, item) => sum + (item.order?.amount || 0), 0)
+
+      return {
+        status: key,
+        label: STATUS_LABELS[key] || STATUS_LABELS.other,
+        accent: STATUS_ACCENTS[key] || STATUS_ACCENTS.other,
+        count: items.length,
+        averageMiles: items.length ? totalMiles / items.length : 0,
+        averageDuration: items.length ? totalDuration / items.length : 0,
+        totalRevenue,
+        sampleTrips: items.slice(0, 3)
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => (STATUS_PRIORITY[b.status] ?? 0) - (STATUS_PRIORITY[a.status] ?? 0))
+
+  operationalAlerts.sort((a, b) => {
+    const scoreA = a.issues.length
+    const scoreB = b.issues.length
+    if (scoreA !== scoreB) return scoreB - scoreA
+    const timeA = a.lastUpdate ? new Date(a.lastUpdate).getTime() : 0
+    const timeB = b.lastUpdate ? new Date(b.lastUpdate).getTime() : 0
+    return timeB - timeA
+  })
 
   return {
     busy: false,
@@ -183,7 +320,8 @@ const buildSnapshot = async (user) => {
       totalRevenue,
       pendingOrders
     },
-    recentTrips,
+    statusInsights,
+    operationalAlerts,
     updatedAt: new Date().toISOString()
   }
 }
@@ -347,65 +485,148 @@ const TripTracking = () => {
         ))}
       </section>
 
-      <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-blue-500/10 backdrop-blur">
-        <header className="flex flex-col gap-2 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-white">Últimos viajes</h2>
-            <p className="text-sm text-blue-100/70">Resumen de los {Math.min(snapshot.recentTrips.length, RECENT_LIMIT)} viajes más recientes.</p>
-          </div>
-        </header>
+        <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-blue-500/10 backdrop-blur">
+          <header className="flex flex-col gap-2 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Monitoreo detallado</h2>
+              <p className="text-sm text-blue-100/70">Desglose por estado con métricas operativas y los focos más recientes.</p>
+            </div>
+          </header>
 
-        {snapshot.recentTrips.length === 0 ? (
-          <p className="mt-6 text-sm text-blue-100/60">No se encontraron viajes recientes.</p>
-        ) : (
-          <ul className="mt-6 space-y-3">
-            {snapshot.recentTrips.map((trip) => (
-              <li
-                key={trip.id}
-                className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 transition hover:border-blue-400/40 hover:bg-blue-500/10 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-white">
-                    {trip.origin}
-                    <span className="mx-2 text-blue-200/60">→</span>
-                    {trip.destination}
-                  </p>
-                  {trip.timestamp && (
-                    <p className="mt-1 text-xs text-blue-200/60">
-                      {dateFormatter.format(trip.timestamp)}
-                    </p>
+          {snapshot.statusInsights.length === 0 ? (
+            <p className="mt-6 text-sm text-blue-100/60">Todavía no hay datos para mostrar el detalle por estado.</p>
+          ) : (
+            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {snapshot.statusInsights.map((insight) => (
+                <article
+                  key={insight.status}
+                  className={`rounded-2xl border px-5 py-5 shadow-inner shadow-blue-500/10 ${insight.accent}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-blue-200/70">{insight.label}</p>
+                      <p className="mt-2 text-2xl font-semibold text-white">{numberFormatter.format(insight.count)}</p>
+                    </div>
+                    <div className="text-right text-xs text-blue-200/60">
+                      <p>Media millas: {milesFormatter.format(insight.averageMiles || 0)} mi</p>
+                      <p>Media duración: {formatDurationLabel(insight.averageDuration) || '—'}</p>
+                      <p>Ingresos vinculados: {currencyFormatter.format(insight.totalRevenue || 0)}</p>
+                    </div>
+                  </div>
+
+                  {insight.sampleTrips.length === 0 ? (
+                    <p className="mt-4 text-xs text-blue-200/60">Sin viajes destacados en este estado.</p>
+                  ) : (
+                    <ul className="mt-5 space-y-3">
+                      {insight.sampleTrips.map((trip) => {
+                        const primaryMetric = trip.miles > 0
+                          ? `${milesFormatter.format(trip.miles)} mi`
+                          : formatDurationLabel(trip.durationMinutes) || 'Sin datos'
+                        return (
+                          <li
+                            key={trip.id}
+                            className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-blue-50/90"
+                          >
+                            <div className="flex flex-col gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-semibold text-white">
+                                  {trip.origin}
+                                  <span className="mx-2 text-blue-200/60">→</span>
+                                  {trip.destination}
+                                </p>
+                                <span className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-xs text-blue-100/80">
+                                  {primaryMetric}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-3 text-xs text-blue-200/70">
+                                <span>{trip.lastUpdate ? formatRelativeTime(trip.lastUpdate) : 'Sin registro'}</span>
+                                {trip.order?.reference && (
+                                  <span>Pedido {trip.order.reference}</span>
+                                )}
+                                {!trip.order?.reference && trip.order?.orderId && (
+                                  <span>Pedido #{trip.order.orderId}</span>
+                                )}
+                                {trip.order?.customer && (
+                                  <span>Cliente: {trip.order.customer}</span>
+                                )}
+                                {trip.order?.amount > 0 && (
+                                  <span>Monto: {currencyFormatter.format(trip.order.amount)}</span>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
                   )}
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm font-semibold text-blue-100">
-                    {trip.miles > 0
-                      ? `${milesFormatter.format(trip.miles)} mi`
-                      : (() => {
-                          const durationLabel = formatDurationLabel(trip.durationMinutes)
-                          return durationLabel || '—'
-                        })()}
-                  </span>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${
-                      STATUS_THEME[trip.status] || 'border-white/15 bg-white/10 text-blue-100/80'
-                    }`}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {snapshot.operationalAlerts.length > 0 && (
+          <section className="rounded-3xl border border-rose-400/30 bg-rose-500/10 p-6 shadow-lg shadow-rose-500/15 backdrop-blur">
+            <header className="flex flex-col gap-2 border-b border-rose-200/20 pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-white">Alertas operativas</h2>
+                <p className="text-sm text-rose-100/80">Viajes activos que requieren seguimiento inmediato.</p>
+              </div>
+              <span className="rounded-full border border-rose-200/30 bg-rose-500/20 px-3 py-1 text-xs font-semibold text-rose-50/90">
+                {snapshot.operationalAlerts.length} pendientes
+              </span>
+            </header>
+
+            <ul className="mt-5 space-y-3">
+              {snapshot.operationalAlerts.map((alert) => {
+                const primaryMetric = alert.miles > 0
+                  ? `${milesFormatter.format(alert.miles)} mi`
+                  : formatDurationLabel(alert.durationMinutes) || 'Sin datos'
+                return (
+                  <li
+                    key={alert.id}
+                    className="rounded-2xl border border-rose-200/30 bg-rose-500/10 px-4 py-4 text-sm text-rose-50/90"
                   >
-                    {trip.status === 'completed'
-                      ? 'Completado'
-                      : trip.status === 'canceled' || trip.status === 'cancelled'
-                        ? 'Cancelado'
-                        : trip.status === 'confirmed'
-                          ? 'Confirmado'
-                          : trip.status === 'in_progress'
-                            ? 'En progreso'
-                            : 'Pendiente'}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-semibold text-white">
+                          {alert.origin}
+                          <span className="mx-2 text-rose-100/70">→</span>
+                          {alert.destination}
+                        </p>
+                        <p className="text-xs text-rose-100/70">{alert.lastUpdate ? formatRelativeTime(alert.lastUpdate) : 'Sin registro'}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="rounded-full border border-rose-200/30 bg-rose-500/20 px-2 py-1 text-rose-50/90">
+                          {primaryMetric}
+                        </span>
+                        {alert.order?.reference && (
+                          <span className="rounded-full border border-rose-200/30 bg-rose-500/20 px-2 py-1 text-rose-50/90">Pedido {alert.order.reference}</span>
+                        )}
+                        {!alert.order?.reference && alert.order?.orderId && (
+                          <span className="rounded-full border border-rose-200/30 bg-rose-500/20 px-2 py-1 text-rose-50/90">Pedido #{alert.order.orderId}</span>
+                        )}
+                        {alert.order?.amount > 0 && (
+                          <span className="rounded-full border border-rose-200/30 bg-rose-500/20 px-2 py-1 text-rose-50/90">Monto: {currencyFormatter.format(alert.order.amount)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      {alert.issues.map((issue) => (
+                        <span
+                          key={issue}
+                          className="rounded-full border border-rose-200/40 bg-rose-900/40 px-3 py-1 text-rose-100"
+                        >
+                          {issue}
+                        </span>
+                      ))}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
         )}
-      </section>
     </div>
   )
 }
