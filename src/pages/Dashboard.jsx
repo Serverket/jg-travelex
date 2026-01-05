@@ -5,6 +5,7 @@ import { Line, Bar } from 'react-chartjs-2'
 import { tripService } from '../services/tripService'
 import { orderService } from '../services/orderService'
 import { invoiceService } from '../services/invoiceService'
+import { formatCurrency, formatDistance, formatNumber } from '../utils/formatters'
 
 // Registrar componentes de Chart.js
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend)
@@ -105,8 +106,8 @@ const Dashboard = () => {
 
     const newStats = {
       totalTrips,
-      totalDistance: totalDistance.toFixed(2),
-      totalRevenue: totalRevenue.toFixed(2),
+      totalDistance,
+      totalRevenue,
       pendingOrders,
       completedOrders,
       issuedInvoices,
@@ -192,6 +193,25 @@ const Dashboard = () => {
     )
   }
 
+  const statCards = [
+    {
+      label: 'Total de Viajes',
+      value: formatNumber(stats.totalTrips ?? 0, 0)
+    },
+    {
+      label: 'Distancia Total',
+      value: formatDistance(stats.totalDistance ?? 0, 2)
+    },
+    {
+      label: 'Ingresos Totales',
+      value: formatCurrency(stats.totalRevenue ?? 0)
+    },
+    {
+      label: 'Órdenes Pendientes',
+      value: formatNumber(stats.pendingOrders ?? 0, 0)
+    }
+  ]
+
   return (
     <div className="space-y-10 text-slate-100">
       <div
@@ -211,19 +231,7 @@ const Dashboard = () => {
       <div
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
       >
-        {[{
-          label: 'Total de Viajes',
-          value: stats.totalTrips,
-        }, {
-          label: 'Distancia Total (millas)',
-          value: stats.totalDistance,
-        }, {
-          label: 'Ingresos Totales ($)',
-          value: stats.totalRevenue,
-        }, {
-          label: 'Órdenes Pendientes',
-          value: stats.pendingOrders,
-        }].map((item, index) => (
+        {statCards.map((item, index) => (
           <div
             key={item.label}
             data-aos="fade-up"
@@ -331,7 +339,7 @@ const Dashboard = () => {
                       {(() => {
                         const miles = Number.parseFloat(trip.distance_miles ?? trip.distance ?? 0)
                         if (Number.isFinite(miles) && miles > 0) {
-                          return `${miles.toFixed(2)} millas`
+                          return formatDistance(miles, 2)
                         }
                         const durationMinutes = Number.parseFloat(trip.duration_minutes ?? (trip.duration ? Number(trip.duration) * 60 : 0))
                         if (Number.isFinite(durationMinutes) && durationMinutes > 0) {
@@ -346,7 +354,7 @@ const Dashboard = () => {
                       })()}
                     </td>
                     <td className="px-4 py-3 md:px-6 whitespace-nowrap">
-                      ${trip.final_price || trip.price || 0}
+                      {formatCurrency(Number.parseFloat(trip.final_price ?? trip.price ?? 0) || 0)}
                     </td>
                   </tr>
                 ))}
