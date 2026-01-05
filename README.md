@@ -1,10 +1,10 @@
 <div align="center">
 
-![JG Travelex Logo](./public/icons/jg_logo.png)
+![JG TravelEx Logo](./public/icons/jg_logo.png)
 
-# JG Travelex - Trip Management System
+# JG TravelEx - Travel Experience
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Bun](https://img.shields.io/badge/bun-%3E%3D1.0.0-black.svg)
 ![React](https://img.shields.io/badge/react-18.2.0-blue.svg)
@@ -28,9 +28,6 @@
 - ⚙️ **Configurable rates**, surcharges and discounts
 - 🔒 **Role-based access control** (admin/user)
 - 📱 **Modern responsive design** with Tailwind CSS
-- ✨ **New in v2.0.0**: Enhanced code quality with comprehensive ESLint configuration
-- 🛡️ **New in v2.0.0**: Improved error handling and type safety
-- ⚡ **New in v2.0.0**: Optimized React Hook dependencies for better performance
 
 ---
 
@@ -287,22 +284,6 @@ Note: the app expects a singleton row in `company_settings` with id `11111111-11
 MIT
 
 This project is licensed under the [MIT License](./LICENSE)..
-
-## What's New in v2.0.0
-
-### Code Quality Improvements
-- ✅ **Zero ESLint warnings/errors** - Clean, maintainable codebase
-- 🔧 **Enhanced error handling** across all components
-- 📝 **Better TypeScript-style conventions** with proper variable naming
-- ⚡ **Optimized performance** with improved React Hook dependencies
-- 🛡️ **Enhanced type safety** with proper variable declarations
-
-### Developer Experience
-- 🛠️ Comprehensive ESLint configuration for consistent code style
-- 📋 Better IDE integration and error detection
-- 🔍 Improved debugging capabilities
-- 📝 Enhanced code readability and documentation
-- 🚀 Faster development workflow with resolved linting issues
 
 ## :brain: Acknowledgments
 _"Whoever loves discipline loves knowledge, but whoever hates correction is stupid."_

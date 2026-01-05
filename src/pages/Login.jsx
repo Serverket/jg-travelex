@@ -233,7 +233,7 @@ const Login = ({ onLogin: _onLogin }) => {
                   </div>
                 </div>
                 <h2 className="text-center text-3xl font-semibold tracking-tight text-white">
-                  {isRegistering ? 'Crear su cuenta' : 'Iniciar sesión en JG Travelex'}
+                  {isRegistering ? 'Crear su cuenta' : 'Iniciar sesión en JG TravelEx'}
                 </h2>
                 <p className="text-center text-sm text-blue-100/70">
                   Acceso seguro para socios y agentes certificados.

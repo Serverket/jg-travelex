@@ -709,7 +709,7 @@ const Invoices = () => {
       
       // Encabezado
       doc.setFontSize(20)
-      doc.text('JGEx - Factura de Viaje', 105, 20, { align: 'center' })
+      doc.text('JG TravelEx - Factura de Viaje', 105, 20, { align: 'center' })
       
       doc.setFontSize(12)
       doc.text(`Factura #: ${invoiceNumber || 'N/A'}`, 20, 40)

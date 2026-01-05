@@ -25,9 +25,8 @@ const Layout = ({ onLogout }) => {
   }
 
   const visibleNavItems = useMemo(() => ([
-    { to: '/dashboard', label: 'Dashboard', show: hasFeature('dashboard') },
+    { to: '/dashboard', label: 'Panel', show: hasFeature('dashboard') },
     { to: '/calculator', label: 'Calculadora', show: hasFeature('calculator') },
-    { to: '/tracking', label: 'Seguimiento', show: hasFeature('tracking') },
     { to: '/invoices', label: 'Facturas', show: hasFeature('invoices') },
     { to: '/settings', label: 'Configuración', show: hasFeature('settings') || isAdmin },
     { to: '/admin/users', label: 'Usuarios', show: isAdmin }
@@ -40,11 +39,11 @@ const Layout = ({ onLogout }) => {
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3 py-3 md:h-16 md:flex-nowrap md:gap-6">
             <div className="flex items-center">
-              <Logo 
-                size="small" 
-                variant="white"
-                showText={true}
-                text="JGEx"
+                <Logo 
+                  size="small" 
+                  variant="white"
+                  showText={true}
+                  text="TravelEx"
                 className="transition-transform hover:scale-105"
               />
             </div>
@@ -124,9 +123,9 @@ const Layout = ({ onLogout }) => {
       {/* Footer */}
       <footer className="border-t border-white/10 bg-slate-900/70 py-4">
         <div className="mx-auto max-w-7xl px-4 text-sm text-blue-200/80 sm:px-6 lg:px-8">
-          <p className="text-center">
-            &copy; {new Date().getFullYear()} JGEx · Calculadora de Distancias
-          </p>
+            <p className="text-center">
+              &copy; {new Date().getFullYear()} JG TravelEx · Travel Experience
+            </p>
         </div>
       </footer>
       

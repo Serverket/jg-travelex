@@ -1,4 +1,4 @@
--- JG Travelex-- Supabase Schema for JG Travelex
+-- JG TravelEx -- Supabase Schema for JG TravelEx
 -- Modern architecture with Supabase Auth integration
 
 -- Enable required extensions
@@ -31,7 +31,7 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '{}'::jsonb
 -- Company settings table (singleton pattern)
 CREATE TABLE IF NOT EXISTS company_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    company_name VARCHAR(100) DEFAULT 'JG Travelex',
+    company_name VARCHAR(100) DEFAULT 'JG TravelEx',
     base_currency VARCHAR(3) DEFAULT 'USD',
     distance_rate DECIMAL(10, 4) NOT NULL DEFAULT 1.50,
     duration_rate DECIMAL(10, 4) NOT NULL DEFAULT 0.50,

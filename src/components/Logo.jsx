@@ -6,8 +6,8 @@ const Logo = ({
   showDropShadow = false,
   variant = 'black', // 'black', 'white' or 'original'
   showText = false, // Show text under logo
-  text = 'JGEx',
-  alt = 'JG Travelex Logo'
+  text = 'TravelEx',
+  alt = 'JG TravelEx Logo'
 }) => {
   // Size variants for different use cases
   const sizeClasses = {

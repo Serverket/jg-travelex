@@ -44,7 +44,7 @@ const question = (prompt) => {
 
 async function createAdminUser() {
   try {
-    console.log('\n=== Create Admin User for JG Travelex ===\n');
+    console.log('\n=== Create Admin User for JG TravelEx ===\n');
     
     // Collect admin details
     const email = await question('Enter admin email: ');

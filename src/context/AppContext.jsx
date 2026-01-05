@@ -108,7 +108,7 @@ export const AppProvider = ({ children }) => {
     
     // Create a storage listener to handle session changes across tabs/windows
     const handleStorageChange = (e) => {
-      if (e.key === 'jgex_user') {
+      if (e.key === 'travelex_user') {
         if (e.newValue) {
           try {
             const userData = normalizeUser(JSON.parse(e.newValue))
