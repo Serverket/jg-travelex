@@ -196,6 +196,32 @@ bun run dev
 ### Admin user
 - Create an admin with: `bun run create-admin` (interactive). The script provisions a Supabase Auth user and a matching row in `profiles` with role `admin`. You choose the email/username/password during the prompt.
 
+- One-shot command (requires `jq`) to provision any admin using your service-role credentials:
+  ```bash
+  SUPABASE_URL="https://your-project.supabase.co" \
+  SERVICE_ROLE_KEY="your-service-role-key" \
+  ADMIN_EMAIL="admin@example.com" \
+  ADMIN_PASSWORD="ChangeMe123!" \
+  ADMIN_NAME="Admin User" \
+  ADMIN_USERNAME="admin" \
+  sh -c '
+    set -euo pipefail
+    ADMIN_ID=$(curl -sS "$SUPABASE_URL/auth/v1/admin/users" \
+      -H "apikey: $SERVICE_ROLE_KEY" \
+      -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+      -H "Content-Type: application/json" \
+      -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\",\"email_confirm\":true,\"user_metadata\":{\"full_name\":\"$ADMIN_NAME\",\"username\":\"$ADMIN_USERNAME\"}}" \
+      | jq -er ".id")
+    curl -sS "$SUPABASE_URL/rest/v1/profiles?id=eq.$ADMIN_ID" \
+      -H "apikey: $SERVICE_ROLE_KEY" \
+      -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+      -H "Content-Type: application/json" \
+      -H "Prefer: return=representation" \
+      -X PATCH \
+      -d "{\"role\":\"admin\",\"full_name\":\"$ADMIN_NAME\",\"username\":\"$ADMIN_USERNAME\",\"email\":\"$ADMIN_EMAIL\",\"is_active\":true}"
+  '
+  ```
+
 - The legacy `scripts/create-admin.js` helper has been removed; always use `bun run create-admin`.
 
 ### Core features

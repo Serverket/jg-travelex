@@ -63,31 +63,36 @@ const ManualDistanceInput = ({ onCalculate }) => {
   useEffect(() => {
     let cancelled = false
 
+    const shouldFetchRoute = () => (
+      ['combined', 'distance-only', 'duration-only'].includes(calculationType) &&
+      origin && origin.lat && origin.lng &&
+      destination && destination.lat && destination.lng
+    )
+
     const fetchRoute = async () => {
-      if (
-        calculationType === 'combined' &&
-        origin && origin.lat && origin.lng &&
-        destination && destination.lat && destination.lng
-      ) {
-        try {
-          const response = await fetch(
-            `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=false&alternatives=true&steps=true&hints=;`
-          )
-          const data = await response.json()
+      if (!shouldFetchRoute()) return
 
-          if (!cancelled && data.routes && data.routes.length > 0) {
-            const [route] = data.routes
-            const distanceInMiles = route.distance / 1609.34
-            const durationInHours = route.duration / 3600
+      try {
+        const response = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=false&alternatives=true&steps=true&hints=;`
+        )
+        const data = await response.json()
 
-            updateCurrentState({
-              distance: distanceInMiles.toFixed(2),
-              duration: durationInHours.toFixed(2)
-            })
+        if (!cancelled && data.routes && data.routes.length > 0) {
+          const [route] = data.routes
+          const distanceInMiles = (route.distance / 1609.34).toFixed(2)
+          const durationInHours = (route.duration / 3600).toFixed(2)
+
+          const updates = {}
+          if (calculationType !== 'duration-only') updates.distance = distanceInMiles
+          if (calculationType !== 'distance-only') updates.duration = durationInHours
+
+          if (Object.keys(updates).length > 0) {
+            updateCurrentState(updates)
           }
-        } catch (error) {
-          console.error('Error fetching route from OSM:', error)
         }
+      } catch (error) {
+        console.error('Error fetching route from OSM:', error)
       }
     }
 
