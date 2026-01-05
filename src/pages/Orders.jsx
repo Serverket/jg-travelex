@@ -18,7 +18,7 @@ const Orders = () => {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [orderStatusFilter, setOrderStatusFilter] = useState('all') // 'all', 'pending', 'completed', 'canceled'
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all') // 'all', 'pending', 'completed', 'cancelled'
   const [sortConfig, setSortConfig] = useState({
     key: 'date',
     direction: 'desc' // Newest first by default
@@ -100,7 +100,13 @@ const Orders = () => {
 
   const filteredOrders = useMemo(() => {
     if (orderStatusFilter === 'all') return orders
-    return orders.filter(order => (order.status || '').toLowerCase() === orderStatusFilter)
+    return orders.filter(order => {
+      const status = (order.status || '').toLowerCase()
+      if (orderStatusFilter === 'cancelled') {
+        return status === 'cancelled' || status === 'canceled'
+      }
+      return status === orderStatusFilter
+    })
   }, [orders, orderStatusFilter])
 
   const currencyFormatter = useMemo(() => new Intl.NumberFormat('es-ES', {
@@ -130,7 +136,7 @@ const Orders = () => {
 
       if (status === 'completed') {
         acc.completed += 1
-      } else if (status === 'canceled') {
+      } else if (status === 'cancelled' || status === 'canceled') {
         acc.canceled += 1
       } else {
         acc.pending += 1
@@ -304,20 +310,70 @@ const Orders = () => {
     }));
   };
 
+  const canonicalizeOrderStatus = (status) => {
+    const value = (status || '').toLowerCase()
+    switch (value) {
+      case 'canceled':
+        return 'cancelled'
+      case 'in_progress':
+        return 'processing'
+      default:
+        return value
+    }
+  }
+
+  const mapOrderStatusToTripStatus = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'completed':
+        return 'completed'
+      case 'canceled':
+      case 'cancelled':
+      case 'refunded':
+        return 'cancelled'
+      case 'confirmed':
+      case 'approved':
+        return 'confirmed'
+      case 'in_progress':
+      case 'processing':
+        return 'in_progress'
+      case 'draft':
+      case 'pending':
+      default:
+        return 'pending'
+    }
+  }
+
   // Handle order status update
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      await orderService.updateOrder(orderId, { status: newStatus });
+      const dbStatus = canonicalizeOrderStatus(newStatus)
+      const tripStatus = mapOrderStatusToTripStatus(dbStatus)
+      const existingOrder = orders.find(o => o.id === orderId)
+      const tripIds = existingOrder?.orderItems?.map(item => item.trip_id).filter(Boolean) || []
+
+      await orderService.updateOrder(orderId, { status: dbStatus });
       
+      if (tripIds.length) {
+        await Promise.all(tripIds.map(tripId => tripService.updateTrip(tripId, { status: tripStatus })));
+      }
+
       // Update local state
       setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId ? { ...order, status: newStatus } : order
-        )
+        prevOrders.map(order => {
+          if (order.id !== orderId) return order
+          const updatedTrips = Array.isArray(order.trips)
+            ? order.trips.map(trip => (
+                tripIds.includes(trip.id)
+                  ? { ...trip, status: tripStatus }
+                  : trip
+              ))
+            : order.trips
+          return { ...order, status: dbStatus, trips: updatedTrips }
+        })
       );
       
       // If order is completed, create an invoice
-      if (newStatus === 'completed') {
+      if (dbStatus === 'completed') {
         const order = orders.find(o => o.id === orderId);
         if (order) {
           const currentDate = new Date();
@@ -359,7 +415,7 @@ const Orders = () => {
               <option value="all" className="bg-slate-900">Todos los pedidos</option>
               <option value="pending" className="bg-slate-900">Pendientes</option>
               <option value="completed" className="bg-slate-900">Completados</option>
-              <option value="canceled" className="bg-slate-900">Cancelados</option>
+              <option value="cancelled" className="bg-slate-900">Cancelados</option>
             </select>
             {formattedLastUpdated && (
               <span className="text-xs text-blue-200/60">Actualizado {formattedLastUpdated}</span>
@@ -478,18 +534,26 @@ const Orders = () => {
                         className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
                           order.status === 'completed'
                             ? 'bg-emerald-500/20 text-emerald-200'
-                            : order.status === 'canceled'
+                            : order.status === 'cancelled' || order.status === 'canceled'
                               ? 'bg-rose-500/20 text-rose-200'
                               : 'bg-amber-400/20 text-amber-100'
                         }`}
                       >
-                        {order.status === 'completed' ? 'Completado' : order.status === 'canceled' ? 'Cancelado' : 'Pendiente'}
+                        {order.status === 'completed'
+                          ? 'Completado'
+                          : order.status === 'cancelled' || order.status === 'canceled'
+                            ? 'Cancelado'
+                            : order.status === 'processing' || order.status === 'in_progress'
+                              ? 'En progreso'
+                              : order.status === 'approved'
+                                ? 'Confirmado'
+                                : 'Pendiente'}
                       </span>
                     </td>
                     {user?.role === 'admin' && (
                       <td className="px-6 py-4 text-sm">
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                          {order.status === 'pending' ? (
+                          {order.status === 'pending' || order.status === 'draft' ? (
                             <div className="flex flex-wrap gap-2">
                               <button
                                 onClick={() => updateOrderStatus(order.id, 'completed')}
@@ -498,7 +562,7 @@ const Orders = () => {
                                 Completar
                               </button>
                               <button
-                                onClick={() => updateOrderStatus(order.id, 'canceled')}
+                                onClick={() => updateOrderStatus(order.id, 'cancelled')}
                                 className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-sm font-medium text-rose-200 transition hover:bg-rose-500/20 hover:text-rose-100 whitespace-nowrap"
                               >
                                 Cancelar
