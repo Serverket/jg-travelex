@@ -328,7 +328,22 @@ const Dashboard = () => {
                       {trip.destination_address || trip.destination || 'N/A'}
                     </td>
                     <td className="px-4 py-3 md:px-6">
-                      {trip.distance_miles || trip.distance || 0} millas
+                      {(() => {
+                        const miles = Number.parseFloat(trip.distance_miles ?? trip.distance ?? 0)
+                        if (Number.isFinite(miles) && miles > 0) {
+                          return `${miles.toFixed(2)} millas`
+                        }
+                        const durationMinutes = Number.parseFloat(trip.duration_minutes ?? (trip.duration ? Number(trip.duration) * 60 : 0))
+                        if (Number.isFinite(durationMinutes) && durationMinutes > 0) {
+                          const wholeMinutes = Math.round(durationMinutes)
+                          const hours = Math.floor(wholeMinutes / 60)
+                          const minutes = wholeMinutes % 60
+                          if (hours > 0 && minutes > 0) return `${hours} h ${minutes} min`
+                          if (hours > 0) return `${hours} h`
+                          return `${wholeMinutes} min`
+                        }
+                        return '—'
+                      })()}
                     </td>
                     <td className="px-4 py-3 md:px-6 whitespace-nowrap">
                       ${trip.final_price || trip.price || 0}
