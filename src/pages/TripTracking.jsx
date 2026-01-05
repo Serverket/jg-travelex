@@ -23,6 +23,15 @@ const STATUS_THEME = {
   canceled: 'border-rose-400/40 bg-rose-500/15 text-rose-100'
 }
 
+const STATUS_PRIORITY = {
+  completed: 5,
+  in_progress: 4,
+  confirmed: 3,
+  pending: 2,
+  cancelled: 1,
+  canceled: 1
+}
+
 const initialSnapshot = {
   busy: true,
   error: null,
@@ -66,6 +75,16 @@ const coerceMiles = (trip) => {
   return 0
 }
 
+const formatDurationLabel = (minutes) => {
+  if (!Number.isFinite(minutes) || minutes <= 0) return null
+  const wholeMinutes = Math.round(minutes)
+  const hours = Math.floor(wholeMinutes / 60)
+  const mins = wholeMinutes % 60
+  if (hours > 0 && mins > 0) return `${hours} h ${mins} min`
+  if (hours > 0) return `${hours} h`
+  return `${wholeMinutes} min`
+}
+
 const buildSnapshot = async (user) => {
   const baseFilters = user.role === 'admin'
     ? { all: true }
@@ -79,6 +98,21 @@ const buildSnapshot = async (user) => {
   const trips = Array.isArray(rawTrips) ? rawTrips : []
   const orders = Array.isArray(rawOrders) ? rawOrders : []
 
+  const orderStatusByTrip = new Map()
+  orders.forEach((order) => {
+    const normalizedOrderStatus = normalizeStatus(order?.status)
+    const priority = STATUS_PRIORITY[normalizedOrderStatus] ?? 0
+    const items = Array.isArray(order?.order_items) ? order.order_items : []
+    items.forEach((item) => {
+      const tripId = item?.trip_id || item?.trip?.id || item?.trips?.id
+      if (!tripId) return
+      const current = orderStatusByTrip.get(tripId)
+      if (!current || priority >= current.priority) {
+        orderStatusByTrip.set(tripId, { status: normalizedOrderStatus, priority })
+      }
+    })
+  })
+
   const orderedTrips = trips
     .map((trip) => ({ raw: trip, timestamp: pickTimestamp(trip) }))
     .sort((a, b) => {
@@ -90,12 +124,14 @@ const buildSnapshot = async (user) => {
   const aggregates = orderedTrips.reduce((acc, entry) => {
     const { raw } = entry
     const status = normalizeStatus(raw?.status)
+    const override = orderStatusByTrip.get(raw?.id)
+    const effectiveStatus = override?.status || status
     const miles = coerceMiles(raw)
 
     acc.totalTrips += 1
     acc.totalMiles += miles
-    if (ACTIVE_TRIP_STATUSES.has(status)) acc.activeTrips += 1
-    if (COMPLETED_TRIP_STATUSES.has(status)) acc.completedTrips += 1
+    if (ACTIVE_TRIP_STATUSES.has(effectiveStatus)) acc.activeTrips += 1
+    if (COMPLETED_TRIP_STATUSES.has(effectiveStatus)) acc.completedTrips += 1
 
     return acc
   }, {
@@ -126,7 +162,12 @@ const buildSnapshot = async (user) => {
       origin: raw?.origin_address || raw?.origin || 'Origen no disponible',
       destination: raw?.destination_address || raw?.destination || 'Destino no disponible',
       miles: coerceMiles(raw),
-      status: normalizeStatus(raw?.status) || 'sin estado',
+      durationMinutes: Number.parseFloat(raw?.duration_minutes ?? raw?.duration ?? 0),
+      status: (() => {
+        const base = normalizeStatus(raw?.status)
+        const override = orderStatusByTrip.get(raw?.id)?.status
+        return override || base || 'sin estado'
+      })(),
       timestamp
     }))
 
@@ -337,7 +378,12 @@ const TripTracking = () => {
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-sm font-semibold text-blue-100">
-                    {milesFormatter.format(trip.miles)} mi
+                    {trip.miles > 0
+                      ? `${milesFormatter.format(trip.miles)} mi`
+                      : (() => {
+                          const durationLabel = formatDurationLabel(trip.durationMinutes)
+                          return durationLabel || '—'
+                        })()}
                   </span>
                   <span
                     className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${
