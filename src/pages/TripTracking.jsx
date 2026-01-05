@@ -19,7 +19,8 @@ const STATUS_THEME = {
   in_progress: 'border-sky-400/40 bg-sky-500/15 text-sky-100',
   confirmed: 'border-indigo-400/40 bg-indigo-500/15 text-indigo-100',
   pending: 'border-amber-400/40 bg-amber-500/15 text-amber-100',
-  cancelled: 'border-rose-400/40 bg-rose-500/15 text-rose-100'
+  cancelled: 'border-rose-400/40 bg-rose-500/15 text-rose-100',
+  canceled: 'border-rose-400/40 bg-rose-500/15 text-rose-100'
 }
 
 const initialSnapshot = {
@@ -343,7 +344,15 @@ const TripTracking = () => {
                       STATUS_THEME[trip.status] || 'border-white/15 bg-white/10 text-blue-100/80'
                     }`}
                   >
-                    {trip.status.replace(/_/g, ' ') || 'estado desconocido'}
+                    {trip.status === 'completed'
+                      ? 'Completado'
+                      : trip.status === 'canceled' || trip.status === 'cancelled'
+                        ? 'Cancelado'
+                        : trip.status === 'confirmed'
+                          ? 'Confirmado'
+                          : trip.status === 'in_progress'
+                            ? 'En progreso'
+                            : 'Pendiente'}
                   </span>
                 </div>
               </li>
