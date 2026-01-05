@@ -45,7 +45,7 @@ export const buildShareMessage = ({ origin, destination, duration, price }) => {
   const safePrice = price || FALLBACK_TEXT
 
   const lines = [
-    'JGEx - Travel Experience',
+    'TravelEx - Travel Experience',
     '',
     'Detalles de mi viaje (Trip Details):',
     `Origen (Origin): ${safeOrigin}`,
@@ -82,7 +82,7 @@ export const buildWhatsAppLink = (phoneNumber, message) => {
 }
 
 export const buildMailtoLink = (email, message) => {
-  const subject = encodeURIComponent('JGEx Trip Details / Detalles del viaje')
+  const subject = encodeURIComponent('TravelEx Trip Details / Detalles del viaje')
   const body = encodeURIComponent(message)
   const trimmedEmail = (email || '').trim()
   const prefix = trimmedEmail ? `${trimmedEmail}` : ''

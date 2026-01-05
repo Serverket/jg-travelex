@@ -40,13 +40,13 @@ const plans = [
 ]
 
 const buildMailto = (planName, emailHint, reason) => {
-  const subject = encodeURIComponent(`Activar ${planName} - JGEx`)
+  const subject = encodeURIComponent(`Activar ${planName} - JG TravelEx`)
   const normalizedReason = (reason || '').toString().toUpperCase()
   const contextLine = normalizedReason === 'ACCOUNT_DISABLED'
     ? 'Mi cuenta aparece deshabilitada y necesito reactivarla.'
     : 'Mi acceso temporal ha expirado.'
   const intro = emailHint ? `${contextLine} Mi correo registrado es ${emailHint}.` : contextLine
-  const body = encodeURIComponent(`Hola equipo JGEx,\n\nMe gustaría activar el ${planName}.\n${intro}\n\nGracias.`)
+  const body = encodeURIComponent(`Hola equipo JG TravelEx,\n\nMe gustaría activar el ${planName}.\n${intro}\n\nGracias.`)
   return `mailto:${contactEmail}?subject=${subject}&body=${body}`
 }
 
@@ -57,8 +57,8 @@ const AccessExpired = () => {
   const isDisabled = reason === 'ACCOUNT_DISABLED'
   const labelCopy = isDisabled ? 'Acceso deshabilitado' : 'Acceso temporal expirado'
   const headingCopy = isDisabled
-    ? 'Reactiva tu operación con un plan activo de JGEx'
-    : 'Lleva tu operación al siguiente nivel con acceso completo a JGEx'
+    ? 'Reactiva tu operación con un plan activo de JG TravelEx'
+    : 'Lleva tu operación al siguiente nivel con acceso completo a JG TravelEx'
   const descriptionCopy = isDisabled
     ? 'Tu cuenta fue deshabilitada porque no hay un plan activo asociado. Elige la opción que mejor se ajuste a tu operación para recuperar todas las herramientas en minutos.'
     : 'Tu acceso temporal ha llegado a su fin, pero puedes seguir aprovechando la plataforma con uno de nuestros planes. Selecciona la opción que mejor se adapte a tu equipo y contáctanos para habilitarlo en minutos.'

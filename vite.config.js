@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'JGEx Distance Calculator',
-        short_name: 'JGEx',
-        description: 'Aplicación para calcular distancias y precios de viajes',
+        name: 'JG TravelEx Distance Calculator',
+        short_name: 'TravelEx',
+        description: 'Travel Experience · Aplicación para calcular distancias y precios de viajes',
         theme_color: '#ffffff',
         icons: [
           {

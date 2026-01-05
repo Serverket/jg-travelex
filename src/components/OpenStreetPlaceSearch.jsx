@@ -45,7 +45,7 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
         {
           headers: {
             'Accept-Language': 'es',
-            'User-Agent': 'JGExpress Trip Calculator'
+            'User-Agent': 'JG TravelEx Trip Calculator'
           }
         }
       )

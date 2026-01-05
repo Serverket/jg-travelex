@@ -4,8 +4,8 @@
 import { supabaseService } from './supabase';
 
 // Session storage key constants
-const USER_KEY = 'jgex_user';
-const SESSION_KEY = 'jgex_session';
+const USER_KEY = 'travelex_user';
+const SESSION_KEY = 'travelex_session';
 
 export const authService = {
   /**

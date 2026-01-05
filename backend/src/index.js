@@ -1316,6 +1316,6 @@ function startKeepAlives() {
 }
 
 app.listen(PORT, () => {
-  console.log(`JG Travelex backend listening on port ${PORT}`);
+  console.log(`JG TravelEx backend listening on port ${PORT}`);
   startKeepAlives();
 });

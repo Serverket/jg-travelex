@@ -53,7 +53,7 @@ async function test(name, fn) {
 }
 
 async function runTests() {
-  console.log(`${colors.magenta}=== JG Travelex API Test Suite ===${colors.reset}\n`);
+  console.log(`${colors.magenta}=== JG TravelEx API Test Suite ===${colors.reset}\n`);
 
   // Test 1: Database Connection
   await test('Database Connection', async () => {

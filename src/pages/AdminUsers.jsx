@@ -11,7 +11,6 @@ const ROLE_OPTIONS = [
 
 const AVAILABLE_FEATURES = [
   { value: 'calculator', label: 'Calculadora' },
-  { value: 'tracking', label: 'Seguimiento de viajes' },
   { value: 'orders', label: 'Órdenes' },
   { value: 'invoices', label: 'Facturas' },
   { value: 'settings', label: 'Configuración' },

@@ -1,8 +1,8 @@
 {
-  "name": "JG Travelex - Trip Management System",
-  "short_name": "JGEx v2.0.0",
-  "description": "Advanced trip management system with enhanced code quality - v2.0.0",
-  "version": "2.0.0",
+  "name": "JG TravelEx - Trip Management System",
+  "short_name": "TravelEx",
+  "description": "Travel Experience platform with advanced trip management",
+  "version": "3.1.0",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

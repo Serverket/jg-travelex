@@ -5,7 +5,6 @@ import { authService } from './services/authService'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import DistanceCalculator from './pages/DistanceCalculator'
-import TripTracking from './pages/TripTracking'
 import Invoices from './pages/Invoices'
 import Settings from './pages/Settings'
 import AdminUsers from './pages/AdminUsers'
@@ -94,10 +93,6 @@ function AppRoutes() {
         <Route 
           path="/calculator" 
           element={guard('calculator', DistanceCalculator)} 
-        />
-        <Route 
-          path="/tracking" 
-          element={guard('tracking', TripTracking)} 
         />
         <Route 
           path="/invoices" 
