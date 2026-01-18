@@ -1,34 +1,35 @@
 {
   "name": "JG TravelEx - Trip Management System",
   "short_name": "TravelEx",
-  "description": "Travel Experience platform with advanced trip management",
+  "description": "Travel Experience platform with advanced trip management, distance calculation, and weather forecasting",
   "version": "3.1.0",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4F46E5",
+  "orientation": "any",
   "icons": [
     {
-      "src": "/icons/jg_logo.png",
+      "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/jg_logo.png",
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/jg_logo.png",
-      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/jg_logo.png",
-      "sizes": "152x152",
+      "src": "/icons/icon-512x512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     }
