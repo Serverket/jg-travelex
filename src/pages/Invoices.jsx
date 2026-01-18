@@ -1010,7 +1010,8 @@ const Invoices = () => {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {sortedItems(invoices).map((invoice) => {
-                        const invoiceIdentifier = invoice.invoice_number || invoice.id
+                        const invoiceNumber = invoice.invoice_number
+                        const invoiceIdDisplay = invoiceNumber || `#${invoice.id.slice(0, 8)}`
                         const orderTrip = invoice.orderData?.items?.[0]?.tripData
                         const originFull = orderTrip?.origin ?? 'No disponible'
                         const destinationFull = orderTrip?.destination ?? 'No disponible'
@@ -1023,7 +1024,9 @@ const Invoices = () => {
                             key={invoice.id}
                             className="bg-white/5"
                           >
-                            <td className="px-6 py-4 text-sm font-semibold text-white">#{invoice.id.slice(0, 8)}</td>
+                            <td className="px-6 py-4 text-sm font-semibold text-white">
+                              {invoice.invoice_number || `#${invoice.id.slice(0, 8)}`}
+                            </td>
                             <td className="px-6 py-4 text-sm text-blue-100/80">
                               {invoice.invoice_date
                                 ? `${new Date(invoice.invoice_date).toLocaleDateString()} ${new Date(invoice.invoice_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
