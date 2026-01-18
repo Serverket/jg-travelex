@@ -122,6 +122,13 @@ const DistanceCalculator = () => {
     }
   }, [activeSurcharges, activeDiscounts, distance, duration])
 
+  // Auto-calculate if origin was smart-detected and destination exists
+  useEffect(() => {
+    if (origin && origin.isAutoDetected && destination) {
+      calculateGoogleRoute()
+    }
+  }, [origin])
+
   // Manejar selección de origen en Google Maps
   const handleOriginSelect = (place) => {
     setOrigin(place)
@@ -432,6 +439,7 @@ const DistanceCalculator = () => {
               <PlaceSearch
                 placeholder="Ingrese dirección de origen"
                 onPlaceSelect={handleOriginSelect}
+                enableSmartLocation={true}
               />
             </div>
 
@@ -567,8 +575,8 @@ const DistanceCalculator = () => {
           <label
             htmlFor="method-google"
             className={`flex cursor-pointer flex-col rounded-2xl border p-4 transition ${googleMapsApiKeyAvailable
-                ? 'border-white/10 bg-white/5 hover:border-blue-300/60 hover:bg-white/10'
-                : 'cursor-not-allowed border-white/5 bg-white/5 opacity-60'
+              ? 'border-white/10 bg-white/5 hover:border-blue-300/60 hover:bg-white/10'
+              : 'cursor-not-allowed border-white/5 bg-white/5 opacity-60'
               }`}
           >
             <div className="flex items-start gap-3">
@@ -669,8 +677,8 @@ const DistanceCalculator = () => {
                   onClick={createTripOrder}
                   disabled={orderCreated}
                   className={`transform rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 transition-transform duration-150 whitespace-nowrap ${orderCreated
-                      ? 'bg-purple-500/40 cursor-not-allowed'
-                      : 'bg-purple-500 hover:bg-purple-400 hover:scale-[1.02]'
+                    ? 'bg-purple-500/40 cursor-not-allowed'
+                    : 'bg-purple-500 hover:bg-purple-400 hover:scale-[1.02]'
                     }`}
                 >
                   {orderCreated ? 'Orden Creada' : 'Crear Orden'}

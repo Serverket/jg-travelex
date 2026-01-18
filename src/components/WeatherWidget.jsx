@@ -111,6 +111,9 @@ const WeatherWidget = ({ destination, date }) => {
 
     const { isHazardous, hazardDetails, summary, temperature } = weather;
 
+    // Convert F to C for display
+    const tempC = Math.round((temperature - 32) * (5 / 9));
+
     // Apply translation
     const translatedSummary = translateText(summary);
     const translatedDetails = hazardDetails.map(translateText);
@@ -131,8 +134,11 @@ const WeatherWidget = ({ destination, date }) => {
                 <div className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <span className="text-2xl font-bold text-white">{temperature}°C</span>
-                            <span className="text-sm text-red-200">{translatedSummary}</span>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-bold text-white">{temperature}°F</span>
+                                <span className="text-lg font-medium text-red-200/60">/ {tempC}°C</span>
+                            </div>
+                            <span className="text-sm text-red-200 border-l border-red-500/30 pl-3 ml-1">{translatedSummary}</span>
                         </div>
                     </div>
 
@@ -160,8 +166,9 @@ const WeatherWidget = ({ destination, date }) => {
                 <div>
                     <p className="text-xs text-blue-200/60 uppercase tracking-wider font-semibold">Clima en el Destino</p>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-bold text-white">{temperature}°C</span>
-                        <span className="text-sm text-blue-100/80">{translatedSummary}</span>
+                        <span className="text-lg font-bold text-white">{temperature}°F</span>
+                        <span className="text-sm text-blue-200/50">/ {tempC}°C</span>
+                        <span className="text-sm text-blue-100/80 ml-1 border-l border-white/10 pl-2">{translatedSummary}</span>
                     </div>
                 </div>
             </div>
