@@ -21,6 +21,7 @@ export const weatherService = {
     /**
      * Get combined forecast.
      * Returns English/Standard strings to be translated on the client.
+     * UNITS: Fahrenheit, MPH, Inches
      */
     async getForecast(lat, lng, date) {
         const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)},${date || 'current'}`;
@@ -59,7 +60,8 @@ export const weatherService = {
 
     async fetchOpenMeteo(lat, lng) {
         try {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,is_day,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=14`;
+            // Requested units: fahrenheit, mph, inch
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,is_day,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=14&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch`;
             const res = await fetch(url);
             if (!res.ok) throw new Error(`Open-Meteo Error: ${res.statusText}`);
             return await res.json();
@@ -74,7 +76,6 @@ export const weatherService = {
         if (!apiKey) return null;
 
         try {
-            // Removed lang=es to keep API response standard/fast
             let url = `http://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${lat},${lng}&days=1&alerts=yes&aqi=no`;
             if (date) {
                 url += `&dt=${date}`;
@@ -115,13 +116,13 @@ export const weatherService = {
                     isHazardous = true;
                     hazardDetails.push('Thunderstorms expected');
                 }
-                if (windMax > 60) {
+                if (windMax > 40) { // > 40 MPH
                     isHazardous = true;
-                    hazardDetails.push(`High winds forecast (${windMax} km/h)`);
+                    hazardDetails.push(`High winds forecast (${windMax} mph)`);
                 }
-                if (precipSum > 20) {
+                if (precipSum > 0.8) { // > 0.8 INCH (~20mm)
                     isHazardous = true;
-                    hazardDetails.push(`Heavy rain expected (${precipSum}mm)`);
+                    hazardDetails.push(`Heavy rain expected (${precipSum} in)`);
                 }
 
             } else if (!targetDate) {
@@ -133,11 +134,11 @@ export const weatherService = {
                     isHazardous = true;
                     hazardDetails.push('Thunderstorm detected');
                 }
-                if (current.wind_speed_10m > 60) {
+                if (current.wind_speed_10m > 40) { // > 40 MPH
                     isHazardous = true;
-                    hazardDetails.push(`High winds (${current.wind_speed_10m} km/h)`);
+                    hazardDetails.push(`High winds (${current.wind_speed_10m} mph)`);
                 }
-                if (current.precipitation > 5) {
+                if (current.precipitation > 0.2) { // > 0.2 INCH (~5mm)
                     isHazardous = true;
                     hazardDetails.push('Heavy precipitation');
                 }
@@ -152,8 +153,6 @@ export const weatherService = {
                 const alerts = waData.alerts.alert;
                 alerts.forEach(alert => {
                     isHazardous = true;
-                    // Note: Alerts are official text, often hard to translate dynamically without API support, 
-                    // but we keep them raw here as requested for stability.
                     hazardDetails.push(`Alert: ${alert.event}`);
                 });
             }
@@ -161,15 +160,15 @@ export const weatherService = {
             if (summary === 'Unknown' || summary === 'Forecast not available for this date') {
                 if (waData.forecast && waData.forecast.forecastday && waData.forecast.forecastday.length > 0) {
                     const day = waData.forecast.forecastday[0].day;
-                    temperature = day.avgtemp_c;
+                    temperature = day.avgtemp_f; // Fahrenheit
                     summary = day.condition.text;
 
-                    if (day.maxwind_kph > 60) {
+                    if (day.maxwind_mph > 40) { // MPH
                         isHazardous = true;
-                        hazardDetails.push(`High winds (${day.maxwind_kph} km/h)`);
+                        hazardDetails.push(`High winds (${day.maxwind_mph} mph)`);
                     }
                 } else if (waData.current && !targetDate) {
-                    temperature = waData.current.temp_c;
+                    temperature = waData.current.temp_f; // Fahrenheit
                     summary = waData.current.condition.text;
                 }
             }
