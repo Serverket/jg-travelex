@@ -147,6 +147,33 @@ app.get('/health', async (req, res) => {
 });
 
 // -----------------------------
+// Weather API (Public or Auth?)
+// Keeping it public-ish or protected - let's requireAuth for consistency if needed, 
+// but for the calculator it might be open. Let's make it public for now or same as /pricing logic
+// -----------------------------
+import { weatherService } from './weatherService.js';
+
+app.get('/weather', async (req, res) => {
+  try {
+    const { lat, lng, date } = req.query;
+
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and Longitude are required' });
+    }
+
+    const forecast = await weatherService.getForecast(
+      parseFloat(lat),
+      parseFloat(lng),
+      date
+    );
+
+    res.json(forecast);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch weather forecast' });
+  }
+});
+
+// -----------------------------
 // Trips API (auth required)
 // -----------------------------
 

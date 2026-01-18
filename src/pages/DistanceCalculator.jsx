@@ -4,6 +4,7 @@ import { GoogleMap, useJsApiLoader, DirectionsRenderer } from '@react-google-map
 import PlaceSearch from '../components/PlaceSearch'
 import OpenStreetMap from '../components/OpenStreetMap'
 import ManualDistanceInput from '../components/ManualDistanceInput'
+import WeatherWidget from '../components/WeatherWidget'
 import { tripService } from '../services/tripService'
 import { orderService } from '../services/orderService'
 import { settingsService } from '../services/settingsService'
@@ -25,15 +26,15 @@ const DistanceCalculator = () => {
   const [_rateSettings, setRateSettings] = useState(null)
   const [surchargeFactors, setSurchargeFactors] = useState([])
   const [discounts, setDiscounts] = useState([])
-  
+
   // Estado para el método de cálculo seleccionado
   const [calculationMethod, setCalculationMethod] = useState('manual') // 'manual', 'google'
-  
+
   // Estado para Google Maps
   const [origin, setOrigin] = useState(null)
   const [destination, setDestination] = useState(null)
   const [directions, setDirections] = useState(null)
-  
+
   // Estado común para todos los métodos
   const [distance, setDistance] = useState(null)
   const [duration, setDuration] = useState(null)
@@ -70,7 +71,7 @@ const DistanceCalculator = () => {
           settingsService.getSurchargeFactors(),
           settingsService.getDiscounts()
         ])
-        
+
         setRateSettings(settings || { distance_rate: 2, duration_rate: 0.5 })
         setSurchargeFactors(surcharges || [])
         setDiscounts(discountsList || [])
@@ -98,13 +99,13 @@ const DistanceCalculator = () => {
         // Handle different calculation types for backend
         const quoteData = {
           distance: distance ? parseFloat(distance) : 0,
-          duration: duration ? parseFloat(duration) : 0, 
+          duration: duration ? parseFloat(duration) : 0,
           surcharges: activeSurcharges,
           discounts: activeDiscounts,
         };
-        
+
         console.log('Sending quote request:', quoteData);
-        
+
         const { price: quotedPrice, breakdown } = await backendService.getQuote(quoteData);
         setPrice(quotedPrice)
         setQuoteBreakdown(breakdown)
@@ -114,7 +115,7 @@ const DistanceCalculator = () => {
         setError('Error al calcular el precio')
       }
     }
-    
+
     // Only fetch quote if we have at least distance OR duration
     if (distance || duration) {
       fetchQuote()
@@ -185,7 +186,7 @@ const DistanceCalculator = () => {
     setDestination(data.destination)
     setDistance(data.distance)
     setDuration(data.duration)
-    
+
     // Log the calculation type for debugging
     console.log('Manual calculation type:', data.calculationType)
   }
@@ -193,10 +194,10 @@ const DistanceCalculator = () => {
   // Manejar cambios en los recargos
   const handleSurchargeChange = (id) => {
     setActiveSurcharges(prev => {
-      const newSurcharges = prev.includes(id) 
+      const newSurcharges = prev.includes(id)
         ? prev.filter(surchargeId => surchargeId !== id)
         : [...prev, id];
-      
+
       return newSurcharges;
     });
   }
@@ -204,10 +205,10 @@ const DistanceCalculator = () => {
   // Manejar cambios en los descuentos
   const handleDiscountChange = (id) => {
     setActiveDiscounts(prev => {
-      const newDiscounts = prev.includes(id) 
+      const newDiscounts = prev.includes(id)
         ? prev.filter(discountId => discountId !== id)
         : [...prev, id];
-      
+
       return newDiscounts;
     });
   }
@@ -228,10 +229,10 @@ const DistanceCalculator = () => {
       return null
     }
 
-    const originDescription = origin 
+    const originDescription = origin
       ? (typeof origin === 'string' ? origin : origin.description)
       : 'Origen no especificado'
-      
+
     const destinationDescription = destination
       ? (typeof destination === 'string' ? destination : destination.description)
       : 'Destino no especificado'
@@ -244,16 +245,16 @@ const DistanceCalculator = () => {
     return {
       origin_address: originDescription,
       destination_address: destinationDescription,
-      ...(origin && origin.lat != null && origin.lng != null ? { 
-        origin_lat: origin.lat, 
-        origin_lng: origin.lng 
+      ...(origin && origin.lat != null && origin.lng != null ? {
+        origin_lat: origin.lat,
+        origin_lng: origin.lng
       } : {
         origin_lat: 0,
         origin_lng: 0
       }),
-      ...(destination && destination.lat != null && destination.lng != null ? { 
-        destination_lat: destination.lat, 
-        destination_lng: destination.lng 
+      ...(destination && destination.lat != null && destination.lng != null ? {
+        destination_lat: destination.lat,
+        destination_lng: destination.lng
       } : {
         destination_lat: 0,
         destination_lng: 0
@@ -322,7 +323,7 @@ const DistanceCalculator = () => {
 
       const { trip: savedTrip, wasNew } = await persistTrip(tripPayload)
       await applyBreakdownToTrip(savedTrip.id, wasNew)
-      
+
       setError('')
       toast.success(wasNew ? 'Viaje guardado correctamente' : 'Viaje actualizado sin duplicados')
     } catch (error) {
@@ -344,23 +345,23 @@ const DistanceCalculator = () => {
 
       const { trip: persistedTrip, wasNew } = await persistTrip(tripPayload)
       await applyBreakdownToTrip(persistedTrip.id, wasNew)
-      
+
       // Create order
       if (!activeUser?.id) {
         throw new Error('Usuario no autenticado');
       }
-      
+
       const orderData = {
         user_id: activeUser.id,
         status: 'pending',
         subtotal: parseFloat(price),
         total_amount: parseFloat(price)
       }
-      
+
       console.log('Creating order with data:', orderData);
       const createdOrder = await orderService.createOrder(orderData)
       console.log('Order created:', createdOrder);
-      
+
       // Create order item linked to the trip
       const orderItemData = {
         order_id: createdOrder.id,
@@ -370,7 +371,7 @@ const DistanceCalculator = () => {
       console.log('Creating order item with data:', orderItemData);
       const createdOrderItem = await orderService.createOrderItem(orderItemData);
       console.log('Order item created:', createdOrderItem);
-      
+
       // Update global context state immediately
       const newOrder = {
         id: createdOrder.id,
@@ -381,7 +382,7 @@ const DistanceCalculator = () => {
         items: [createdOrderItem],
         tripData: persistedTrip
       };
-      
+
       // Order created successfully
       console.log('Order created successfully', newOrder)
       setOrderCreated(true)
@@ -428,20 +429,20 @@ const DistanceCalculator = () => {
           <div className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-semibold text-blue-100/90">Origen</label>
-              <PlaceSearch 
-                placeholder="Ingrese dirección de origen" 
-                onPlaceSelect={handleOriginSelect} 
+              <PlaceSearch
+                placeholder="Ingrese dirección de origen"
+                onPlaceSelect={handleOriginSelect}
               />
             </div>
-            
+
             <div>
               <label className="mb-1 block text-sm font-semibold text-blue-100/90">Destino</label>
-              <PlaceSearch 
-                placeholder="Ingrese dirección de destino" 
-                onPlaceSelect={handleDestinationSelect} 
+              <PlaceSearch
+                placeholder="Ingrese dirección de destino"
+                onPlaceSelect={handleDestinationSelect}
               />
             </div>
-            
+
             <button
               onClick={calculateGoogleRoute}
               disabled={isLoading || !origin || !destination}
@@ -495,7 +496,7 @@ const DistanceCalculator = () => {
             <OpenStreetMap
               origin={origin}
               destination={destination}
-              onRouteCalculated={() => {}}
+              onRouteCalculated={() => { }}
             />
           )
         }
@@ -534,11 +535,11 @@ const DistanceCalculator = () => {
           </div>
         )}
       </div>
-      
+
       {/* Selector de método de cálculo */}
       <div className={`${surfacePanelClass} p-6`}>
         <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Método de Cálculo</h2>
-        
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label
             htmlFor="method-manual"
@@ -562,14 +563,13 @@ const DistanceCalculator = () => {
               </div>
             </div>
           </label>
-          
+
           <label
             htmlFor="method-google"
-            className={`flex cursor-pointer flex-col rounded-2xl border p-4 transition ${
-              googleMapsApiKeyAvailable
+            className={`flex cursor-pointer flex-col rounded-2xl border p-4 transition ${googleMapsApiKeyAvailable
                 ? 'border-white/10 bg-white/5 hover:border-blue-300/60 hover:bg-white/10'
                 : 'cursor-not-allowed border-white/5 bg-white/5 opacity-60'
-            }`}
+              }`}
           >
             <div className="flex items-start gap-3">
               <input
@@ -585,8 +585,8 @@ const DistanceCalculator = () => {
               <div>
                 <p className={`text-sm font-semibold ${!googleMapsApiKeyAvailable ? 'text-slate-400' : 'text-white'}`}>Google Maps</p>
                 <p className="mt-1 text-xs text-blue-200/80">
-                  {googleMapsApiKeyAvailable 
-                    ? 'Cálculo preciso usando la API de Google Maps.' 
+                  {googleMapsApiKeyAvailable
+                    ? 'Cálculo preciso usando la API de Google Maps.'
                     : 'Requiere API key de Google Maps (no disponible).'}
                 </p>
               </div>
@@ -594,27 +594,33 @@ const DistanceCalculator = () => {
           </label>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Formulario */}
         <div className={`${surfacePanelClass} space-y-4 p-6`}>
           <h2 className="text-lg font-semibold text-blue-100/90">Detalles del Viaje</h2>
-          
+
           {renderCalculationMethod()}
-          
+
+          {/* Weather Widget auto-appears when destination is set */}
+          <WeatherWidget
+            destination={destination}
+            date={new Date().toISOString().split('T')[0]}
+          />
+
           <button
             onClick={clearForm}
             className="mt-4 w-full rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-blue-100 transition hover:border-blue-300/60 hover:bg-blue-500/20 hover:text-white whitespace-nowrap"
           >
             Limpiar
           </button>
-          
+
           {error && (
             <div className="mt-4 rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
               {error}
             </div>
           )}
-          
+
           {(distance || duration) && price && (
             <div className={`mt-6 p-5 ${subtlePanelClass}`}>
               <h3 className="text-md font-semibold text-blue-100/90">Resultado</h3>
@@ -658,15 +664,14 @@ const DistanceCalculator = () => {
                 >
                   Guardar Viaje
                 </button>
-                
+
                 <button
                   onClick={createTripOrder}
                   disabled={orderCreated}
-                  className={`transform rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 transition-transform duration-150 whitespace-nowrap ${
-                    orderCreated
+                  className={`transform rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 transition-transform duration-150 whitespace-nowrap ${orderCreated
                       ? 'bg-purple-500/40 cursor-not-allowed'
                       : 'bg-purple-500 hover:bg-purple-400 hover:scale-[1.02]'
-                  }`}
+                    }`}
                 >
                   {orderCreated ? 'Orden Creada' : 'Crear Orden'}
                 </button>
@@ -674,19 +679,19 @@ const DistanceCalculator = () => {
             </div>
           )}
         </div>
-        
+
         {/* Mapa */}
         <div className={`${surfacePanelClass} p-4`}>
           {renderMap()}
         </div>
       </div>
-      
+
       {/* Factores de recargo y descuentos */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Factores de recargo */}
         <div className={`${surfacePanelClass} p-6`}>
           <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Factores de Recargo</h2>
-          
+
           <div className="space-y-3">
             {surchargeFactors.map((factor) => (
               <label
@@ -708,11 +713,11 @@ const DistanceCalculator = () => {
             ))}
           </div>
         </div>
-        
+
         {/* Descuentos */}
         <div className={`${surfacePanelClass} p-6`}>
           <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Descuentos Aplicables</h2>
-          
+
           <div className="space-y-3">
             {discounts.map((discount) => (
               <label
