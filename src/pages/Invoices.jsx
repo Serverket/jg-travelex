@@ -20,27 +20,27 @@ import {
 // Helper function to format address for display, showing lot number and street name
 const formatAddress = (address, maxLength = 30) => {
   if (!address) return 'No disponible';
-  
+
   // For addresses like "8904, West Dallas Street, Menomonee River Hills"
   // We want to show "8904, West Dallas Street..."
   const parts = address.split(',');
-  
+
   if (parts.length > 1) {
     // Show first two parts (lot number + street name) if available
-    const displayPart = parts.length >= 2 ? 
-      `${parts[0].trim()}${parts[1] ? ', ' + parts[1].trim() : ''}` : 
+    const displayPart = parts.length >= 2 ?
+      `${parts[0].trim()}${parts[1] ? ', ' + parts[1].trim() : ''}` :
       parts[0].trim();
-      
+
     if (displayPart.length > maxLength) {
       return `${displayPart.substring(0, maxLength)}...`;
     }
-    
+
     return parts.length > 2 ? `${displayPart}...` : displayPart;
   }
-  
+
   // If no commas, just truncate if too long
-  return address.length > maxLength ? 
-    `${address.substring(0, maxLength)}...` : 
+  return address.length > maxLength ?
+    `${address.substring(0, maxLength)}...` :
     address;
 };
 
@@ -185,17 +185,17 @@ const ResponsiveField = ({ displayValue, fullValue }) => {
 
   const tooltipNode = (showIndicator && isTooltipVisible && typeof document !== 'undefined')
     ? createPortal(
-        <span
-          id={tooltipId}
-          role="tooltip"
-          ref={tooltipRef}
-          className={`pointer-events-none fixed z-50 max-w-[22rem] rounded-xl border border-white/10 bg-slate-900/95 px-3 py-2 text-xs font-medium text-blue-50 shadow-lg shadow-blue-900/40 ${tooltipPlacementClass}`}
-          style={{ top: tooltipStyle.top, left: tooltipStyle.left }}
-        >
-          {rawText}
-        </span>,
-        document.body
-      )
+      <span
+        id={tooltipId}
+        role="tooltip"
+        ref={tooltipRef}
+        className={`pointer-events-none fixed z-50 max-w-[22rem] rounded-xl border border-white/10 bg-slate-900/95 px-3 py-2 text-xs font-medium text-blue-50 shadow-lg shadow-blue-900/40 ${tooltipPlacementClass}`}
+        style={{ top: tooltipStyle.top, left: tooltipStyle.left }}
+      >
+        {rawText}
+      </span>,
+      document.body
+    )
     : null
 
   return (
@@ -243,7 +243,7 @@ const Invoices = () => {
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  
+
   // Sorting states
   const [sortConfig, setSortConfig] = useState({
     key: 'date',
@@ -263,7 +263,7 @@ const Invoices = () => {
         const dateB = activeTab === 'invoices'
           ? (b.invoice_date || b.created_at || new Date().toISOString())
           : (b.created_at || b.invoice_date || new Date().toISOString());
-        return sortConfig.direction === 'asc' 
+        return sortConfig.direction === 'asc'
           ? new Date(dateA) - new Date(dateB)
           : new Date(dateB) - new Date(dateA);
       } else if (sortConfig.key === 'price') {
@@ -275,10 +275,10 @@ const Invoices = () => {
           return sortConfig.direction === 'asc' ? priceA - priceB : priceB - priceA;
         } else {
           // For invoices - use invoice-specific price path
-          const priceA = a.total_amount || (a.orderData?.items && a.orderData.items[0]?.tripData?.price) || 
-                        (a.orderData?.total_amount) || 0;
-          const priceB = b.total_amount || (b.orderData?.items && b.orderData.items[0]?.tripData?.price) || 
-                        (b.orderData?.total_amount) || 0;
+          const priceA = a.total_amount || (a.orderData?.items && a.orderData.items[0]?.tripData?.price) ||
+            (a.orderData?.total_amount) || 0;
+          const priceB = b.total_amount || (b.orderData?.items && b.orderData.items[0]?.tripData?.price) ||
+            (b.orderData?.total_amount) || 0;
           return sortConfig.direction === 'asc' ? priceA - priceB : priceB - priceA;
         }
       }
@@ -301,11 +301,11 @@ const Invoices = () => {
     const durationMinutes = Number.isFinite(trip.duration_minutes)
       ? Number(trip.duration_minutes)
       : (() => {
-          const rawDuration = trip.duration
-          if (rawDuration == null) return null
-          const numeric = Number.parseFloat(rawDuration)
-          return Number.isFinite(numeric) ? numeric * 60 : null
-        })()
+        const rawDuration = trip.duration
+        if (rawDuration == null) return null
+        const numeric = Number.parseFloat(rawDuration)
+        return Number.isFinite(numeric) ? numeric * 60 : null
+      })()
     const durationLabel = formatDurationBilingual({ minutes: durationMinutes })
     const priceValue = trip.final_price ?? trip.price ?? fallbackAmount
     const priceLabel = formatPriceLabel(priceValue)
@@ -367,12 +367,12 @@ const Invoices = () => {
   const handleSort = (key) => {
     setSortConfig(prevConfig => ({
       key,
-      direction: prevConfig.key === key 
+      direction: prevConfig.key === key
         ? prevConfig.direction === 'asc' ? 'desc' : 'asc'
         : key === 'date' ? 'desc' : 'asc' // Default to newest first for dates
     }));
   };
-  
+
   // Load orders and invoices from API
   useEffect(() => {
     const fetchData = async () => {
@@ -391,21 +391,21 @@ const Invoices = () => {
           // Regular users see only their orders
           ordersResponse = await orderService.getOrders({ user_id: user.id });
         }
-        
+
         console.log('Orders response:', ordersResponse);
         console.log('Orders fetched:', ordersResponse);
-        
+
         // Process orders - make sure trip data is attached and accessible
         const processedOrders = [];
         for (const order of ordersResponse) {
           // Make a copy of the order to avoid reference issues
           const processedOrder = { ...order };
-          
+
           // Initialize items array if needed
           if (!processedOrder.items) {
             processedOrder.items = [];
           }
-          
+
           // Fetch order items and trip data
           if (processedOrder.id) {
             try {
@@ -416,7 +416,7 @@ const Invoices = () => {
               processedOrder.items = [];
             }
           }
-          
+
           // Fetch trip data for each order item if missing
           for (let i = 0; i < processedOrder.items.length; i++) {
             if (!processedOrder.items[i].tripData && processedOrder.items[i].trip_id) {
@@ -458,7 +458,7 @@ const Invoices = () => {
               }
             }
           }
-          
+
           // Add processed order
           processedOrders.push(processedOrder);
         }
@@ -474,7 +474,7 @@ const Invoices = () => {
           // Filter invoices by user's orders
           invoicesResponse = await invoiceService.getInvoices();
           const userOrderIds = processedOrders.map(o => o.id);
-          invoicesResponse = invoicesResponse.filter(inv => 
+          invoicesResponse = invoicesResponse.filter(inv =>
             userOrderIds.includes(inv.order_id)
           );
         }
@@ -485,13 +485,13 @@ const Invoices = () => {
         for (const invoice of invoicesResponse) {
           // Make a copy of the invoice
           const processedInvoice = { ...invoice };
-          
+
           // Convert orderIds to be consistent across frontend and API
           processedInvoice.orderId = invoice.order_id || invoice.orderId;
-          
+
           // Find the matching order
           const matchingOrder = processedOrders.find(order => order.id === processedInvoice.orderId);
-          
+
           if (matchingOrder) {
             // Attach order data to invoice
             processedInvoice.orderData = matchingOrder;
@@ -503,10 +503,10 @@ const Invoices = () => {
               const fetchedOrder = await orderService.getOrderById(processedInvoice.orderId);
               if (fetchedOrder) {
                 console.log('Fetched order data for invoice:', fetchedOrder);
-                
+
                 // Process the fetched order to ensure it has trip data
                 const processedFetchedOrder = { ...fetchedOrder };
-                
+
                 // Fetch order items and trip data
                 try {
                   const orderItems = await orderService.getOrderItems(processedFetchedOrder.id);
@@ -515,7 +515,7 @@ const Invoices = () => {
                   console.error('Error fetching order items:', err);
                   processedFetchedOrder.items = [];
                 }
-                
+
                 // Fetch trip data for each order item
                 for (let i = 0; i < processedFetchedOrder.items.length; i++) {
                   if (!processedFetchedOrder.items[i].tripData && processedFetchedOrder.items[i].trip_id) {
@@ -543,7 +543,7 @@ const Invoices = () => {
                     }
                   }
                 }
-                
+
                 // Attach processed order data to invoice
                 processedInvoice.orderData = processedFetchedOrder;
                 processedInvoices.push(processedInvoice);
@@ -580,9 +580,9 @@ const Invoices = () => {
     };
 
     fetchData();
-    
+
     // Clean up function (removed auto-refresh for now)
-    return () => {};
+    return () => { };
   }, [user]);
 
   // Generar una nueva factura
@@ -592,10 +592,10 @@ const Invoices = () => {
       if (!order) {
         throw new Error('Order not found');
       }
-      
+
       // Ensure the order has complete trip data before creating invoice
       let processedOrder = { ...order };
-      
+
       // If order items don't have trip data, fetch it
       if (processedOrder.items && processedOrder.items.length > 0) {
         for (let i = 0; i < processedOrder.items.length; i++) {
@@ -626,7 +626,7 @@ const Invoices = () => {
           }
         }
       }
-      
+
       const currentDate = new Date();
       const dueDate = new Date(currentDate);
       dueDate.setDate(dueDate.getDate() + 30);
@@ -636,13 +636,13 @@ const Invoices = () => {
         due_date: dueDate.toISOString().split('T')[0],
         status: 'pending'
       };
-      
+
       const newInvoice = await invoiceService.createInvoice(invoiceData);
-      
+
       // Add the new invoice to the list with complete processed order data
       const processedInvoice = { ...newInvoice, orderData: processedOrder };
       setInvoices(prev => [...prev, processedInvoice]);
-      
+
       setSelectedOrderId(null);
       toast.success('Factura creada exitosamente');
     } catch (error) {
@@ -654,14 +654,14 @@ const Invoices = () => {
   // Generar PDF de la factura
   const generateInvoicePDF = async (invoice) => {
     setIsGeneratingInvoice(true)
-    
+
     try {
       console.log('Generating PDF for invoice:', invoice);
-      
+
       // First, ensure we have full order and trip data
       let orderData = invoice.orderData;
       let tripData = null;
-      
+
       // If orderData is missing, try to fetch it from the API
       if (!orderData) {
         console.log('OrderData missing, fetching from API...');
@@ -676,11 +676,11 @@ const Invoices = () => {
           console.error('Error fetching order data for PDF:', fetchError);
         }
       }
-      
+
       // Now get the trip data from order items
       if (orderData?.items && orderData.items.length > 0) {
         const orderItem = orderData.items[0]; // Get first item
-        
+
         // Check if tripData already exists on the item
         if (orderItem.tripData) {
           tripData = orderItem.tripData;
@@ -696,7 +696,7 @@ const Invoices = () => {
           }
         }
       }
-      
+
       // Safety fallbacks for missing data
       const origin = tripData?.origin_address || tripData?.origin || 'No disponible';
       const destination = tripData?.destination_address || tripData?.destination || 'No disponible';
@@ -704,23 +704,23 @@ const Invoices = () => {
       const duration = tripData?.duration_minutes ? `${(tripData.duration_minutes / 60).toFixed(1)}` : (tripData?.duration || 'N/A');
       const price = tripData?.final_price || tripData?.price || orderData?.total_amount || 'N/A';
       const invoiceNumber = invoice.invoice_number || `INV-${invoice.id || 'NEW'}`;
-      
+
       const doc = new jsPDF()
-      
+
       // Encabezado
       doc.setFontSize(20)
       doc.text('JG TravelEx - Factura de Viaje', 105, 20, { align: 'center' })
-      
+
       doc.setFontSize(12)
       doc.text(`Factura #: ${invoiceNumber || 'N/A'}`, 20, 40)
-      doc.text(`Fecha: ${invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : 
-               invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : invoice.date ? new Date(invoice.date).toLocaleDateString() : 'N/A'}`, 20, 50)
+      doc.text(`Fecha: ${invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() :
+        invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : invoice.date ? new Date(invoice.date).toLocaleDateString() : 'N/A'}`, 20, 50)
       doc.text(`Orden #: ${invoice.order_id || invoice.orderId || 'N/A'}`, 20, 60)
-      
+
       // Tabla de costos
       doc.setFontSize(14)
       doc.text('Detalles del Viaje', 20, 80)
-      
+
       const tableColumn = ['Concepto', 'Valor']
       const tableRows = [
         ['Precio Base', `$${price}`],
@@ -729,7 +729,7 @@ const Invoices = () => {
         ['Origen', origin],
         ['Destino', destination]
       ]
-      
+
       doc.autoTable({
         startY: 90,
         head: [tableColumn],
@@ -737,20 +737,20 @@ const Invoices = () => {
         theme: 'grid',
         headStyles: { fillColor: [66, 135, 245] }
       })
-      
+
       // Total
       const finalY = doc.lastAutoTable.finalY + 10
       doc.setFontSize(16)
       doc.text(`Total: $${price}`, 150, finalY, { align: 'right' })
-      
+
       // Pie de página
       doc.setFontSize(10)
       doc.text('Esta factura es un documento informativo y no tiene valor fiscal.', 105, 280, { align: 'center' })
-      
+
       // Guardar o abrir el PDF
       doc.save(`factura-${invoiceNumber || 'nuevo'}.pdf`)
       console.log('PDF generated successfully');
-      
+
     } catch (error) {
       console.error('Error al generar el PDF:', error)
       toast.error('Error al generar el PDF. Por favor intente nuevamente.')
@@ -787,22 +787,20 @@ const Invoices = () => {
             <button
               type="button"
               onClick={() => setActiveTab('orders')}
-              className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap ${
-                activeTab === 'orders'
-                  ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-inner shadow-blue-500/30'
-                  : 'border-white/10 bg-white/5 text-blue-100/70 hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-white'
-              }`}
+              className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap ${activeTab === 'orders'
+                ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-inner shadow-blue-500/30'
+                : 'border-white/10 bg-white/5 text-blue-100/70 hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-white'
+                }`}
             >
               Órdenes Pendientes
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('invoices')}
-              className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap ${
-                activeTab === 'invoices'
-                  ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-inner shadow-blue-500/30'
-                  : 'border-white/10 bg-white/5 text-blue-100/70 hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-white'
-              }`}
+              className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap ${activeTab === 'invoices'
+                ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-inner shadow-blue-500/30'
+                : 'border-white/10 bg-white/5 text-blue-100/70 hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-white'
+                }`}
             >
               Facturas Emitidas
             </button>
@@ -821,290 +819,286 @@ const Invoices = () => {
                 <p className="mt-1 text-sm text-blue-100/70">Seleccione una orden para generar una factura al instante.</p>
               </div>
 
-            {loading ? (
-              <div className="space-y-3 px-6 py-10">
-                {[...Array(6)].map((_, index) => (
-                  <div key={index} className="h-12 w-full animate-pulse rounded-xl bg-white/5" />
-                ))}
-                <p className="text-xs text-blue-200/60">Cargando órdenes...</p>
-              </div>
-            ) : orders.length === 0 ? (
-              <div className="px-6 py-12 text-center text-sm text-blue-100/60">
-                No hay órdenes pendientes de facturación en este momento.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-white/10 text-sm text-blue-100/80">
-                  <thead className="bg-white/5 text-blue-100 text-sm uppercase tracking-[0.12em]">
-                    <tr>
-                      <th className="px-6 py-4 font-semibold whitespace-nowrap">ID</th>
-                      <th
-                        className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
-                        onClick={() => handleSort('date')}
-                      >
-                        <span className="flex items-center gap-2 whitespace-nowrap">
-                          Fecha
-                          {sortConfig.key === 'date' && (
-                            <span className="text-xs">
-                              {sortConfig.direction === 'asc' ? '▲' : '▼'}
-                            </span>
-                          )}
-                        </span>
-                      </th>
-                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Origen</th>
-                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Destino</th>
-                      <th
-                        className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
-                        onClick={() => handleSort('price')}
-                      >
-                        <span className="flex items-center gap-2 whitespace-nowrap">
-                          Precio
-                          {sortConfig.key === 'price' && (
-                            <span className="text-xs">
-                              {sortConfig.direction === 'asc' ? '▲' : '▼'}
-                            </span>
-                          )}
-                        </span>
-                      </th>
-                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Estado</th>
-                      <th className="px-6 py-4 text-right font-semibold whitespace-nowrap">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {sortedItems(orders).map((order) => {
-                      const hasInvoice = invoices.some(invoice => invoice.order_id === order.id || invoice.orderId === order.id)
-                      const primaryTrip = order.items?.[0]?.tripData
-                      const originFull = primaryTrip?.origin ?? 'No disponible'
-                      const destinationFull = primaryTrip?.destination ?? 'No disponible'
-                      const originDisplay = formatAddress(originFull)
-                      const destinationDisplay = formatAddress(destinationFull)
-                      const sharePayload = extractTripShareData(primaryTrip, order.total_amount)
-
-                      return (
-                        <tr
-                          key={order.id}
-                          className={selectedOrderId === order.id ? 'bg-blue-500/10' : 'bg-white/5'}
+              {loading ? (
+                <div className="space-y-3 px-6 py-10">
+                  {[...Array(6)].map((_, index) => (
+                    <div key={index} className="h-12 w-full animate-pulse rounded-xl bg-white/5" />
+                  ))}
+                  <p className="text-xs text-blue-200/60">Cargando órdenes...</p>
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="px-6 py-12 text-center text-sm text-blue-100/60">
+                  No hay órdenes pendientes de facturación en este momento.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-white/10 text-sm text-blue-100/80">
+                    <thead className="bg-white/5 text-blue-100 text-sm uppercase tracking-[0.12em]">
+                      <tr>
+                        <th className="px-6 py-4 font-semibold whitespace-nowrap">ID</th>
+                        <th
+                          className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
+                          onClick={() => handleSort('date')}
                         >
-                          <td className="px-6 py-4 text-sm font-semibold text-white">
-                            <ResponsiveField displayValue={order.id} fullValue={order.id} />
-                          </td>
-                          <td className="px-6 py-4 text-sm text-blue-100/80">
-                            {order.created_at ? `${new Date(order.created_at).toLocaleDateString()} ${new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 text-xs text-blue-100/70">
-                            <ResponsiveField displayValue={originDisplay} fullValue={originFull} />
-                          </td>
-                          <td className="px-6 py-4 text-xs text-blue-100/70">
-                            <ResponsiveField displayValue={destinationDisplay} fullValue={destinationFull} />
-                          </td>
-                          <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
-                            ${order.items && order.items[0]?.tripData?.price || order.total_amount || 0}
-                          </td>
-                          <td className="px-6 py-4 text-sm">
-                            <span
-                              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
-                                hasInvoice
+                          <span className="flex items-center gap-2 whitespace-nowrap">
+                            Fecha
+                            {sortConfig.key === 'date' && (
+                              <span className="text-xs">
+                                {sortConfig.direction === 'asc' ? '▲' : '▼'}
+                              </span>
+                            )}
+                          </span>
+                        </th>
+                        <th className="px-6 py-4 font-semibold whitespace-nowrap">Origen</th>
+                        <th className="px-6 py-4 font-semibold whitespace-nowrap">Destino</th>
+                        <th
+                          className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
+                          onClick={() => handleSort('price')}
+                        >
+                          <span className="flex items-center gap-2 whitespace-nowrap">
+                            Precio
+                            {sortConfig.key === 'price' && (
+                              <span className="text-xs">
+                                {sortConfig.direction === 'asc' ? '▲' : '▼'}
+                              </span>
+                            )}
+                          </span>
+                        </th>
+                        <th className="px-6 py-4 font-semibold whitespace-nowrap">Estado</th>
+                        <th className="px-6 py-4 text-right font-semibold whitespace-nowrap">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {sortedItems(orders).map((order) => {
+                        const hasInvoice = invoices.some(invoice => invoice.order_id === order.id || invoice.orderId === order.id)
+                        const primaryTrip = order.items?.[0]?.tripData
+                        const originFull = primaryTrip?.origin ?? 'No disponible'
+                        const destinationFull = primaryTrip?.destination ?? 'No disponible'
+                        const originDisplay = formatAddress(originFull)
+                        const destinationDisplay = formatAddress(destinationFull)
+                        const sharePayload = extractTripShareData(primaryTrip, order.total_amount)
+
+                        return (
+                          <tr
+                            key={order.id}
+                            className={selectedOrderId === order.id ? 'bg-blue-500/10' : 'bg-white/5'}
+                          >
+                            <td className="px-6 py-4 text-sm font-semibold text-white">
+                              <ResponsiveField displayValue={order.id} fullValue={order.id} />
+                            </td>
+                            <td className="px-6 py-4 text-sm text-blue-100/80">
+                              {order.created_at ? `${new Date(order.created_at).toLocaleDateString()} ${new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 text-xs text-blue-100/70">
+                              <ResponsiveField displayValue={originDisplay} fullValue={originFull} />
+                            </td>
+                            <td className="px-6 py-4 text-xs text-blue-100/70">
+                              <ResponsiveField displayValue={destinationDisplay} fullValue={destinationFull} />
+                            </td>
+                            <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
+                              ${order.items && order.items[0]?.tripData?.price || order.total_amount || 0}
+                            </td>
+                            <td className="px-6 py-4 text-sm">
+                              <span
+                                className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${hasInvoice
                                   ? 'bg-emerald-500/20 text-emerald-200'
                                   : order.status === 'completed'
                                     ? 'bg-blue-500/20 text-blue-100'
                                     : 'bg-amber-400/20 text-amber-100'
-                              }`}
-                            >
-                              {hasInvoice ? 'Facturada' : order.status === 'completed' ? 'Completada' : 'Pendiente'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right text-sm">
-                            <div className="flex flex-wrap items-center justify-end gap-2">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenShare('whatsapp', sharePayload)}
-                                  className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/15 text-emerald-200 transition hover:bg-emerald-500/25"
-                                  title="Compartir por WhatsApp / Share via WhatsApp"
-                                  aria-label="Compartir por WhatsApp / Share via WhatsApp"
-                                >
-                                  <WhatsAppIcon className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenShare('email', sharePayload)}
-                                  className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-100 transition hover:bg-blue-500/25"
-                                  title="Compartir por correo / Share via email"
-                                  aria-label="Compartir por correo / Share via email"
-                                >
-                                  <MailIcon className="h-4 w-4" />
-                                </button>
+                                  }`}
+                              >
+                                {hasInvoice ? 'Facturada' : order.status === 'completed' ? 'Completada' : 'Pendiente'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right text-sm">
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenShare('whatsapp', sharePayload)}
+                                    className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/15 text-emerald-200 transition hover:bg-emerald-500/25"
+                                    title="Compartir por WhatsApp / Share via WhatsApp"
+                                    aria-label="Compartir por WhatsApp / Share via WhatsApp"
+                                  >
+                                    <WhatsAppIcon className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenShare('email', sharePayload)}
+                                    className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-100 transition hover:bg-blue-500/25"
+                                    title="Compartir por correo / Share via email"
+                                    aria-label="Compartir por correo / Share via email"
+                                  >
+                                    <MailIcon className="h-4 w-4" />
+                                  </button>
+                                </div>
+                                {hasInvoice ? (
+                                  <span className="text-xs text-blue-200/60">Facturada</span>
+                                ) : (
+                                  <button
+                                    onClick={() => handleCreateInvoice(order.id)}
+                                    className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white whitespace-nowrap"
+                                  >
+                                    Generar factura
+                                  </button>
+                                )}
                               </div>
-                              {hasInvoice ? (
-                                <span className="text-xs text-blue-200/60">Facturada</span>
-                              ) : (
-                                <button
-                                  onClick={() => handleCreateInvoice(order.id)}
-                                  className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white whitespace-nowrap"
-                                >
-                                  Generar factura
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div>
-            <div className="border-b border-white/10 px-6 py-5">
-              <h2 className="text-xl font-semibold text-white">Facturas emitidas</h2>
-              <p className="mt-1 text-sm text-blue-100/70">Revise el histórico de facturas y genere comprobantes en PDF.</p>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-
-            {loading ? (
-              <div className="space-y-3 px-6 py-10">
-                {[...Array(6)].map((_, index) => (
-                  <div key={index} className="h-12 w-full animate-pulse rounded-xl bg-white/5" />
-                ))}
-                <p className="text-xs text-blue-200/60">Cargando facturas...</p>
+          ) : (
+            <div>
+              <div className="border-b border-white/10 px-6 py-5">
+                <h2 className="text-xl font-semibold text-white">Facturas emitidas</h2>
+                <p className="mt-1 text-sm text-blue-100/70">Revise el histórico de facturas y genere comprobantes en PDF.</p>
               </div>
-            ) : invoices.length === 0 ? (
-              <div className="px-6 py-12 text-center text-sm text-blue-100/60">
-                No hay facturas emitidas todavía.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-white/10 text-sm text-blue-100/80">
-                  <thead className="bg-white/5 text-blue-100 text-sm uppercase tracking-[0.12em]">
-                    <tr>
-                      <th className="px-6 py-4 font-semibold whitespace-nowrap">ID Factura</th>
-                      <th
-                        className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
-                        onClick={() => handleSort('date')}
-                      >
-                        <span className="flex items-center gap-2 whitespace-nowrap">
-                          Fecha
-                          {sortConfig.key === 'date' && (
-                            <span className="text-xs">
-                              {sortConfig.direction === 'asc' ? '▲' : '▼'}
-                            </span>
-                          )}
-                        </span>
-                      </th>
-                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Origen</th>
-                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Destino</th>
-                      <th
-                        className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
-                        onClick={() => handleSort('price')}
-                      >
-                        <span className="flex items-center gap-2 whitespace-nowrap">
-                          Monto
-                          {sortConfig.key === 'price' && (
-                            <span className="text-xs">
-                              {sortConfig.direction === 'asc' ? '▲' : '▼'}
-                            </span>
-                          )}
-                        </span>
-                      </th>
-                      <th className="px-6 py-4 font-semibold whitespace-nowrap">Estado</th>
-                      <th className="px-6 py-4 text-right font-semibold whitespace-nowrap">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {sortedItems(invoices).map((invoice) => {
-                      const invoiceIdentifier = invoice.invoice_number || invoice.id
-                      const orderTrip = invoice.orderData?.items?.[0]?.tripData
-                      const originFull = orderTrip?.origin ?? 'No disponible'
-                      const destinationFull = orderTrip?.destination ?? 'No disponible'
-                      const originDisplay = formatAddress(originFull)
-                      const destinationDisplay = formatAddress(destinationFull)
-                      const sharePayload = extractTripShareData(orderTrip, invoice.total_amount || invoice.orderData?.total_amount)
 
-                      return (
-                        <tr
-                          key={invoice.id}
-                          className="bg-white/5"
+              {loading ? (
+                <div className="space-y-3 px-6 py-10">
+                  {[...Array(6)].map((_, index) => (
+                    <div key={index} className="h-12 w-full animate-pulse rounded-xl bg-white/5" />
+                  ))}
+                  <p className="text-xs text-blue-200/60">Cargando facturas...</p>
+                </div>
+              ) : invoices.length === 0 ? (
+                <div className="px-6 py-12 text-center text-sm text-blue-100/60">
+                  No hay facturas emitidas todavía.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-white/10 text-sm text-blue-100/80">
+                    <thead className="bg-white/5 text-blue-100 text-sm uppercase tracking-[0.12em]">
+                      <tr>
+                        <th className="px-6 py-4 font-semibold whitespace-nowrap">ID Factura</th>
+                        <th
+                          className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
+                          onClick={() => handleSort('date')}
                         >
-                          <td className="px-6 py-4 text-sm font-semibold text-white">
-                            <ResponsiveField displayValue={invoiceIdentifier} fullValue={invoiceIdentifier} />
-                          </td>
-                          <td className="px-6 py-4 text-sm text-blue-100/80">
-                            {invoice.invoice_date
-                              ? `${new Date(invoice.invoice_date).toLocaleDateString()} ${new Date(invoice.invoice_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                              : invoice.created_at
-                                ? `${new Date(invoice.created_at).toLocaleDateString()} ${new Date(invoice.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                                : 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 text-xs text-blue-100/70">
-                            <ResponsiveField displayValue={originDisplay} fullValue={originFull} />
-                          </td>
-                          <td className="px-6 py-4 text-xs text-blue-100/70">
-                            <ResponsiveField displayValue={destinationDisplay} fullValue={destinationFull} />
-                          </td>
-                          <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
-                            ${invoice.total_amount || (invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.price) || invoice.orderData?.total_amount || 0}
-                          </td>
-                          <td className="px-6 py-4 text-sm">
-                            <span
-                              className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${
-                                invoice.status === 'paid'
+                          <span className="flex items-center gap-2 whitespace-nowrap">
+                            Fecha
+                            {sortConfig.key === 'date' && (
+                              <span className="text-xs">
+                                {sortConfig.direction === 'asc' ? '▲' : '▼'}
+                              </span>
+                            )}
+                          </span>
+                        </th>
+                        <th className="px-6 py-4 font-semibold whitespace-nowrap">Origen</th>
+                        <th className="px-6 py-4 font-semibold whitespace-nowrap">Destino</th>
+                        <th
+                          className="px-6 py-4 font-semibold whitespace-nowrap transition hover:bg-white/5"
+                          onClick={() => handleSort('price')}
+                        >
+                          <span className="flex items-center gap-2 whitespace-nowrap">
+                            Monto
+                            {sortConfig.key === 'price' && (
+                              <span className="text-xs">
+                                {sortConfig.direction === 'asc' ? '▲' : '▼'}
+                              </span>
+                            )}
+                          </span>
+                        </th>
+                        <th className="px-6 py-4 font-semibold whitespace-nowrap">Estado</th>
+                        <th className="px-6 py-4 text-right font-semibold whitespace-nowrap">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {sortedItems(invoices).map((invoice) => {
+                        const invoiceIdentifier = invoice.invoice_number || invoice.id
+                        const orderTrip = invoice.orderData?.items?.[0]?.tripData
+                        const originFull = orderTrip?.origin ?? 'No disponible'
+                        const destinationFull = orderTrip?.destination ?? 'No disponible'
+                        const originDisplay = formatAddress(originFull)
+                        const destinationDisplay = formatAddress(destinationFull)
+                        const sharePayload = extractTripShareData(orderTrip, invoice.total_amount || invoice.orderData?.total_amount)
+
+                        return (
+                          <tr
+                            key={invoice.id}
+                            className="bg-white/5"
+                          >
+                            <td className="px-6 py-4 text-sm font-semibold text-white">#{invoice.id.slice(0, 8)}</td>
+                            <td className="px-6 py-4 text-sm text-blue-100/80">
+                              {invoice.invoice_date
+                                ? `${new Date(invoice.invoice_date).toLocaleDateString()} ${new Date(invoice.invoice_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                : invoice.created_at
+                                  ? `${new Date(invoice.created_at).toLocaleDateString()} ${new Date(invoice.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                  : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 text-xs text-blue-100/70">
+                              <ResponsiveField displayValue={originDisplay} fullValue={originFull} />
+                            </td>
+                            <td className="px-6 py-4 text-xs text-blue-100/70">
+                              <ResponsiveField displayValue={destinationDisplay} fullValue={destinationFull} />
+                            </td>
+                            <td className="px-6 py-4 text-sm font-semibold text-white whitespace-nowrap">
+                              ${invoice.total_amount || (invoice.orderData?.items && invoice.orderData.items[0]?.tripData?.price) || invoice.orderData?.total_amount || 0}
+                            </td>
+                            <td className="px-6 py-4 text-sm">
+                              <span
+                                className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-inner shadow-blue-500/20 ${invoice.status === 'paid'
                                   ? 'bg-emerald-500/20 text-emerald-200'
                                   : 'bg-blue-500/20 text-blue-100'
-                              }`}
-                            >
-                              {invoice.status === 'paid' ? 'Pagada' : 'Emitida'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right text-sm">
-                            <div className="flex flex-wrap items-center justify-end gap-2">
-                              <div className="flex items-center gap-2">
+                                  }`}
+                              >
+                                {invoice.status === 'paid' ? 'Pagada' : 'Emitida'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right text-sm">
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenShare('whatsapp', sharePayload)}
+                                    className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/15 text-emerald-200 transition hover:bg-emerald-500/25"
+                                    title="Compartir por WhatsApp / Share via WhatsApp"
+                                    aria-label="Compartir por WhatsApp / Share via WhatsApp"
+                                  >
+                                    <WhatsAppIcon className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenShare('email', sharePayload)}
+                                    className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-100 transition hover:bg-blue-500/25"
+                                    title="Compartir por correo / Share via email"
+                                    aria-label="Compartir por correo / Share via email"
+                                  >
+                                    <MailIcon className="h-4 w-4" />
+                                  </button>
+                                </div>
                                 <button
-                                  type="button"
-                                  onClick={() => handleOpenShare('whatsapp', sharePayload)}
-                                  className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/15 text-emerald-200 transition hover:bg-emerald-500/25"
-                                  title="Compartir por WhatsApp / Share via WhatsApp"
-                                  aria-label="Compartir por WhatsApp / Share via WhatsApp"
+                                  onClick={() => generateInvoicePDF(invoice)}
+                                  disabled={isGeneratingInvoice}
+                                  className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/40 whitespace-nowrap"
                                 >
-                                  <WhatsAppIcon className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenShare('email', sharePayload)}
-                                  className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-100 transition hover:bg-blue-500/25"
-                                  title="Compartir por correo / Share via email"
-                                  aria-label="Compartir por correo / Share via email"
-                                >
-                                  <MailIcon className="h-4 w-4" />
+                                  {isGeneratingInvoice ? 'Generando…' : 'Descargar PDF'}
                                 </button>
                               </div>
-                              <button
-                                onClick={() => generateInvoicePDF(invoice)}
-                                disabled={isGeneratingInvoice}
-                                className="rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/40 whitespace-nowrap"
-                              >
-                                {isGeneratingInvoice ? 'Generando…' : 'Descargar PDF'}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-    <ShareModal
-      open={shareContext.open}
-      mode={shareContext.mode}
-      onClose={handleCloseShare}
-      onSubmit={handleSubmitShare}
-      messagePreview={shareMessagePreview}
-    />
+      <ShareModal
+        open={shareContext.open}
+        mode={shareContext.mode}
+        onClose={handleCloseShare}
+        onSubmit={handleSubmitShare}
+        messagePreview={shareMessagePreview}
+      />
     </>
   )
 }
