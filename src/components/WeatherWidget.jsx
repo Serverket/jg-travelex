@@ -69,6 +69,7 @@ const TRANSLATIONS = {
     'Moderate snow expected': 'Nevada moderada esperada',
     'Moderate snow detected': 'Nevada moderada detectada',
     'Freezing conditions with precipitation': 'Condiciones de congelación con precipitación',
+    'Freezing temperatures': 'Temperaturas bajo cero',
 };
 
 /**
