@@ -20,7 +20,9 @@ const HAZARD_THRESHOLDS = {
     WIND_MPH: 40,              // > 40 mph is hazardous
     PRECIP_DAILY_INCH: 0.8,    // > 0.8 inches/day is heavy
     PRECIP_HOURLY_INCH: 0.2,   // > 0.2 inches/hour is heavy
-    FREEZING_TEMP_F: 32,       // <= 32°F with precipitation is hazardous
+    PRECIP_HOURLY_INCH: 0.2,   // > 0.2 inches/hour is heavy
+    FREEZING_TEMP_F: 32,       // <= 32°F is hazardous
+    EXTREME_COLD_F: 10,        // <= 10°F is extreme
 };
 
 /**
@@ -220,6 +222,9 @@ export const weatherService = {
                 if (maxTemp <= HAZARD_THRESHOLDS.FREEZING_TEMP_F && precipSum > 0) {
                     isHazardous = true;
                     hazardDetails.push('Freezing conditions with precipitation');
+                } else if (maxTemp <= HAZARD_THRESHOLDS.FREEZING_TEMP_F) {
+                    isHazardous = true;
+                    hazardDetails.push('Freezing temperatures');
                 }
 
             } else if (!targetDate) {
@@ -272,6 +277,9 @@ export const weatherService = {
                 if (current.temperature_2m <= HAZARD_THRESHOLDS.FREEZING_TEMP_F && current.precipitation > 0) {
                     isHazardous = true;
                     hazardDetails.push('Freezing conditions with precipitation');
+                } else if (current.temperature_2m <= HAZARD_THRESHOLDS.FREEZING_TEMP_F) {
+                    isHazardous = true;
+                    hazardDetails.push('Freezing temperatures');
                 }
             } else {
                 summary = 'Forecast not available for this date';
