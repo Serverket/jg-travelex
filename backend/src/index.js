@@ -9,8 +9,14 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 
 // Basic CORS for local dev and deployment
-const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map(s => s.trim());
-app.use(cors({ origin: corsOrigins, credentials: true, allowedHeaders: ['Content-Type', 'Authorization'] }));
+// Basic CORS for local dev and deployment
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [])
+].map(s => s.trim());
+
+app.use(cors({ origin: allowedOrigins, credentials: true, allowedHeaders: ['Content-Type', 'Authorization'] }));
 app.use(express.json());
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -143,6 +149,39 @@ app.get('/health', async (req, res) => {
     res.json({ ok, supabase: ok, timestamp: new Date().toISOString() });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// -----------------------------
+// OSM Proxy API (Public)
+// -----------------------------
+app.get('/places/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 3) {
+      return res.json([]);
+    }
+
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5`,
+      {
+        headers: {
+          'Accept-Language': 'es',
+          'User-Agent': 'JG TravelEx Trip Calculator'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`OSM API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Error proxying to OSM:', error);
+    // Return empty array on error to handle gracefully in frontend, or error status
+    res.status(500).json({ error: 'Failed to fetch places' });
   }
 });
 
