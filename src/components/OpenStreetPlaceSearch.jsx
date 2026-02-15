@@ -40,14 +40,9 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
 
     setLoading(true)
     try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`,
-        {
-          headers: {
-            'Accept-Language': 'es',
-            'User-Agent': 'JG TravelEx Trip Calculator'
-          }
-        }
+        `${backendUrl}/places/search?q=${encodeURIComponent(searchQuery)}`
       )
 
       if (response.ok) {
@@ -154,52 +149,52 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
   const suggestionsDropdown =
     showSuggestions && suggestions.length > 0 && dropdownPosition
       ? createPortal(
-          <div
-            ref={dropdownRef}
-            style={{
-              position: 'fixed',
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              width: dropdownPosition.width,
-              backgroundColor: '#020617',
-              color: '#f8fafc',
-              borderRadius: '12px',
-              border: '1px solid rgba(148, 163, 184, 0.22)',
-              boxShadow: '0 20px 45px rgba(15, 23, 42, 0.55)',
-              zIndex: 1000,
-              maxHeight: '240px',
-              overflowY: 'auto',
-              padding: '6px'
-            }}
-          >
-            {suggestions.map((place, index) => {
-              const isHovered = hoveredSuggestionId === place.id
-              return (
-                <div
-                  key={place.id}
-                  onMouseEnter={() => setHoveredSuggestionId(place.id)}
-                  onMouseLeave={() => setHoveredSuggestionId(null)}
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    handleSelectPlace(place)
-                  }}
-                  style={{
-                    cursor: 'pointer',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    marginBottom: index === suggestions.length - 1 ? 0 : 4,
-                    backgroundColor: isHovered ? 'rgba(30, 64, 175, 0.55)' : 'rgba(15, 23, 42, 0.95)',
-                    border: '1px solid rgba(148, 163, 184, 0.18)',
-                    transition: 'background-color 120ms ease'
-                  }}
-                >
-                  <div style={{ fontWeight: 600, lineHeight: 1.35 }}>{place.description}</div>
-                </div>
-              )
-            })}
-          </div>,
-          document.body
-        )
+        <div
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            width: dropdownPosition.width,
+            backgroundColor: '#020617',
+            color: '#f8fafc',
+            borderRadius: '12px',
+            border: '1px solid rgba(148, 163, 184, 0.22)',
+            boxShadow: '0 20px 45px rgba(15, 23, 42, 0.55)',
+            zIndex: 1000,
+            maxHeight: '240px',
+            overflowY: 'auto',
+            padding: '6px'
+          }}
+        >
+          {suggestions.map((place, index) => {
+            const isHovered = hoveredSuggestionId === place.id
+            return (
+              <div
+                key={place.id}
+                onMouseEnter={() => setHoveredSuggestionId(place.id)}
+                onMouseLeave={() => setHoveredSuggestionId(null)}
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  handleSelectPlace(place)
+                }}
+                style={{
+                  cursor: 'pointer',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  marginBottom: index === suggestions.length - 1 ? 0 : 4,
+                  backgroundColor: isHovered ? 'rgba(30, 64, 175, 0.55)' : 'rgba(15, 23, 42, 0.95)',
+                  border: '1px solid rgba(148, 163, 184, 0.18)',
+                  transition: 'background-color 120ms ease'
+                }}
+              >
+                <div style={{ fontWeight: 600, lineHeight: 1.35 }}>{place.description}</div>
+              </div>
+            )
+          })}
+        </div>,
+        document.body
+      )
       : null
 
   return (
