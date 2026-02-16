@@ -76,7 +76,7 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
     if (query.length >= 3) {
       timeoutRef.current = setTimeout(() => {
         searchPlaces(query)
-      }, 500)
+      }, 300)
     } else {
       setSuggestions([])
       setDropdownPosition(null)

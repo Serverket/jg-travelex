@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import axios from 'axios';
 
 dotenv.config();
 
@@ -153,7 +154,7 @@ app.get('/health', async (req, res) => {
 });
 
 // -----------------------------
-// OSM Proxy API (Public)
+// OSM Proxy API (Photon - Public)
 // -----------------------------
 app.get('/places/search', async (req, res) => {
   try {
@@ -162,25 +163,53 @@ app.get('/places/search', async (req, res) => {
       return res.json([]);
     }
 
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5`,
-      {
-        headers: {
-          'Accept-Language': 'es',
-          'User-Agent': 'JG TravelEx Trip Calculator'
-        }
+    // Fetch more results to allow for client-side filtering (since API doesn't support country filter)
+    const url = `https://photon.komoot.io/api?q=${encodeURIComponent(q)}&limit=50`;
+    console.log(`Proxying to Photon: ${url}`);
+
+    // Use Axios for better stability
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'JG TravelEx Trip Calculator'
       }
-    );
+    });
 
-    if (!response.ok) {
-      throw new Error(`OSM API error: ${response.statusText}`);
-    }
+    const data = response.data;
 
-    const data = await response.json();
-    res.json(data);
+    // Transform Photon GeoJSON to match our frontend's expected format (similar to Nominatim)
+    // Frontend expects: { place_id, display_name, lat, lon }
+    // FILTER: Only allow US locations
+    const results = data.features
+      .filter(feature => feature.properties.countrycode === 'US')
+      .slice(0, 5) // Limit to top 5 US results
+      .map(feature => {
+        const p = feature.properties;
+        const c = feature.geometry.coordinates;
+
+        // Construct a display name similar to Nominatim's
+        const parts = [
+          p.name,
+          p.street,
+          p.housenumber,
+          p.city || p.town || p.village,
+          p.state,
+          p.country
+        ].filter(Boolean);
+
+        const distinctParts = [...new Set(parts)]; // Remove duplicates
+        const displayName = distinctParts.join(', ');
+
+        return {
+          place_id: p.osm_id,
+          display_name: displayName,
+          lat: c[1],
+          lon: c[0]
+        };
+      });
+
+    res.json(results);
   } catch (error) {
-    console.error('Error proxying to OSM:', error);
-    // Return empty array on error to handle gracefully in frontend, or error status
+    console.error('Error proxying to Photon:', error);
     res.status(500).json({ error: 'Failed to fetch places' });
   }
 });
