@@ -13,7 +13,7 @@ services:
       - key: CORS_ORIGIN
         value: https://jg-travelex-frontend.vercel.app, http://localhost:5173
       - key: RENDER_KEEPALIVE_URL
-        value: https://jg-travelex-backend.onrender.com/health
+        value: https://jg-travelex-backend.onrender.com/ping
       - key: RENDER_KEEPALIVE_INTERVAL_MS
         value: "600000"
       - key: SUPABASE_KEEPALIVE_INTERVAL_MS

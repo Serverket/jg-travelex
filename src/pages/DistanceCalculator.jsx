@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAppContext } from '../context/AppContext'
-import { GoogleMap, useJsApiLoader, DirectionsRenderer } from '@react-google-maps/api'
+import { useJsApiLoader } from '@react-google-maps/api'
 import PlaceSearch from '../components/PlaceSearch'
+import Map from '../components/Map'
 import OpenStreetMap from '../components/OpenStreetMap'
 import ManualDistanceInput from '../components/ManualDistanceInput'
 import WeatherWidget from '../components/WeatherWidget'
+import QuotaAlert from '../components/QuotaAlert'
 import { tripService } from '../services/tripService'
 import { orderService } from '../services/orderService'
 import { settingsService } from '../services/settingsService'
 import { backendService } from '../services/backendService'
 import { useToast } from '../context/ToastContext'
+import { useGoogleMapsQuota } from '../hooks/useGoogleMapsQuota'
 
 const libraries = ['places']
 
@@ -28,7 +31,9 @@ const DistanceCalculator = () => {
   const [discounts, setDiscounts] = useState([])
 
   // Estado para el método de cálculo seleccionado
-  const [calculationMethod, setCalculationMethod] = useState('manual') // 'manual', 'google'
+  const [calculationMethod, setCalculationMethod] = useState(
+    () => (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'google' : 'manual')
+  ) // 'manual', 'google'
 
   // Estado para Google Maps
   const [origin, setOrigin] = useState(null)
@@ -45,7 +50,9 @@ const DistanceCalculator = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [orderCreated, setOrderCreated] = useState(false)
-  const [center, setCenter] = useState({ lat: 37.7749, lng: -122.4194 }) // San Francisco por defecto
+  const { increment: incrementQuota, getStatus: getQuotaStatus } = useGoogleMapsQuota()
+  const quotaStatus = getQuotaStatus()
+
   const lastTripRef = useRef(null)
   const surfacePanelClass = 'rounded-3xl border border-white/10 bg-white/5 shadow-xl shadow-blue-950/20 backdrop-blur-lg'
 
@@ -171,14 +178,7 @@ const DistanceCalculator = () => {
 
       setDistance(distanceInMiles.toFixed(2))
       setDuration(durationInHours.toFixed(2))
-
-      // Centrar el mapa en el punto medio de la ruta
-      const bounds = results.routes[0].bounds
-      const center = {
-        lat: (bounds.getNorthEast().lat() + bounds.getSouthWest().lat()) / 2,
-        lng: (bounds.getNorthEast().lng() + bounds.getSouthWest().lng()) / 2,
-      }
-      setCenter(center)
+      incrementQuota('directions')
     } catch (error) {
       console.error('Error calculando la ruta:', error)
       setError('Error al calcular la ruta. Por favor verifique las direcciones e intente nuevamente.')
@@ -440,6 +440,7 @@ const DistanceCalculator = () => {
                 placeholder="Ingrese dirección de origen"
                 onPlaceSelect={handleOriginSelect}
                 enableSmartLocation={true}
+                isLoaded={isLoaded}
               />
             </div>
 
@@ -448,6 +449,7 @@ const DistanceCalculator = () => {
               <PlaceSearch
                 placeholder="Ingrese dirección de destino"
                 onPlaceSelect={handleDestinationSelect}
+              isLoaded={isLoaded}
               />
             </div>
 
@@ -469,32 +471,9 @@ const DistanceCalculator = () => {
   const renderMap = () => {
     switch (calculationMethod) {
       case 'google':
-        if (!isLoaded) return null
         return (
           <div className="h-96 w-full rounded overflow-hidden">
-            <GoogleMap
-              center={center}
-              zoom={10}
-              mapContainerStyle={{ width: '100%', height: '100%' }}
-              options={{
-                zoomControl: true,
-                streetViewControl: false,
-                mapTypeControl: false,
-                fullscreenControl: true,
-              }}
-            >
-              {directions && (
-                <DirectionsRenderer
-                  directions={directions}
-                  options={{
-                    polylineOptions: {
-                      strokeColor: '#1E40AF',
-                      strokeWeight: 5,
-                    },
-                  }}
-                />
-              )}
-            </GoogleMap>
+            <Map origin={origin} destination={destination} directions={directions} isLoaded={isLoaded} />
           </div>
         )
       case 'manual':
@@ -532,6 +511,7 @@ const DistanceCalculator = () => {
 
   return (
     <div className="space-y-10 text-blue-100/90">
+      <QuotaAlert status={quotaStatus} />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.45em] text-blue-300/70">Planificador</p>

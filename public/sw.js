@@ -1,6 +1,6 @@
 // Service Worker para la PWA Trip Distance Calculator
 
-const CACHE_NAME = 'trip-calculator-v1';
+const CACHE_NAME = 'trip-calculator-v2.0.1';
 const urlsToCache = [
   '/',
   '/index.html',

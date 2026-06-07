@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect } from 'react'
-import { GoogleMap, useJsApiLoader, DirectionsRenderer, Marker } from '@react-google-maps/api'
+import { GoogleMap, DirectionsRenderer, Marker } from '@react-google-maps/api'
 
 const containerStyle = {
   width: '100%',
-  height: '400px'
+  height: '100%'
 }
 
 const defaultCenter = {
@@ -11,70 +11,41 @@ const defaultCenter = {
   lng: -74.0060
 }
 
-const libraries = ['places', 'directions']
+const Map = ({ origin, destination, directions, isLoaded }) => {
+  const [map, setMap] = useState(null)
 
-const Map = ({ origin, destination, directions, setDirections }) => {
-  const [_map, setMap] = useState(null)
-  const [center, setCenter] = useState(defaultCenter)
-  
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-    libraries
-  })
-
-  // Actualizar el centro del mapa basado en origen o destino
-  useEffect(() => {
-    if (origin && origin.lat && origin.lng) {
-      setCenter(origin)
-    } else if (destination && destination.lat && destination.lng) {
-      setCenter(destination)
-    }
-  }, [origin, destination])
-
-  const onLoad = useCallback(function callback(map) {
-    setMap(map)
+  const onLoad = useCallback((mapInstance) => {
+    setMap(mapInstance)
   }, [])
 
-  const onUnmount = useCallback(function callback() {
+  const onUnmount = useCallback(() => {
     setMap(null)
   }, [])
 
-  // Calcular ruta cuando origen y destino están definidos
+  // Fit bounds to the route whenever directions change
   useEffect(() => {
-    if (isLoaded && origin && destination && origin.lat && origin.lng && destination.lat && destination.lng) {
-      const directionsService = new window.google.maps.DirectionsService()
-
-      directionsService.route(
-        {
-          origin: new window.google.maps.LatLng(origin.lat, origin.lng),
-          destination: new window.google.maps.LatLng(destination.lat, destination.lng),
-          travelMode: window.google.maps.TravelMode.DRIVING
-        },
-        (result, status) => {
-          if (status === window.google.maps.DirectionsStatus.OK) {
-            setDirections(result)
-          } else {
-            console.error(`Error al calcular la ruta: ${status}`)
-          }
-        }
-      )
+    if (map && directions?.routes?.[0]?.bounds) {
+      map.fitBounds(directions.routes[0].bounds, { padding: 50 })
     }
-  }, [isLoaded, origin, destination, setDirections])
-
-  if (loadError) {
-    return <div className="p-4 text-red-500">Error al cargar Google Maps</div>
-  }
+  }, [map, directions])
 
   if (!isLoaded) {
     return (
-      <div className="flex justify-center items-center h-[400px] bg-gray-100 rounded-lg">
+      <div className="flex justify-center items-center h-full bg-slate-900/50 rounded-lg">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     )
   }
 
+  let center = defaultCenter
+  if (origin && origin.lat && origin.lng) {
+    center = origin
+  } else if (destination && destination.lat && destination.lng) {
+    center = destination
+  }
+
   return (
-    <div className="rounded-lg overflow-hidden shadow-lg">
+    <div className="h-full w-full rounded-lg overflow-hidden shadow-lg">
       <GoogleMap
         mapContainerStyle={containerStyle}
         center={center}
@@ -108,7 +79,18 @@ const Map = ({ origin, destination, directions, setDirections }) => {
           />
         )}
         
-        {directions && <DirectionsRenderer directions={directions} />}
+        {directions && (
+          <DirectionsRenderer
+            directions={directions}
+            options={{
+              suppressMarkers: true,
+              polylineOptions: {
+                strokeColor: '#1E40AF',
+                strokeWeight: 5,
+              },
+            }}
+          />
+        )}
       </GoogleMap>
     </div>
   )

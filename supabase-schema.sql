@@ -657,3 +657,12 @@ CREATE POLICY "Admins can delete audit logs" ON audit_logs
             SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
         )
     );
+
+-- Cheap no-op RPC for keepalive (avoids touching real tables)
+CREATE OR REPLACE FUNCTION public.keepalive()
+RETURNS integer
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT 1;
+$$;
