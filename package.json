@@ -1,18 +1,19 @@
 {
   "name": "travelex-distance-calculator",
   "private": true,
-  "version": "3.1.0",
+  "version": "2.0.1",
   "type": "module",
   "scripts": {
-  "dev": "vite",
-  "build": "vite build",
-  "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-  "preview": "vite preview",
-  "backend:dev": "cd backend && bun run dev",
-  "backend:start": "cd backend && bun run start",
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "backend:dev": "cd backend && bun run dev",
+    "backend:start": "cd backend && bun run start",
     "create-admin": "node scripts/create-admin-supabase.js",
     "db:reset": "node scripts/reset-database.js",
-    "test:api": "node scripts/test-api.js"
+    "test:api": "node scripts/test-api.js",
+    "release": "node scripts/release.js"
   },
   "dependencies": {
     "@react-google-maps/api": "^2.19.2",

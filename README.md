@@ -4,7 +4,7 @@
 
 # JG TravelEx - Travel Experience
 
-![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.0.1-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Bun](https://img.shields.io/badge/bun-%3E%3D1.0.0-black.svg)
 ![React](https://img.shields.io/badge/react-18.2.0-blue.svg)
@@ -276,6 +276,10 @@ Use `backend/` with your preferred host (Render example):
 - Service Role Key is only used for secure administrative operations
 - Authentication managed by Supabase Auth (email/password)
 - Row Level Security (RLS) enabled on Supabase tables
+- **API Key Digests** (SHA-256):
+  - Old Google Maps key: `c9f5c18d6e32c985c74c128397090efb7f27f8cb25a7e13fa7fefc64e9928f99`
+  - Current Google Maps key: `8bc04ce33f96bf02e7fd9ca1ef0ff7d8a28dcbbba457ec5c7381e481078020e2`
+- API keys are never committed. All sensitive keys are in `.env` (gitignored).
 
 Note: the app expects a singleton row in `company_settings` with id `11111111-1111-1111-1111-111111111111` (seeded by `supabase-schema.sql`).
 

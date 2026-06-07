@@ -8,14 +8,19 @@ const OpenStreetMap = ({ origin, destination, onRouteCalculated }) => {
   const mapInstanceRef = useRef(null)
   const routingControlRef = useRef(null)
   const tileLayerRef = useRef(null)
+  const onRouteCalculatedRef = useRef(onRouteCalculated)
 
-  // Inicializar el mapa
+  // Keep the latest callback in a ref so the event listener
+  // inside the one-time mount effect always calls the current one.
+  onRouteCalculatedRef.current = onRouteCalculated
+
+  // Initialize the map once
   useEffect(() => {
     if (!mapInstanceRef.current && mapRef.current) {
-      // Crear instancia del mapa
+      // Create instance of the map
       mapInstanceRef.current = L.map(mapRef.current).setView([37.7749, -122.4194], 10)
 
-      // Añadir capa de OpenStreetMap
+      // Add OpenStreetMap tile layer
       tileLayerRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
@@ -28,6 +33,51 @@ const OpenStreetMap = ({ origin, destination, onRouteCalculated }) => {
 
       tileLayerRef.current.addTo(mapInstanceRef.current)
 
+      // Create routing control once (waypoints will be updated later)
+      try {
+        routingControlRef.current = L.Routing.control({
+          waypoints: [],
+          routeWhileDragging: false,
+          showAlternatives: false,
+          fitSelectedRoutes: true,
+          addWaypoints: false,
+          draggableWaypoints: false,
+          lineOptions: {
+            styles: [{ color: '#1E40AF', weight: 5 }]
+          },
+          createMarker: function (i, waypoint) {
+            return L.marker(waypoint.latLng, {
+              icon: L.divIcon({
+                className: 'custom-marker',
+                html: `<div class="marker-label">${i === 0 ? 'A' : 'B'}</div>`,
+                iconSize: [30, 30]
+              })
+            })
+          }
+        }).addTo(mapInstanceRef.current)
+
+        // Listen for found routes
+        routingControlRef.current.on('routesfound', (e) => {
+          // Guard: ignore if map has been destroyed
+          if (!mapInstanceRef.current) return
+          const routes = e.routes
+          if (routes && routes.length > 0) {
+            const route = routes[0]
+            const distanceInMiles = route.summary.totalDistance / 1609.34
+            const durationInSeconds = route.summary.totalTime
+
+            if (onRouteCalculatedRef.current) {
+              onRouteCalculatedRef.current({
+                distance: distanceInMiles.toFixed(2),
+                duration: durationInSeconds
+              })
+            }
+          }
+        })
+      } catch (err) {
+        console.error('Error initializing routing control:', err)
+      }
+
       mapInstanceRef.current.whenReady(() => {
         requestAnimationFrame(() => {
           mapInstanceRef.current?.invalidateSize()
@@ -35,17 +85,17 @@ const OpenStreetMap = ({ origin, destination, onRouteCalculated }) => {
       })
     }
 
-    // Limpiar al desmontar
+    // Cleanup on unmount
     return () => {
       if (routingControlRef.current) {
         try {
           routingControlRef.current.remove()
         } catch (error) {
-          console.warn('Error removing routing control:', error)
+          // Ignore errors during cleanup
         }
         routingControlRef.current = null
       }
-      
+
       if (tileLayerRef.current) {
         tileLayerRef.current.off('tileerror')
         if (mapInstanceRef.current?.hasLayer(tileLayerRef.current)) {
@@ -61,67 +111,20 @@ const OpenStreetMap = ({ origin, destination, onRouteCalculated }) => {
     }
   }, [])
 
-  // Calcular ruta cuando cambian origen o destino
+  // Update waypoints when origin or destination change
   useEffect(() => {
-    if (!mapInstanceRef.current || !origin || !destination) return
+    if (!mapInstanceRef.current || !routingControlRef.current) return
+    if (!origin || !destination) return
 
-    // Eliminar ruta anterior si existe
-    if (routingControlRef.current) {
-      try {
-        routingControlRef.current.remove()
-      } catch (error) {
-        console.warn('Error removing existing routing control:', error)
-      }
-      routingControlRef.current = null
-    }
-
-    // Crear nueva ruta
-    routingControlRef.current = L.Routing.control({
-      waypoints: [
+    try {
+      routingControlRef.current.setWaypoints([
         L.latLng(origin.lat, origin.lng),
         L.latLng(destination.lat, destination.lng)
-      ],
-      routeWhileDragging: false,
-      showAlternatives: false,
-      fitSelectedRoutes: true,
-      lineOptions: {
-        styles: [{ color: '#1E40AF', weight: 5 }]
-      },
-      createMarker: function (i, waypoint) {
-        return L.marker(waypoint.latLng, {
-          icon: L.divIcon({
-            className: 'custom-marker',
-            html: `<div class="marker-label">${i === 0 ? 'A' : 'B'}</div>`,
-            iconSize: [30, 30]
-          })
-        })
-      }
-    }).addTo(mapInstanceRef.current)
-
-    requestAnimationFrame(() => {
-      mapInstanceRef.current?.invalidateSize()
-    })
-
-    // Escuchar evento de ruta calculada
-    routingControlRef.current.on('routesfound', (e) => {
-      const routes = e.routes
-      if (routes && routes.length > 0) {
-        const route = routes[0]
-        
-        // Convertir metros a millas y segundos a minutos
-        const distanceInMiles = route.summary.totalDistance / 1609.34
-        const durationInSeconds = route.summary.totalTime
-        
-        // Notificar al componente padre
-        if (onRouteCalculated) {
-          onRouteCalculated({
-            distance: distanceInMiles.toFixed(2),
-            duration: durationInSeconds
-          })
-        }
-      }
-    })
-  }, [origin, destination, onRouteCalculated])
+      ])
+    } catch (error) {
+      console.error('Error updating waypoints:', error)
+    }
+  }, [origin, destination])
 
   return (
     <div className="relative">

@@ -7,6 +7,7 @@ import axios from 'axios';
 dotenv.config();
 
 const app = express();
+let lastRequestTime = 0;
 const PORT = process.env.PORT || 8000;
 
 // Basic CORS for local dev and deployment
@@ -19,6 +20,12 @@ const allowedOrigins = [
 
 app.use(cors({ origin: allowedOrigins, credentials: true, allowedHeaders: ['Content-Type', 'Authorization'] }));
 app.use(express.json());
+
+// Traffic-aware keep-alive: track real request activity
+app.use((req, res, next) => {
+  lastRequestTime = Date.now();
+  next();
+});
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
@@ -142,6 +149,10 @@ function generateTemporaryPassword(length = 12) {
   }
   return pwd;
 }
+
+app.get('/ping', (req, res) => {
+  res.status(200).send('pong');
+});
 
 app.get('/health', async (req, res) => {
   try {
@@ -1360,6 +1371,8 @@ function scheduleRenderKeepAlive() {
   if (!interval || interval <= 0) return;
   let failures = 0;
   const run = async () => {
+    const idle = Date.now() - lastRequestTime;
+    if (idle < interval) return;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 4000);
     try {
@@ -1390,7 +1403,9 @@ function scheduleSupabaseKeepAlive() {
   let failures = 0;
   const run = async () => {
     try {
-      const { error } = await supabase.from('company_settings').select('id').limit(1);
+      const idle = Date.now() - lastRequestTime;
+      if (idle < interval) return;
+      const { error } = await supabase.rpc('keepalive');
       if (error) throw error;
       failures = 0;
     } catch (err) {

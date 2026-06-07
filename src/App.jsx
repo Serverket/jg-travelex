@@ -11,6 +11,7 @@ import AdminUsers from './pages/AdminUsers'
 import AccessDenied from './pages/AccessDenied'
 import AccessExpired from './pages/AccessExpired'
 import Layout from './components/Layout'
+import UpdateNotification from './components/UpdateNotification'
 import AOS from 'aos'
 
 // Componente principal de la aplicación
@@ -70,7 +71,9 @@ function AppRoutes() {
   }, [location.pathname])
 
   return (
-    <Routes>
+    <>
+      {isAuthenticated && isAdmin && <UpdateNotification />}
+      <Routes>
       <Route 
         path="/login" 
         element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />} 
@@ -108,6 +111,7 @@ function AppRoutes() {
         />
       </Route>
     </Routes>
+    </>
   )
 }
 
