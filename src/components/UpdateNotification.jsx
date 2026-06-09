@@ -1,13 +1,35 @@
+import { useEffect, useRef } from 'react'
 import { useReleaseInfo } from '../hooks/useReleaseInfo'
 
 export default function UpdateNotification() {
   const { info, isNew, dismiss } = useReleaseInfo()
+  const swReg = useRef(null)
+
+  // Also listen for the PWA service worker entering the `waiting` state.
+  // When vite-plugin-pwa emits `sw-updated`, a new SW is ready but waiting —
+  // we capture the registration so the Update button can call skipWaiting.
+  useEffect(() => {
+    const handler = (event) => {
+      swReg.current = event.detail
+    }
+    window.addEventListener('sw-updated', handler)
+    return () => window.removeEventListener('sw-updated', handler)
+  }, [])
 
   if (!isNew || !info) return null
 
   const handleUpdate = () => {
     dismiss(info.version)
-    window.location.reload(true)
+    // If a waiting SW exists, tell it to take control immediately,
+    // then reload once the new SW has activated.
+    if (swReg.current?.waiting) {
+      swReg.current.waiting.postMessage({ type: 'SKIP_WAITING' })
+      swReg.current.addEventListener('statechange', (e) => {
+        if (e.target.state === 'activated') window.location.reload()
+      })
+    } else {
+      window.location.reload()
+    }
   }
 
   return (
