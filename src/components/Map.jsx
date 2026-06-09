@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { GoogleMap, DirectionsRenderer, Marker } from '@react-google-maps/api'
+import { GoogleMap, Polyline, Marker } from '@react-google-maps/api'
 
 const containerStyle = {
   width: '100%',
@@ -7,11 +7,17 @@ const containerStyle = {
 }
 
 const defaultCenter = {
-  lat: 40.7128, // New York
+  lat: 40.7128,
   lng: -74.0060
 }
 
-const Map = ({ origin, destination, directions, isLoaded }) => {
+const routeOptions = {
+  strokeColor: '#1E40AF',
+  strokeWeight: 5,
+  strokeOpacity: 0.8,
+}
+
+const Map = ({ origin, destination, routePath, routeBounds, isLoaded }) => {
   const [map, setMap] = useState(null)
 
   const onLoad = useCallback((mapInstance) => {
@@ -22,12 +28,16 @@ const Map = ({ origin, destination, directions, isLoaded }) => {
     setMap(null)
   }, [])
 
-  // Fit bounds to the route whenever directions change
+  // Fit bounds to the route whenever bounds change
   useEffect(() => {
-    if (map && directions?.routes?.[0]?.bounds) {
-      map.fitBounds(directions.routes[0].bounds, { padding: 50 })
+    if (map && routeBounds && window.google) {
+      const bounds = new window.google.maps.LatLngBounds(
+        { lat: routeBounds.southwest.lat, lng: routeBounds.southwest.lng },
+        { lat: routeBounds.northeast.lat, lng: routeBounds.northeast.lng }
+      )
+      map.fitBounds(bounds, { padding: 50 })
     }
-  }, [map, directions])
+  }, [map, routeBounds])
 
   if (!isLoaded) {
     return (
@@ -60,36 +70,13 @@ const Map = ({ origin, destination, directions, isLoaded }) => {
         }}
       >
         {origin && origin.lat && origin.lng && (
-          <Marker
-            position={origin}
-            label={{
-              text: 'A',
-              color: 'white',
-            }}
-          />
+          <Marker position={origin} label={{ text: 'A', color: 'white' }} />
         )}
-        
         {destination && destination.lat && destination.lng && (
-          <Marker
-            position={destination}
-            label={{
-              text: 'B',
-              color: 'white',
-            }}
-          />
+          <Marker position={destination} label={{ text: 'B', color: 'white' }} />
         )}
-        
-        {directions && (
-          <DirectionsRenderer
-            directions={directions}
-            options={{
-              suppressMarkers: true,
-              polylineOptions: {
-                strokeColor: '#1E40AF',
-                strokeWeight: 5,
-              },
-            }}
-          />
+        {routePath && routePath.length > 0 && (
+          <Polyline path={routePath} options={routeOptions} />
         )}
       </GoogleMap>
     </div>

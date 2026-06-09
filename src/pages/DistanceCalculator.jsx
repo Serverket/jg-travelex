@@ -13,6 +13,8 @@ import { settingsService } from '../services/settingsService'
 import { backendService } from '../services/backendService'
 import { useToast } from '../context/ToastContext'
 import { useGoogleMapsQuota } from '../hooks/useGoogleMapsQuota'
+import { getDirections } from '../services/googleMapsService'
+import { decodePolyline } from '../utils/polylineDecoder'
 
 const libraries = ['places']
 
@@ -39,6 +41,8 @@ const DistanceCalculator = () => {
   const [origin, setOrigin] = useState(null)
   const [destination, setDestination] = useState(null)
   const [directions, setDirections] = useState(null)
+  const [routePath, setRoutePath] = useState(null)
+  const [routeBounds, setRouteBounds] = useState(null)
 
   // Estado común para todos los métodos
   const [distance, setDistance] = useState(null)
@@ -146,7 +150,7 @@ const DistanceCalculator = () => {
     setDestination(place)
   }
 
-  // Calcular la ruta con Google Maps
+  // Calcular la ruta con Google Maps (vía Edge Function, nunca client-side key)
   const calculateGoogleRoute = async () => {
     if (!origin || !destination) {
       setError('Por favor ingrese origen y destino')
@@ -156,32 +160,41 @@ const DistanceCalculator = () => {
     setIsLoading(true)
     setError('')
     setDirections(null)
+    setRoutePath(null)
+    setRouteBounds(null)
     setDistance(null)
     setDuration(null)
     setPrice(null)
     setOrderCreated(false)
 
     try {
-      const directionsService = new window.google.maps.DirectionsService()
-      const results = await directionsService.route({
-        origin: new window.google.maps.LatLng(origin.lat, origin.lng),
-        destination: new window.google.maps.LatLng(destination.lat, destination.lng),
-        travelMode: window.google.maps.TravelMode.DRIVING,
-      })
+      const data = await getDirections(origin, destination)
 
-      setDirections(results)
+      const route = data.routes[0]
+      const leg = route.legs[0]
+
+      // Decode polyline for Map rendering
+      const encoded = route.overview_polyline?.points || ''
+      const decodedPath = encoded ? decodePolyline(encoded) : []
+      setRoutePath(decodedPath)
+
+      // Set bounds for fitBounds
+      if (route.bounds) {
+        setRouteBounds(route.bounds)
+      }
+
+      setDirections(data)
 
       // Extraer distancia y duración
-      const distanceInMiles = results.routes[0].legs[0].distance.value / 1609.34 // Convertir metros a millas
-      const durationInSeconds = results.routes[0].legs[0].duration.value
-      const durationInHours = durationInSeconds / 3600 // Convertir segundos a horas
+      const distanceInMiles = leg.distance.value / 1609.34 // Convertir metros a millas
+      const durationInHours = leg.duration.value / 3600 // Convertir segundos a horas
 
       setDistance(distanceInMiles.toFixed(2))
       setDuration(durationInHours.toFixed(2))
       incrementQuota('directions')
     } catch (error) {
       console.error('Error calculando la ruta:', error)
-      setError('Error al calcular la ruta. Por favor verifique las direcciones e intente nuevamente.')
+      setError(error.message || 'Error al calcular la ruta. Por favor verifique las direcciones e intente nuevamente.')
     } finally {
       setIsLoading(false)
     }
@@ -414,7 +427,7 @@ const DistanceCalculator = () => {
     setActiveDiscounts([]);
     setError('');
     setOrderCreated(false);
-    setCalculationMethod('manual');
+    setCalculationMethod(googleMapsApiKeyAvailable ? 'google' : 'manual');
   }
 
   // Renderizar el método de cálculo seleccionado
@@ -473,7 +486,7 @@ const DistanceCalculator = () => {
       case 'google':
         return (
           <div className="h-96 w-full rounded overflow-hidden">
-            <Map origin={origin} destination={destination} directions={directions} isLoaded={isLoaded} />
+            <Map origin={origin} destination={destination} routePath={routePath} routeBounds={routeBounds} isLoaded={isLoaded} />
           </div>
         )
       case 'manual':
