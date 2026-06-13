@@ -78,7 +78,7 @@ const ManualDistanceInput = ({ onCalculate }) => {
         )
         const data = await response.json()
 
-        if (!cancelled && data.routes && data.routes.length > 0) {
+        if (!cancelled && data.code === 'Ok' && data.routes && data.routes.length > 0) {
           const [route] = data.routes
           const distanceInMiles = (route.distance / 1609.34).toFixed(2)
           const durationInHours = (route.duration / 3600).toFixed(2)
@@ -90,6 +90,8 @@ const ManualDistanceInput = ({ onCalculate }) => {
           if (Object.keys(updates).length > 0) {
             updateCurrentState(updates)
           }
+        } else if (!cancelled) {
+          console.warn('OSRM route request failed or returned no routes:', data)
         }
       } catch (error) {
         console.error('Error fetching route from OSM:', error)

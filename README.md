@@ -4,7 +4,7 @@
 
 # JG TravelEx - Travel Experience
 
-![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.3.1-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Bun](https://img.shields.io/badge/bun-%3E%3D1.0.0-black.svg)
 ![React](https://img.shields.io/badge/react-18.2.0-blue.svg)
@@ -75,7 +75,7 @@ CORS_ORIGIN=http://localhost:5173
 PORT=8000
 
 # Google Maps API
-VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+VITE_NSA_REGISTRY=your_google_maps_api_key
 ```
 
 4. **Initialize the database in Supabase (schema + defaults)**
@@ -255,7 +255,7 @@ This suite verifies DB access, admin presence, CRUD basics, and that invoices us
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
    - `VITE_BACKEND_URL` (your deployed backend URL)
-   - `VITE_GOOGLE_MAPS_API_KEY`
+   - `VITE_NSA_REGISTRY`
 3. Build command: `bun run build`
 4. Output directory: `dist`
 5. Deploy
