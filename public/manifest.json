@@ -2,7 +2,7 @@
   "name": "JG TravelEx - Trip Management System",
   "short_name": "TravelEx",
   "description": "Travel Experience platform with advanced trip management, distance calculation, and weather forecasting",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

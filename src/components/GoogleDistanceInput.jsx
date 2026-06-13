@@ -160,6 +160,13 @@ const GoogleDistanceInput = ({ isGoogleReady, googleLoadError, onCalculate, onRo
     onRoutePathChange?.(null)
   }
 
+  const buildNavigationUrl = () => {
+    if (!origin || !destination) return '#'
+    const o = `${origin.lat},${origin.lng}`
+    const d = `${destination.lat},${destination.lng}`
+    return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(o)}&destination=${encodeURIComponent(d)}&travelmode=driving`
+  }
+
   if (googleLoadError) {
     return (
       <div className="flex h-64 items-center justify-center rounded-2xl border border-red-400/30 bg-red-500/10 px-6 text-center text-red-200">
@@ -246,6 +253,22 @@ const GoogleDistanceInput = ({ isGoogleReady, googleLoadError, onCalculate, onRo
         <div className="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
           {routeError}
         </div>
+      )}
+
+      {/* Navigate in Google Maps */}
+      {origin && destination && (
+        <a
+          href={buildNavigationUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:scale-[1.02] hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4" />
+          </svg>
+          Iniciar Navegación en Google Maps
+        </a>
       )}
 
       {/* Distance */}
