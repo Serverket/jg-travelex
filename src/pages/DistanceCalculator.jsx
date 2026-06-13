@@ -1,18 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAppContext } from '../context/AppContext'
-import PlaceSearch from '../components/PlaceSearch'
+import { useJsApiLoader } from '@react-google-maps/api'
 import OpenStreetMap from '../components/OpenStreetMap'
 import ManualDistanceInput from '../components/ManualDistanceInput'
+import GoogleDistanceInput from '../components/GoogleDistanceInput'
+import GoogleMapRoute from '../components/GoogleMapRoute'
 import WeatherWidget from '../components/WeatherWidget'
-import QuotaAlert from '../components/QuotaAlert'
 import { tripService } from '../services/tripService'
 import { orderService } from '../services/orderService'
 import { settingsService } from '../services/settingsService'
 import { backendService } from '../services/backendService'
 import { useToast } from '../context/ToastContext'
-import { useGoogleMapsQuota } from '../hooks/useGoogleMapsQuota'
-import { getDirections } from '../services/googleMapsService'
-import { decodePolyline } from '../utils/polylineDecoder'
+
+const GOOGLE_MAP_LIBRARIES = ['places', 'geometry']
 
 const DistanceCalculator = () => {
   const {
@@ -28,16 +28,12 @@ const DistanceCalculator = () => {
   const [surchargeFactors, setSurchargeFactors] = useState([])
   const [discounts, setDiscounts] = useState([])
 
-  // 'google' = proxy-backed Google Directions + Leaflet map (default)
-  // 'manual' = manual distance/duration input, no map
-  const [calculationMethod, setCalculationMethod] = useState('google')
+  // Estado para el método de cálculo seleccionado
+  const [calculationMethod, setCalculationMethod] = useState('manual') // 'manual', 'google'
 
-  // Estado para Google Maps
+  // Estado para origen y destino
   const [origin, setOrigin] = useState(null)
   const [destination, setDestination] = useState(null)
-  const [directions, setDirections] = useState(null)
-  const [routePath, setRoutePath] = useState(null)
-  const [routeBounds, setRouteBounds] = useState(null)
 
   // Estado común para todos los métodos
   const [distance, setDistance] = useState(null)
@@ -46,18 +42,28 @@ const DistanceCalculator = () => {
   const [quoteBreakdown, setQuoteBreakdown] = useState(null)
   const [activeSurcharges, setActiveSurcharges] = useState([])
   const [activeDiscounts, setActiveDiscounts] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [orderCreated, setOrderCreated] = useState(false)
-  const { increment: incrementQuota, getStatus: getQuotaStatus } = useGoogleMapsQuota()
-  const quotaStatus = getQuotaStatus()
-
+  const [routePath, setRoutePath] = useState(null)
   const lastTripRef = useRef(null)
   const surfacePanelClass = 'rounded-3xl border border-white/10 bg-white/5 shadow-xl shadow-blue-950/20 backdrop-blur-lg'
 
   const subtlePanelClass = 'rounded-2xl border border-white/10 bg-white/5'
 
   const chipClass = 'rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-blue-100/80 shadow-lg shadow-blue-950/20'
+
+  // Cargar Google Maps JS API (para mapa, Places Autocomplete y polyline decoding)
+  const googleMapsApiKey = import.meta.env.VITE_NSA_REGISTRY
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey,
+    libraries: GOOGLE_MAP_LIBRARIES,
+  })
+
+  const googleMapsLoadError = loadError
+    ? (loadError.message || 'No se pudo cargar Google Maps. Verifique la API key.')
+    : null
+
+  const googleMapsApiKeyAvailable = Boolean(googleMapsApiKey)
 
   // Load settings on mount
   useEffect(() => {
@@ -68,14 +74,17 @@ const DistanceCalculator = () => {
           settingsService.getSurchargeFactors(),
           settingsService.getDiscounts()
         ])
+
         setRateSettings(settings || { distance_rate: 2, duration_rate: 0.5 })
         setSurchargeFactors(surcharges || [])
         setDiscounts(discountsList || [])
       } catch (error) {
         console.error('Error loading settings:', error)
+        // Set default values if loading fails
         setRateSettings({ distance_rate: 2, duration_rate: 0.5 })
       }
     }
+
     loadSettings()
   }, [])
 
@@ -109,82 +118,20 @@ const DistanceCalculator = () => {
     }
   }, [activeSurcharges, activeDiscounts, distance, duration])
 
-  // Auto-calculate if origin was smart-detected and destination exists
-  useEffect(() => {
-    if (origin && origin.isAutoDetected && destination) {
-      calculateGoogleRoute()
-    }
-  }, [origin])
-
-  // Manejar selección de origen en Google Maps
-  const handleOriginSelect = (place) => {
-    setOrigin(place)
-  }
-
-  // Manejar selección de destino en Google Maps
-  const handleDestinationSelect = (place) => {
-    setDestination(place)
-  }
-
-  // Calcular la ruta con Google Maps (vía Edge Function, nunca client-side key)
-  const calculateGoogleRoute = async () => {
-    if (!origin || !destination) {
-      setError('Por favor ingrese origen y destino')
-      return
-    }
-
-    setIsLoading(true)
-    setError('')
-    setDirections(null)
-    setRoutePath(null)
-    setRouteBounds(null)
-    setDistance(null)
-    setDuration(null)
-    setPrice(null)
-    setOrderCreated(false)
-
-    try {
-      const data = await getDirections(origin, destination)
-
-      const route = data.routes[0]
-      const leg = route.legs[0]
-
-      // Decode polyline for Map rendering
-      const encoded = route.overview_polyline?.points || ''
-      const decodedPath = encoded ? decodePolyline(encoded) : []
-      setRoutePath(decodedPath)
-
-      // Set bounds for fitBounds
-      if (route.bounds) {
-        setRouteBounds(route.bounds)
-      }
-
-      setDirections(data)
-
-      // Extraer distancia y duración
-      const distanceInMiles = leg.distance.value / 1609.34 // Convertir metros a millas
-      const durationInHours = leg.duration.value / 3600 // Convertir segundos a horas
-
-      setDistance(distanceInMiles.toFixed(2))
-      setDuration(durationInHours.toFixed(2))
-      incrementQuota('directions')
-    } catch (error) {
-      console.error('Error calculando la ruta:', error)
-      setError(error.message || 'Error al calcular la ruta. Por favor verifique las direcciones e intente nuevamente.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Manejar entrada manual de distancia y duración
+  // Manejar entrada manual de distancia y duración (OSM)
   const handleManualCalculation = (data) => {
     setOrigin(data.origin)
     setDestination(data.destination)
     setDistance(data.distance)
     setDuration(data.duration)
+  }
 
-    // Log the calculation type for debugging
-    console.log('Manual calculation type:', data.calculationType)
+  // Manejar cálculo desde Google Distance Input
+  const handleGoogleCalculation = (data) => {
+    setOrigin(data.origin)
+    setDestination(data.destination)
+    setDistance(data.distance)
+    setDuration(data.duration)
   }
 
   // Manejar cambios en los recargos
@@ -226,11 +173,11 @@ const DistanceCalculator = () => {
     }
 
     const originDescription = origin
-      ? (typeof origin === 'string' ? origin : origin.description)
+      ? (typeof origin === 'string' ? origin : (origin.description || origin.address || 'Origen no especificado'))
       : 'Origen no especificado'
 
     const destinationDescription = destination
-      ? (typeof destination === 'string' ? destination : destination.description)
+      ? (typeof destination === 'string' ? destination : (destination.description || destination.address || 'Destino no especificado'))
       : 'Destino no especificado'
 
     const today = new Date()
@@ -390,89 +337,103 @@ const DistanceCalculator = () => {
     }
   }
 
+  // Limpiar estado específico del modo de cálculo al cambiar de modo
+  useEffect(() => {
+    setOrigin(null)
+    setDestination(null)
+    setDistance(null)
+    setDuration(null)
+    setPrice(null)
+    setQuoteBreakdown(null)
+    setRoutePath(null)
+    setError('')
+    setOrderCreated(false)
+    // Mantener surcharges/discounts porque son agnósticos al modo
+  }, [calculationMethod])
+
   // Limpiar el formulario
   const clearForm = () => {
-    setOrigin(null);
-    setDestination(null);
-    setDirections(null);
-    setDistance(null);
-    setDuration(null);
-    setPrice(null);
-    setQuoteBreakdown(null);
-    setActiveSurcharges([]);
-    setActiveDiscounts([]);
-    setError('');
-    setOrderCreated(false);
-    setCalculationMethod('google');
+    setOrigin(null)
+    setDestination(null)
+    setDistance(null)
+    setDuration(null)
+    setPrice(null)
+    setQuoteBreakdown(null)
+    setRoutePath(null)
+    setActiveSurcharges([])
+    setActiveDiscounts([])
+    setError('')
+    setOrderCreated(false)
+    setCalculationMethod('manual')
   }
 
   // Renderizar el método de cálculo seleccionado
   const renderCalculationMethod = () => {
     switch (calculationMethod) {
       case 'manual':
-        return <ManualDistanceInput onCalculate={handleManualCalculation} />
-
-      case 'google':
-      default:
         return (
-          <div className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-semibold text-blue-100/90">Origen</label>
-              <PlaceSearch
-                placeholder="Ingrese dirección de origen"
-                onPlaceSelect={handleOriginSelect}
-                enableSmartLocation={true}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold text-blue-100/90">Destino</label>
-              <PlaceSearch
-                placeholder="Ingrese dirección de destino"
-                onPlaceSelect={handleDestinationSelect}
-              />
-            </div>
-            <button
-              onClick={calculateGoogleRoute}
-              disabled={isLoading || !origin || !destination}
-              className="w-full rounded-full border border-white/10 bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:cursor-not-allowed disabled:bg-blue-500/40"
-            >
-              {isLoading ? 'Calculando...' : 'Calcular Ruta'}
-            </button>
-          </div>
+          <ManualDistanceInput onCalculate={handleManualCalculation} />
         )
+      case 'google':
+        return (
+          <GoogleDistanceInput
+            isGoogleReady={isLoaded}
+            googleLoadError={googleMapsLoadError}
+            onCalculate={handleGoogleCalculation}
+            onRoutePathChange={setRoutePath}
+          />
+        )
+      default:
+        return null
     }
   }
 
-  // Renderizar el mapa — always Leaflet (OpenStreetMap), no SDK key needed
+  // Renderizar el mapa según el método seleccionado
   const renderMap = () => {
-    if (calculationMethod === 'manual' && !(origin?.lat && destination?.lat)) {
-      return (
-        <div className="flex h-96 w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">
-          <div className="p-4 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto mb-4 h-16 w-16 text-blue-300/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-            </svg>
-            <p className="text-sm font-semibold text-blue-100/80">Modo de cálculo manual</p>
-            <p className="mt-2 text-xs text-blue-200/70">No se muestra mapa en este modo</p>
+    switch (calculationMethod) {
+      case 'google':
+        if (googleMapsLoadError || !isLoaded) return null
+        return (
+          <GoogleMapRoute
+            origin={origin}
+            destination={destination}
+            path={routePath}
+          />
+        )
+      case 'manual':
+        if (origin && destination && origin.lat && origin.lng && destination.lat && destination.lng) {
+          return (
+            <OpenStreetMap
+              origin={origin}
+              destination={destination}
+              onRouteCalculated={() => { }}
+            />
+          )
+        }
+        return (
+          <div className="flex h-96 w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+            <div className="p-4 text-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="mx-auto mb-4 h-16 w-16 text-blue-300/60"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+              <p className="text-sm font-semibold text-blue-100/80">Mapa OpenStreetMap</p>
+              <p className="mt-2 text-xs text-blue-200/70">Seleccione origen y destino para ver la ruta</p>
+            </div>
           </div>
-        </div>
-      )
+        )
+      default:
+        return null
     }
-    return (
-      <div className="h-96 w-full">
-        <OpenStreetMap
-          origin={origin}
-          destination={destination}
-          routePath={routePath}
-          routeBounds={routeBounds}
-        />
-      </div>
-    )
   }
 
   return (
     <div className="space-y-10 text-blue-100/90">
-      <QuotaAlert status={quotaStatus} />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.45em] text-blue-300/70">Planificador</p>
@@ -488,28 +449,8 @@ const DistanceCalculator = () => {
       {/* Selector de método de cálculo */}
       <div className={`${surfacePanelClass} p-6`}>
         <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Método de Cálculo</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label
-            htmlFor="method-google"
-            className="flex cursor-pointer flex-col rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-blue-300/60 hover:bg-white/10"
-          >
-            <div className="flex items-start gap-3">
-              <input
-                type="radio"
-                id="method-google"
-                name="calculation-method"
-                value="google"
-                checked={calculationMethod === 'google'}
-                onChange={() => setCalculationMethod('google')}
-                className="mt-1 h-4 w-4 text-blue-500 focus:ring-blue-300"
-              />
-              <div>
-                <p className="text-sm font-semibold text-white">Google Maps</p>
-                <p className="mt-1 text-xs text-blue-200/80">Cálculo preciso usando Google Directions (seguro, sin clave expuesta).</p>
-              </div>
-            </div>
-          </label>
 
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label
             htmlFor="method-manual"
             className="flex cursor-pointer flex-col rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-blue-300/60 hover:bg-white/10"
@@ -525,8 +466,41 @@ const DistanceCalculator = () => {
                 className="mt-1 h-4 w-4 text-blue-500 focus:ring-blue-300"
               />
               <div>
-                <p className="text-sm font-semibold text-white">Cálculo Manual</p>
-                <p className="mt-1 text-xs text-blue-200/80">Ingrese distancia y duración manualmente.</p>
+                <p className="text-sm font-semibold text-white">Cálculo Inteligente</p>
+                <p className="mt-1 text-xs text-blue-200/80">
+                  Ingrese origen, destino, distancia y duración manualmente.
+                </p>
+              </div>
+            </div>
+          </label>
+
+          <label
+            htmlFor="method-google"
+            className={`flex cursor-pointer flex-col rounded-2xl border p-4 transition ${googleMapsApiKeyAvailable && !googleMapsLoadError
+              ? 'border-white/10 bg-white/5 hover:border-blue-300/60 hover:bg-white/10'
+              : 'cursor-not-allowed border-white/5 bg-white/5 opacity-60'
+              }`}
+          >
+            <div className="flex items-start gap-3">
+              <input
+                type="radio"
+                id="method-google"
+                name="calculation-method"
+                value="google"
+                checked={calculationMethod === 'google'}
+                onChange={() => setCalculationMethod('google')}
+                disabled={!googleMapsApiKeyAvailable || !!googleMapsLoadError}
+                className="mt-1 h-4 w-4 text-blue-500 focus:ring-blue-300 disabled:text-slate-400"
+              />
+              <div>
+                <p className={`text-sm font-semibold ${(!googleMapsApiKeyAvailable || googleMapsLoadError) ? 'text-slate-400' : 'text-white'}`}>Google Maps</p>
+                <p className="mt-1 text-xs text-blue-200/80">
+                  {googleMapsLoadError
+                    ? googleMapsLoadError
+                    : googleMapsApiKeyAvailable
+                      ? 'Rutas con Google Directions, mapa y autocomplete nativos.'
+                      : 'Requiere VITE_NSA_REGISTRY (no disponible).'}
+                </p>
               </div>
             </div>
           </label>

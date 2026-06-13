@@ -24,7 +24,6 @@ async function callEdgeFunction(service, params) {
 
 /**
  * Get directions from origin to destination via Edge Function.
- * Returns the HTTP Directions API response (not the JS DirectionsResult).
  */
 export async function getDirections(origin, destination) {
   const data = await callEdgeFunction('directions', {
@@ -45,7 +44,6 @@ export async function getDirections(origin, destination) {
 
 /**
  * Reverse geocode via Edge Function.
- * Returns the address for a given lat/lng.
  */
 export async function reverseGeocode(lat, lng) {
   const data = await callEdgeFunction('geocode', {
@@ -60,8 +58,9 @@ export async function reverseGeocode(lat, lng) {
 }
 
 /**
- * Autocomplete an address query via Edge Function.
- * Returns up to 5 suggestions: [{ placeId, description, lat, lng }]
+ * Autocomplete suggestions via Edge Function.
+ * Returns [{ placeId, description }] only — no geocode calls here.
+ * Geocoding happens only when the user selects a result (see geocodePlaceId).
  */
 export async function getAutocomplete(input) {
   if (!input || input.trim().length < 3) return []
@@ -69,28 +68,32 @@ export async function getAutocomplete(input) {
   const data = await callEdgeFunction('autocomplete', {
     input: input.trim(),
     components: 'country:us',
-    types: 'address',
   })
 
   if (data.status !== 'OK' || !data.predictions?.length) return []
 
-  // Resolve lat/lng for top 5 predictions via geocode (Autocomplete API doesn't include coords)
-  const results = await Promise.all(
-    data.predictions.slice(0, 5).map(async (pred) => {
-      try {
-        const geo = await callEdgeFunction('geocode', { place_id: pred.place_id })
-        const loc = geo.results?.[0]?.geometry?.location
-        return {
-          placeId: pred.place_id,
-          description: pred.description,
-          lat: loc?.lat ?? null,
-          lng: loc?.lng ?? null,
-        }
-      } catch {
-        return { placeId: pred.place_id, description: pred.description, lat: null, lng: null }
-      }
-    })
-  )
+  return data.predictions.slice(0, 5).map((pred) => ({
+    placeId: pred.place_id,
+    description: pred.description,
+  }))
+}
 
-  return results.filter((r) => r.lat !== null && r.lng !== null)
+/**
+ * Resolve a place_id to { lat, lng, description } via Edge Function.
+ * Called once when the user selects a suggestion — not during typing.
+ */
+export async function geocodePlaceId(placeId, description) {
+  const data = await callEdgeFunction('geocode', { place_id: placeId })
+
+  if (data.status !== 'OK' || !data.results?.length) {
+    throw new Error('No se pudo obtener la ubicación del lugar seleccionado')
+  }
+
+  const loc = data.results[0].geometry.location
+
+  return {
+    lat: loc.lat,
+    lng: loc.lng,
+    description,
+  }
 }
