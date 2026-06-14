@@ -1,6 +1,7 @@
 // Supabase Edge Function: Google Maps API Proxy
 // Proxies Google Maps API requests to keep the API key server-side only.
 // Also validates the configured API key before proxying any request.
+// Logs every proxy call to the api_usage_logs table.
 // Usage: POST /functions/v1/google-maps-proxy
 // Body: { "service": "directions", "params": { ... } }
 
@@ -132,8 +133,32 @@ Deno.serve(async (req) => {
     const response = await fetch(url)
     const data = await response.json()
 
+    // Log the proxy call to Supabase
+    await logApiCall(`gm_${service}`, clientIP)
+
     return json(data)
   } catch (error) {
     return json({ error: (error as Error).message }, 500)
   }
 })
+
+async function logApiCall(service: string, ip: string) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")
+  const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+  if (!supabaseUrl || !serviceRole) return
+
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/api_usage_logs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": serviceRole,
+        "Authorization": `Bearer ${serviceRole}`,
+        "Prefer": "return=minimal",
+      },
+      body: JSON.stringify({ service, ip_address: ip }),
+    })
+  } catch (err) {
+    console.error("Failed to log API call:", err)
+  }
+}

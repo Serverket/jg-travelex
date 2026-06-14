@@ -666,3 +666,37 @@ SECURITY DEFINER
 AS $$
   SELECT 1;
 $$;
+
+-- API Usage Logs table for tracking external API calls persistently
+CREATE TABLE IF NOT EXISTS api_usage_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    service VARCHAR(30) NOT NULL CHECK (service IN ('gm_autocomplete','gm_directions','gm_geocode','gm_places','eia_fuel_price')),
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_usage_logs_service ON api_usage_logs(service);
+CREATE INDEX IF NOT EXISTS idx_api_usage_logs_created ON api_usage_logs(created_at);
+
+-- RPC function for efficient usage stats aggregation
+CREATE OR REPLACE FUNCTION public.get_api_usage_stats()
+RETURNS TABLE(service VARCHAR, today_count BIGINT, total_count BIGINT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        api_usage_logs.service,
+        COUNT(*) FILTER (WHERE api_usage_logs.created_at >= CURRENT_DATE)::BIGINT AS today_count,
+        COUNT(*)::BIGINT AS total_count
+    FROM api_usage_logs
+    GROUP BY api_usage_logs.service;
+END;
+$$;
+
+ALTER TABLE api_usage_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can select api_usage_logs" ON api_usage_logs;
+CREATE POLICY "Authenticated users can select api_usage_logs" ON api_usage_logs
+    FOR SELECT USING (auth.role() = 'authenticated');

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
+import { useApiUsageLogs } from '../hooks/useApiUsageLogs'
 
 const Settings = () => {
   const { 
@@ -12,8 +13,10 @@ const Settings = () => {
     deleteSurchargeFactor, 
     deleteDiscount, 
     isLoading, 
-    error: contextError 
+    error: contextError,
+    currentUser
   } = useAppContext()
+  const isAdmin = currentUser?.role === 'admin'
   
   // Estado local para editar configuraciones con valores por defecto seguros
   const [editedSettings, setEditedSettings] = useState({
@@ -402,6 +405,7 @@ const Settings = () => {
               {(localLoading || isLoading) ? 'Guardando…' : 'Guardar cambios'}
             </button>
           </div>
+
         </div>
 
         <div
@@ -605,6 +609,124 @@ const Settings = () => {
             </div>
           </div>
         </div>
+
+        {isAdmin && (
+          <div
+            className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-2xl shadow-blue-500/10 backdrop-blur"
+            data-aos="fade-up"
+            data-aos-delay="200"
+          >
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-white">Uso de APIs</h2>
+              <p className="mt-1 text-sm text-blue-100/70">Contadores reales de llamadas a servicios externos persistidos en base de datos.</p>
+            </div>
+            <ApiQuotasCompact />
+          </div>
+        )}
+      </div>
+
+    </div>
+  )
+}
+
+function ApiQuotasCompact() {
+  const { today, total, loading, error, refresh, resetService } = useApiUsageLogs()
+
+  const rows = [
+    {
+      key: 'gm_autocomplete',
+      label: 'Google Autocomplete',
+      today: today['gm_autocomplete'] || 0,
+      total: total['gm_autocomplete'] || 0,
+      limit: 50,
+    },
+    {
+      key: 'gm_directions',
+      label: 'Google Directions',
+      today: today['gm_directions'] || 0,
+      total: total['gm_directions'] || 0,
+      limit: 30,
+    },
+    {
+      key: 'eia_fuel_price',
+      label: 'EIA Precios de combustible',
+      today: today['eia_fuel_price'] || 0,
+      total: total['eia_fuel_price'] || 0,
+      limit: 20,
+    },
+  ]
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-end">
+        <button
+          onClick={refresh}
+          disabled={loading}
+          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-blue-100/80 transition hover:bg-white/10 disabled:opacity-50"
+          title="Actualizar contadores"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {loading ? 'Cargando…' : 'Actualizar'}
+        </button>
+      </div>
+
+      {error && (
+        <p className="mb-3 text-xs text-red-300">Error: {error}</p>
+      )}
+
+      <div className="space-y-4">
+        {rows.map((row) => {
+          const percent = row.limit > 0 ? Math.round((row.today / row.limit) * 100) : 0
+          const isCritical = percent >= 90
+          const isWarning = percent >= 70 && percent < 90
+          const dotColor = isCritical ? 'bg-red-400' : isWarning ? 'bg-yellow-400' : 'bg-emerald-400'
+          const barColor = isCritical ? 'bg-red-500' : isWarning ? 'bg-yellow-400' : 'bg-emerald-500'
+
+          return (
+            <div key={row.key}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`inline-block h-2 w-2 rounded-full ${dotColor}`} />
+                  <span className="text-sm text-blue-100/90">{row.label}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-blue-200/50">
+                    Hoy: <span className="font-medium text-white">{row.today}</span>
+                  </span>
+                  <span className="text-xs text-blue-200/30">|</span>
+                  <span className="text-xs text-blue-200/50">
+                    Total: <span className="font-medium text-white">{row.total}</span>
+                  </span>
+                </div>
+              </div>
+              <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                <div
+                  className={`h-full rounded-full transition-all ${barColor}`}
+                  style={{ width: `${Math.min(percent, 100)}%` }}
+                />
+              </div>
+              <div className="mt-1 flex items-center justify-between text-xs text-blue-200/50">
+                <span>
+                  {isCritical && 'Cuota crítica'}
+                  {isWarning && 'Cuota alta'}
+                  {!isCritical && !isWarning && 'Dentro del límite'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span>{percent}% del límite diario</span>
+                  <button
+                    onClick={() => resetService(row.key)}
+                    className="text-[10px] text-red-300/60 transition hover:text-red-300"
+                    title="Eliminar todos los registros de este servicio"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

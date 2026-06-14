@@ -1,5 +1,5 @@
 {
-  "version": "2.4.0",
-  "note": "Google Maps GPS-based navigation on realtime",
-  "date": "2026-06-13T17:54:02.378Z"
+  "version": "2.5.0",
+  "note": "API logging improved, style fixes on config area and EIA integration for fuel calculations",
+  "date": "2026-06-14T01:24:57.373Z"
 }
