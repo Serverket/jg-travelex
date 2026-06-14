@@ -45,6 +45,7 @@ const DistanceCalculator = () => {
   const [error, setError] = useState('')
   const [orderCreated, setOrderCreated] = useState(false)
   const [routePath, setRoutePath] = useState(null)
+  const [resetKey, setResetKey] = useState(0)
   const lastTripRef = useRef(null)
   const surfacePanelClass = 'rounded-3xl border border-white/10 bg-white/5 shadow-xl shadow-blue-950/20 backdrop-blur-lg'
 
@@ -348,6 +349,7 @@ const DistanceCalculator = () => {
     setRoutePath(null)
     setError('')
     setOrderCreated(false)
+    setResetKey((k) => k + 1)
     // Mantener surcharges/discounts porque son agnósticos al modo
   }, [calculationMethod])
 
@@ -365,6 +367,7 @@ const DistanceCalculator = () => {
     setError('')
     setOrderCreated(false)
     setCalculationMethod('manual')
+    setResetKey((k) => k + 1)
   }
 
   // Renderizar el método de cálculo seleccionado
@@ -372,11 +375,12 @@ const DistanceCalculator = () => {
     switch (calculationMethod) {
       case 'manual':
         return (
-          <ManualDistanceInput onCalculate={handleManualCalculation} />
+          <ManualDistanceInput key={`manual-${resetKey}`} onCalculate={handleManualCalculation} />
         )
       case 'google':
         return (
           <GoogleDistanceInput
+            key={`google-${resetKey}`}
             isGoogleReady={isLoaded}
             googleLoadError={googleMapsLoadError}
             onCalculate={handleGoogleCalculation}

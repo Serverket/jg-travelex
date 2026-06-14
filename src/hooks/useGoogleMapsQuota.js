@@ -39,5 +39,9 @@ export function useGoogleMapsQuota() {
     }
   }
 
-  return { increment, getStatus }
+  const reset = () => {
+    localStorage.removeItem(key)
+  }
+
+  return { increment, getStatus, reset }
 }

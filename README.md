@@ -4,7 +4,7 @@
 
 # JG TravelEx - Travel Experience
 
-![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Bun](https://img.shields.io/badge/bun-%3E%3D1.0.0-black.svg)
 ![React](https://img.shields.io/badge/react-18.2.0-blue.svg)
@@ -19,7 +19,8 @@
 
 ## 🌟 Features
 
-- 🗺️ **Distance calculation** using Google Maps
+- 🗺️ **Distance calculation** using Google Maps + OpenStreetMap
+- ⛽ **Fuel consumption calculator** with live EIA gas prices (optional toggle)
 - 💰 **Automatic pricing** with configurable rates
 - 📊 **Real-time dashboard**
 - 📋 **Order management**
@@ -28,6 +29,7 @@
 - ⚙️ **Configurable rates**, surcharges and discounts
 - 🔒 **Role-based access control** (admin/user)
 - 📱 **Modern responsive design** with Tailwind CSS
+- 📡 **API quota tracking** for Google Maps and EIA usage
 
 ---
 
@@ -76,6 +78,10 @@ PORT=8000
 
 # Google Maps API
 VITE_NSA_REGISTRY=your_google_maps_api_key
+
+# EIA API (optional — live state-level gas prices)
+# Get a free key at https://www.eia.gov/opendata/
+VITE_CIE_FU=your_eia_api_key
 ```
 
 4. **Initialize the database in Supabase (schema + defaults)**
@@ -256,6 +262,7 @@ This suite verifies DB access, admin presence, CRUD basics, and that invoices us
    - `VITE_SUPABASE_ANON_KEY`
    - `VITE_BACKEND_URL` (your deployed backend URL)
    - `VITE_NSA_REGISTRY`
+   - `VITE_CIE_FU` (optional — EIA gas prices)
 3. Build command: `bun run build`
 4. Output directory: `dist`
 5. Deploy
