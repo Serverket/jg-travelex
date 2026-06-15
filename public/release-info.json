@@ -1,5 +1,5 @@
 {
-  "version": "2.5.0",
-  "note": "API logging improved, style fixes on config area and EIA integration for fuel calculations",
-  "date": "2026-06-14T01:24:57.373Z"
+  "version": "2.5.2",
+  "note": "New Go-n-Come calculation logic plus improved UI",
+  "date": "2026-06-15T22:54:21.942Z"
 }

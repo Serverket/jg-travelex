@@ -57,7 +57,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: 0.75rem !important;
   margin-top: 4px !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
   font-family: Inter, system-ui, sans-serif !important;
   overflow: hidden;
 }
