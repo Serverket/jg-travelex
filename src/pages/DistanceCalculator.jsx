@@ -29,7 +29,7 @@ const DistanceCalculator = () => {
   const [discounts, setDiscounts] = useState([])
 
   // Estado para el método de cálculo seleccionado
-  const [calculationMethod, setCalculationMethod] = useState('manual') // 'manual', 'google'
+  const [calculationMethod, setCalculationMethod] = useState('google') // 'manual', 'google'
 
   // Estado para origen y destino
   const [origin, setOrigin] = useState(null)
@@ -39,6 +39,8 @@ const DistanceCalculator = () => {
   const [distance, setDistance] = useState(null)
   const [duration, setDuration] = useState(null)
   const [price, setPrice] = useState(null)
+  const [fuelCost, setFuelCost] = useState(0)
+  const [addFuelToPrice, setAddFuelToPrice] = useState(false)
   const [quoteBreakdown, setQuoteBreakdown] = useState(null)
   const [activeSurcharges, setActiveSurcharges] = useState([])
   const [activeDiscounts, setActiveDiscounts] = useState([])
@@ -125,6 +127,8 @@ const DistanceCalculator = () => {
     setDestination(data.destination)
     setDistance(data.distance)
     setDuration(data.duration)
+    setFuelCost(data.fuelCost || 0)
+    setAddFuelToPrice(data.addFuelToPrice || false)
   }
 
   // Manejar cálculo desde Google Distance Input
@@ -133,6 +137,8 @@ const DistanceCalculator = () => {
     setDestination(data.destination)
     setDistance(data.distance)
     setDuration(data.duration)
+    setFuelCost(data.fuelCost || 0)
+    setAddFuelToPrice(data.addFuelToPrice || false)
   }
 
   // Manejar cambios en los recargos
@@ -366,7 +372,9 @@ const DistanceCalculator = () => {
     setActiveDiscounts([])
     setError('')
     setOrderCreated(false)
-    setCalculationMethod('manual')
+    setCalculationMethod('google')
+    setFuelCost(0)
+    setAddFuelToPrice(false)
     setResetKey((k) => k + 1)
   }
 
@@ -415,11 +423,11 @@ const DistanceCalculator = () => {
           )
         }
         return (
-          <div className="flex h-96 w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+          <div className="flex overflow-hidden justify-center items-center w-full h-96 rounded-3xl border border-white/10 bg-white/5">
             <div className="p-4 text-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="mx-auto mb-4 h-16 w-16 text-blue-300/60"
+                className="mx-auto mb-4 w-16 h-16 text-blue-300/60"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -445,39 +453,19 @@ const DistanceCalculator = () => {
         </div>
         {(distance || duration) && price && (
           <div className={chipClass}>
-            Precio estimado: <span className="font-semibold text-white">${price}</span>
+            Precio estimado: <span className="font-semibold text-white">${addFuelToPrice ? (Number(price) + Number(fuelCost)).toFixed(2) : price}</span>
+            {addFuelToPrice && fuelCost > 0 && (
+              <span className="ml-1 text-xs text-amber-200/80">(+ ${Number(fuelCost).toFixed(2)} combustible)</span>
+            )}
           </div>
         )}
       </div>
 
       {/* Selector de método de cálculo */}
-      <div className={`${surfacePanelClass} p-6`}>
+      <div className={`p-6 ${surfacePanelClass}`}>
         <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Método de Cálculo</h2>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label
-            htmlFor="method-manual"
-            className="flex cursor-pointer flex-col rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-blue-300/60 hover:bg-white/10"
-          >
-            <div className="flex items-start gap-3">
-              <input
-                type="radio"
-                id="method-manual"
-                name="calculation-method"
-                value="manual"
-                checked={calculationMethod === 'manual'}
-                onChange={() => setCalculationMethod('manual')}
-                className="mt-1 h-4 w-4 text-blue-500 focus:ring-blue-300"
-              />
-              <div>
-                <p className="text-sm font-semibold text-white">Cálculo Inteligente</p>
-                <p className="mt-1 text-xs text-blue-200/80">
-                  Ingrese origen, destino, distancia y duración manualmente.
-                </p>
-              </div>
-            </div>
-          </label>
-
           <label
             htmlFor="method-google"
             className={`flex cursor-pointer flex-col rounded-2xl border p-4 transition ${googleMapsApiKeyAvailable && !googleMapsLoadError
@@ -485,7 +473,7 @@ const DistanceCalculator = () => {
               : 'cursor-not-allowed border-white/5 bg-white/5 opacity-60'
               }`}
           >
-            <div className="flex items-start gap-3">
+            <div className="flex gap-3 items-start">
               <input
                 type="radio"
                 id="method-google"
@@ -494,7 +482,7 @@ const DistanceCalculator = () => {
                 checked={calculationMethod === 'google'}
                 onChange={() => setCalculationMethod('google')}
                 disabled={!googleMapsApiKeyAvailable || !!googleMapsLoadError}
-                className="mt-1 h-4 w-4 text-blue-500 focus:ring-blue-300 disabled:text-slate-400"
+                className="mt-1 w-4 h-4 text-blue-500 focus:ring-blue-300 disabled:text-slate-400"
               />
               <div>
                 <p className={`text-sm font-semibold ${(!googleMapsApiKeyAvailable || googleMapsLoadError) ? 'text-slate-400' : 'text-white'}`}>Google Maps</p>
@@ -508,12 +496,35 @@ const DistanceCalculator = () => {
               </div>
             </div>
           </label>
+
+          <label
+            htmlFor="method-manual"
+            className="flex flex-col p-4 rounded-2xl border transition cursor-pointer border-white/10 bg-white/5 hover:border-blue-300/60 hover:bg-white/10"
+          >
+            <div className="flex gap-3 items-start">
+              <input
+                type="radio"
+                id="method-manual"
+                name="calculation-method"
+                value="manual"
+                checked={calculationMethod === 'manual'}
+                onChange={() => setCalculationMethod('manual')}
+                className="mt-1 w-4 h-4 text-blue-500 focus:ring-blue-300"
+              />
+              <div>
+                <p className="text-sm font-semibold text-white">OSM (Alternativa)</p>
+                <p className="mt-1 text-xs text-blue-200/80">
+                  Ingrese origen, destino, distancia y duración manualmente con OpenStreetMap.
+                </p>
+              </div>
+            </div>
+          </label>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Formulario */}
-        <div className={`${surfacePanelClass} space-y-4 p-6`}>
+        <div className={`p-6 space-y-4 ${surfacePanelClass}`}>
           <h2 className="text-lg font-semibold text-blue-100/90">Detalles del Viaje</h2>
 
           {renderCalculationMethod()}
@@ -526,20 +537,20 @@ const DistanceCalculator = () => {
 
           <button
             onClick={clearForm}
-            className="mt-4 w-full rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-blue-100 transition hover:border-blue-300/60 hover:bg-blue-500/20 hover:text-white whitespace-nowrap"
+            className="px-4 py-2 mt-4 w-full text-sm font-medium text-blue-100 whitespace-nowrap rounded-full border transition border-white/10 bg-white/5 hover:border-blue-300/60 hover:bg-blue-500/20 hover:text-white"
           >
             Limpiar
           </button>
 
           {error && (
-            <div className="mt-4 rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            <div className="px-4 py-3 mt-4 text-sm text-red-100 rounded-xl border border-red-400/40 bg-red-500/10">
               {error}
             </div>
           )}
 
           {(distance || duration) && price && (
-            <div className={`mt-6 p-5 ${subtlePanelClass}`}>
-              <h3 className="text-md font-semibold text-blue-100/90">Resultado</h3>
+            <div className={`p-5 mt-6 ${subtlePanelClass}`}>
+              <h3 className="font-semibold text-md text-blue-100/90">Resultado</h3>
               {distance && (
                 <p className="mt-2 text-sm text-blue-100/80">
                   Distancia: <span className="font-medium text-white">{distance} millas</span>
@@ -550,11 +561,16 @@ const DistanceCalculator = () => {
                   Duración: <span className="font-medium text-white">{duration} horas</span>
                 </p>
               )}
-              <p className="mt-3 text-xl font-bold text-white">Precio: ${price}</p>
+              <p className="mt-3 text-xl font-bold text-white">
+                Precio: ${addFuelToPrice ? (Number(price) + Number(fuelCost)).toFixed(2) : price}
+                {addFuelToPrice && fuelCost > 0 && (
+                  <span className="ml-1 text-sm text-amber-200/80">(+ ${Number(fuelCost).toFixed(2)} combustible)</span>
+                )}
+              </p>
               {activeSurcharges.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm text-blue-200/80">Recargos aplicados:</p>
-                  <ul className="mt-2 list-disc pl-5 text-sm text-slate-100">
+                  <ul className="pl-5 mt-2 text-sm list-disc text-slate-100">
                     {activeSurcharges.map(id => {
                       const factor = surchargeFactors.find(f => f.id === id);
                       return factor ? <li key={id}>{factor.name}</li> : null;
@@ -565,7 +581,7 @@ const DistanceCalculator = () => {
               {activeDiscounts.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm text-blue-200/80">Descuentos aplicados:</p>
-                  <ul className="mt-2 list-disc pl-5 text-sm text-slate-100">
+                  <ul className="pl-5 mt-2 text-sm list-disc text-slate-100">
                     {activeDiscounts.map(id => {
                       const discount = discounts.find(d => d.id === id);
                       return discount ? <li key={id}>{discount.name}</li> : null;
@@ -573,7 +589,7 @@ const DistanceCalculator = () => {
                   </ul>
                 </div>
               )}
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3 mt-6">
                 <button
                   onClick={saveTrip}
                   className="transform rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition-transform duration-150 hover:scale-[1.02] hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 whitespace-nowrap"
@@ -597,7 +613,7 @@ const DistanceCalculator = () => {
         </div>
 
         {/* Mapa */}
-        <div className={`${surfacePanelClass} p-4`}>
+        <div className={`p-4 ${surfacePanelClass} min-h-[320px] sm:min-h-[400px] md:min-h-[480px]`}>
           {renderMap()}
         </div>
       </div>
@@ -605,7 +621,7 @@ const DistanceCalculator = () => {
       {/* Factores de recargo y descuentos */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Factores de recargo */}
-        <div className={`${surfacePanelClass} p-6`}>
+        <div className={`p-6 ${surfacePanelClass}`}>
           <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Factores de Recargo</h2>
 
           <div className="space-y-3">
@@ -613,14 +629,14 @@ const DistanceCalculator = () => {
               <label
                 key={factor.id}
                 htmlFor={`surcharge-${factor.id}`}
-                className="flex flex-wrap items-center gap-3 text-sm text-slate-100"
+                className="flex flex-wrap gap-3 items-center text-sm text-slate-100"
               >
                 <input
                   type="checkbox"
                   id={`surcharge-${factor.id}`}
                   checked={activeSurcharges.includes(factor.id)}
                   onChange={() => handleSurchargeChange(factor.id)}
-                  className="h-4 w-4 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-300"
+                  className="w-4 h-4 text-blue-500 rounded border-white/20 bg-white/10 focus:ring-blue-300"
                 />
                 <span>
                   {factor.name} ({factor.type === 'percentage' ? `${factor.rate}%` : `$${factor.rate}`})
@@ -631,7 +647,7 @@ const DistanceCalculator = () => {
         </div>
 
         {/* Descuentos */}
-        <div className={`${surfacePanelClass} p-6`}>
+        <div className={`p-6 ${surfacePanelClass}`}>
           <h2 className="mb-4 text-lg font-semibold text-blue-100/90">Descuentos Aplicables</h2>
 
           <div className="space-y-3">
@@ -639,14 +655,14 @@ const DistanceCalculator = () => {
               <label
                 key={discount.id}
                 htmlFor={`discount-${discount.id}`}
-                className="flex flex-wrap items-center gap-3 text-sm text-slate-100"
+                className="flex flex-wrap gap-3 items-center text-sm text-slate-100"
               >
                 <input
                   type="checkbox"
                   id={`discount-${discount.id}`}
                   checked={activeDiscounts.includes(discount.id)}
                   onChange={() => handleDiscountChange(discount.id)}
-                  className="h-4 w-4 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-300"
+                  className="w-4 h-4 text-blue-500 rounded border-white/20 bg-white/10 focus:ring-blue-300"
                 />
                 <span>
                   {discount.name} ({discount.type === 'percentage' ? `${discount.rate}%` : `$${discount.rate}`})

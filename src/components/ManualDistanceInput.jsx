@@ -15,6 +15,8 @@ const ManualDistanceInput = ({ onCalculate }) => {
 
   // Fuel calculation state
   const [fuelEnabled, setFuelEnabled] = useState(false)
+  const [roundTrip, setRoundTrip] = useState(true)
+  const [addFuelToPrice, setAddFuelToPrice] = useState(false)
   const [mpg, setMpg] = useState(38)
   const [fuelPricePerGallon, setFuelPricePerGallon] = useState(3.50)
   const [fuelGallons, setFuelGallons] = useState(null)
@@ -155,12 +157,14 @@ const ManualDistanceInput = ({ onCalculate }) => {
       destination: destination || null,
       calculationType,
       distance: calculationType === 'duration-only' ? null : (distance ? Number(distance) : null),
-      duration: calculationType === 'distance-only' ? null : (duration ? Number(duration) : null)
+      duration: calculationType === 'distance-only' ? null : (duration ? Number(duration) : null),
+      fuelCost: fuelEnabled && fuelCost !== null ? Number(fuelCost) : 0,
+      addFuelToPrice: fuelEnabled && addFuelToPrice
     }
 
     onCalculate(payload)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [origin, destination, distance, duration, calculationType])
+  }, [origin, destination, distance, duration, calculationType, fuelEnabled, fuelCost, addFuelToPrice])
 
   // Fuel calculation
   useEffect(() => {
@@ -175,7 +179,7 @@ const ManualDistanceInput = ({ onCalculate }) => {
       return
     }
 
-    const gallons = Number(distance) / Number(mpg)
+    const gallons = (Number(distance) / Number(mpg)) * (roundTrip ? 2 : 1)
     setFuelGallons(gallons.toFixed(2))
 
     const computeCost = async () => {
@@ -234,7 +238,7 @@ const ManualDistanceInput = ({ onCalculate }) => {
 
     computeCost()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fuelEnabled, distance, mpg, fuelPricePerGallon, origin, destination])
+  }, [fuelEnabled, distance, mpg, fuelPricePerGallon, origin, destination, roundTrip])
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -245,9 +249,26 @@ const ManualDistanceInput = ({ onCalculate }) => {
       destination: destination || null,
       calculationType,
       distance: calculationType === 'duration-only' ? null : (distance ? Number(distance) : null),
-      duration: calculationType === 'distance-only' ? null : (duration ? Number(duration) : null)
+      duration: calculationType === 'distance-only' ? null : (duration ? Number(duration) : null),
+      fuelCost: fuelEnabled && fuelCost !== null ? Number(fuelCost) : 0,
+      addFuelToPrice: fuelEnabled && addFuelToPrice
     }
 
+    onCalculate(payload)
+  }
+
+  const handleAddFuelToggle = (checked) => {
+    setAddFuelToPrice(checked)
+    // Re-notify parent with updated toggle state
+    const payload = {
+      origin: origin || null,
+      destination: destination || null,
+      calculationType,
+      distance: calculationType === 'duration-only' ? null : (distance ? Number(distance) : null),
+      duration: calculationType === 'distance-only' ? null : (duration ? Number(duration) : null),
+      fuelCost: fuelEnabled && fuelCost !== null ? Number(fuelCost) : 0,
+      addFuelToPrice: fuelEnabled && checked
+    }
     onCalculate(payload)
   }
 
@@ -428,19 +449,75 @@ const ManualDistanceInput = ({ onCalculate }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   <p className="text-sm font-medium text-amber-100">
-                    {fuelGallons} galones
+                    {fuelGallons} galones {roundTrip && <span className="text-xs text-amber-200/60">(ida y vuelta)</span>}
                   </p>
                 </div>
                 {fuelCost !== null && (
-                  <p className="mt-1 text-sm text-amber-100/90">
-                    Costo combustible: <span className="font-semibold text-white">${fuelCost}</span>
-                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <p className="text-sm text-amber-100/90">
+                      Costo combustible: <span className="font-semibold text-white">${fuelCost}</span>
+                    </p>
+                    <label className="inline-flex cursor-pointer items-center gap-2">
+                      <div className="relative inline-flex h-5 w-9 items-center">
+                        <input
+                          type="checkbox"
+                          checked={roundTrip}
+                          onChange={(e) => { setRoundTrip(e.target.checked); handleAddFuelToggle(addFuelToPrice); }}
+                          className="peer sr-only"
+                        />
+                        <div className="h-5 w-9 rounded-full bg-slate-600 transition peer-checked:bg-amber-500" />
+                        <div className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                      </div>
+                      <span className="text-xs text-amber-200/80">Ida y vuelta</span>
+                    </label>
+                    <label className="inline-flex cursor-pointer items-center gap-2">
+                      <div className="relative inline-flex h-5 w-9 items-center">
+                        <input
+                          type="checkbox"
+                          checked={addFuelToPrice}
+                          onChange={(e) => handleAddFuelToggle(e.target.checked)}
+                          className="peer sr-only"
+                        />
+                        <div className="h-5 w-9 rounded-full bg-slate-600 transition peer-checked:bg-amber-500" />
+                        <div className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                      </div>
+                      <span className="text-xs text-amber-200/80">Sumar al precio</span>
+                    </label>
+                  </div>
                 )}
                 {fuelCostMin !== null && fuelCostMax !== null && (
-                  <p className="mt-1 text-sm text-amber-100/90">
-                    Costo combustible:{' '}
-                    <span className="font-semibold text-white">${fuelCostMin} – ${fuelCostMax}</span>
-                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <p className="text-sm text-amber-100/90">
+                      Costo combustible:{' '}
+                      <span className="font-semibold text-white">${fuelCostMin} – ${fuelCostMax}</span>
+                    </p>
+                    <label className="inline-flex cursor-pointer items-center gap-2">
+                      <div className="relative inline-flex h-5 w-9 items-center">
+                        <input
+                          type="checkbox"
+                          checked={roundTrip}
+                          onChange={(e) => { setRoundTrip(e.target.checked); handleAddFuelToggle(addFuelToPrice); }}
+                          className="peer sr-only"
+                        />
+                        <div className="h-5 w-9 rounded-full bg-slate-600 transition peer-checked:bg-amber-500" />
+                        <div className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                      </div>
+                      <span className="text-xs text-amber-200/80">Ida y vuelta</span>
+                    </label>
+                    <label className="inline-flex cursor-pointer items-center gap-2">
+                      <div className="relative inline-flex h-5 w-9 items-center">
+                        <input
+                          type="checkbox"
+                          checked={addFuelToPrice}
+                          onChange={(e) => handleAddFuelToggle(e.target.checked)}
+                          className="peer sr-only"
+                        />
+                        <div className="h-5 w-9 rounded-full bg-slate-600 transition peer-checked:bg-amber-500" />
+                        <div className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                      </div>
+                      <span className="text-xs text-amber-200/80">Sumar al precio</span>
+                    </label>
+                  </div>
                 )}
 
                 {/* Source indicator */}
