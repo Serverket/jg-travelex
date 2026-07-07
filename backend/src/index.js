@@ -1403,8 +1403,6 @@ function scheduleSupabaseKeepAlive() {
   let failures = 0;
   const run = async () => {
     try {
-      const idle = Date.now() - lastRequestTime;
-      if (idle < interval) return;
       const { error } = await supabase.rpc('keepalive');
       if (error) throw error;
       failures = 0;
