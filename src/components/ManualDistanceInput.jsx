@@ -284,8 +284,8 @@ const ManualDistanceInput = ({ onCalculate }) => {
       data-aos="fade-up"
       data-aos-delay="40"
     >
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-2" data-aos="fade-up" data-aos-delay="60">
-        <div className="flex overflow-hidden rounded-xl border border-white/10 bg-white/10 p-1">
+      <div className="p-2 rounded-2xl border border-white/10 bg-white/5" data-aos="fade-up" data-aos-delay="60">
+        <div className="flex overflow-hidden p-1 rounded-xl border border-white/10 bg-white/10">
           {tabs.map(tab => (
             <button
               key={tab.id}
@@ -305,7 +305,7 @@ const ManualDistanceInput = ({ onCalculate }) => {
       </div>
 
       <div data-aos="fade-up" data-aos-delay="80">
-        <label className="mb-1 block text-sm font-semibold text-blue-100/90">
+        <label className="block mb-1 text-sm font-semibold text-blue-100/90">
           Origen {calculationType !== 'combined' && <span className="text-blue-200/60">(opcional)</span>}
         </label>
         <OpenStreetPlaceSearch
@@ -318,7 +318,7 @@ const ManualDistanceInput = ({ onCalculate }) => {
       </div>
 
       <div data-aos="fade-up" data-aos-delay="100">
-        <label className="mb-1 block text-sm font-semibold text-blue-100/90">
+        <label className="block mb-1 text-sm font-semibold text-blue-100/90">
           Destino {calculationType !== 'combined' && <span className="text-blue-200/60">(opcional)</span>}
         </label>
         <OpenStreetPlaceSearch
@@ -332,7 +332,7 @@ const ManualDistanceInput = ({ onCalculate }) => {
 
       {(calculationType === 'combined' || calculationType === 'distance-only') && (
         <div data-aos="fade-up" data-aos-delay="120">
-          <label htmlFor="distance" className="mb-1 block text-sm font-semibold text-blue-100/90">
+          <label htmlFor="distance" className="block mb-1 text-sm font-semibold text-blue-100/90">
             Distancia (millas)
           </label>
           <input
@@ -353,7 +353,7 @@ const ManualDistanceInput = ({ onCalculate }) => {
 
       {(calculationType === 'combined' || calculationType === 'duration-only') && (
         <div data-aos="fade-up" data-aos-delay="140">
-          <label htmlFor="duration" className="mb-1 block text-sm font-semibold text-blue-100/90">
+          <label htmlFor="duration" className="block mb-1 text-sm font-semibold text-blue-100/90">
             Duración (horas)
           </label>
           <input
@@ -373,17 +373,17 @@ const ManualDistanceInput = ({ onCalculate }) => {
       )}
 
       {/* Fuel Toggle */}
-      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
-        <label className="flex cursor-pointer items-center gap-3">
-          <div className="relative inline-flex h-6 w-11 items-center">
+      <div className="p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5">
+        <label className="flex gap-3 items-center cursor-pointer">
+          <div className="inline-flex relative items-center w-11 h-6">
             <input
               type="checkbox"
               checked={fuelEnabled}
               onChange={(e) => setFuelEnabled(e.target.checked)}
-              className="peer sr-only"
+              className="sr-only peer"
             />
-            <span className="absolute h-6 w-11 rounded-full bg-white/10 transition peer-checked:bg-amber-500" />
-            <span className="absolute left-1 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-5" />
+            <span className="absolute w-11 h-6 rounded-full transition bg-white/10 peer-checked:bg-amber-500" />
+            <span className="absolute left-1 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-5" />
           </div>
           <span className="text-sm font-semibold text-amber-100/90">Incluir cálculo de combustible</span>
         </label>
@@ -392,7 +392,7 @@ const ManualDistanceInput = ({ onCalculate }) => {
           <div className="mt-4 space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="manual-mpg" className="mb-1 block text-xs font-medium text-amber-100/80">
+                <label htmlFor="manual-mpg" className="block mb-1 text-xs font-medium text-amber-100/80">
                   MPG (millas/galón)
                 </label>
                 <input
@@ -402,11 +402,11 @@ const ManualDistanceInput = ({ onCalculate }) => {
                   onChange={(e) => setMpg(Number(e.target.value))}
                   min="0.1"
                   step="0.1"
-                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  className="px-3 py-2 w-full text-sm text-white rounded-xl border border-white/15 bg-white/5 placeholder:text-blue-200/60 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
                 />
               </div>
               <div>
-                <label htmlFor="manual-fuel-price" className="mb-1 flex items-center gap-2 text-xs font-medium text-amber-100/80">
+                <label htmlFor="manual-fuel-price" className="flex gap-2 items-center mb-1 text-xs font-medium text-amber-100/80">
                   Precio/galón ($)
                   {fuelSource && fuelSource !== 'Manual' && (
                     <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-200">
@@ -427,13 +427,13 @@ const ManualDistanceInput = ({ onCalculate }) => {
                   disabled={isLoadingFuel}
                   min="0"
                   step="0.01"
-                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-2 w-full text-sm text-white rounded-xl border border-white/15 bg-white/5 placeholder:text-blue-200/60 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
 
             {isLoadingFuel && (
-              <div className="flex items-center gap-2 text-xs text-amber-200/70">
+              <div className="flex gap-2 items-center text-xs text-amber-200/70">
                 <svg className="animate-spin h-3.5 w-3.5 text-amber-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -443,9 +443,9 @@ const ManualDistanceInput = ({ onCalculate }) => {
             )}
 
             {fuelGallons && (
-              <div className={`rounded-xl border p-3 transition-all ${isLoadingFuel ? 'border-amber-400/30 animate-pulse' : 'border-amber-500/20 bg-amber-500/10'}`}>
-                <div className="flex items-center gap-2">
-                  <svg className="h-4 w-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className={`rounded-xl border p-3 transition-all ${isLoadingFuel ? 'animate-pulse border-amber-400/30' : 'border-amber-500/20 bg-amber-500/10'}`}>
+                <div className="flex gap-2 items-center">
+                  <svg className="w-4 h-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   <p className="text-sm font-medium text-amber-100">
@@ -453,32 +453,32 @@ const ManualDistanceInput = ({ onCalculate }) => {
                   </p>
                 </div>
                 {fuelCost !== null && (
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="flex gap-2 items-center mt-1">
                     <p className="text-sm text-amber-100/90">
                       Costo combustible: <span className="font-semibold text-white">${fuelCost}</span>
                     </p>
-                    <label className="inline-flex cursor-pointer items-center gap-2">
-                      <div className="relative inline-flex h-5 w-9 items-center">
+                    <label className="inline-flex gap-2 items-center cursor-pointer">
+                      <div className="inline-flex relative items-center w-9 h-5">
                         <input
                           type="checkbox"
                           checked={roundTrip}
                           onChange={(e) => { setRoundTrip(e.target.checked); handleAddFuelToggle(addFuelToPrice); }}
-                          className="peer sr-only"
+                          className="sr-only peer"
                         />
-                        <div className="h-5 w-9 rounded-full bg-slate-600 transition peer-checked:bg-amber-500" />
+                        <div className="w-9 h-5 rounded-full transition bg-slate-600 peer-checked:bg-amber-500" />
                         <div className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
                       </div>
                       <span className="text-xs text-amber-200/80">Ida y vuelta</span>
                     </label>
-                    <label className="inline-flex cursor-pointer items-center gap-2">
-                      <div className="relative inline-flex h-5 w-9 items-center">
+                    <label className="inline-flex gap-2 items-center cursor-pointer">
+                      <div className="inline-flex relative items-center w-9 h-5">
                         <input
                           type="checkbox"
                           checked={addFuelToPrice}
                           onChange={(e) => handleAddFuelToggle(e.target.checked)}
-                          className="peer sr-only"
+                          className="sr-only peer"
                         />
-                        <div className="h-5 w-9 rounded-full bg-slate-600 transition peer-checked:bg-amber-500" />
+                        <div className="w-9 h-5 rounded-full transition bg-slate-600 peer-checked:bg-amber-500" />
                         <div className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
                       </div>
                       <span className="text-xs text-amber-200/80">Sumar al precio</span>
@@ -486,33 +486,33 @@ const ManualDistanceInput = ({ onCalculate }) => {
                   </div>
                 )}
                 {fuelCostMin !== null && fuelCostMax !== null && (
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="flex gap-2 items-center mt-1">
                     <p className="text-sm text-amber-100/90">
                       Costo combustible:{' '}
                       <span className="font-semibold text-white">${fuelCostMin} – ${fuelCostMax}</span>
                     </p>
-                    <label className="inline-flex cursor-pointer items-center gap-2">
-                      <div className="relative inline-flex h-5 w-9 items-center">
+                    <label className="inline-flex gap-2 items-center cursor-pointer">
+                      <div className="inline-flex relative items-center w-9 h-5">
                         <input
                           type="checkbox"
                           checked={roundTrip}
                           onChange={(e) => { setRoundTrip(e.target.checked); handleAddFuelToggle(addFuelToPrice); }}
-                          className="peer sr-only"
+                          className="sr-only peer"
                         />
-                        <div className="h-5 w-9 rounded-full bg-slate-600 transition peer-checked:bg-amber-500" />
+                        <div className="w-9 h-5 rounded-full transition bg-slate-600 peer-checked:bg-amber-500" />
                         <div className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
                       </div>
                       <span className="text-xs text-amber-200/80">Ida y vuelta</span>
                     </label>
-                    <label className="inline-flex cursor-pointer items-center gap-2">
-                      <div className="relative inline-flex h-5 w-9 items-center">
+                    <label className="inline-flex gap-2 items-center cursor-pointer">
+                      <div className="inline-flex relative items-center w-9 h-5">
                         <input
                           type="checkbox"
                           checked={addFuelToPrice}
                           onChange={(e) => handleAddFuelToggle(e.target.checked)}
-                          className="peer sr-only"
+                          className="sr-only peer"
                         />
-                        <div className="h-5 w-9 rounded-full bg-slate-600 transition peer-checked:bg-amber-500" />
+                        <div className="w-9 h-5 rounded-full transition bg-slate-600 peer-checked:bg-amber-500" />
                         <div className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
                       </div>
                       <span className="text-xs text-amber-200/80">Sumar al precio</span>
@@ -522,16 +522,16 @@ const ManualDistanceInput = ({ onCalculate }) => {
 
                 {/* Source indicator */}
                 {fuelSource && fuelSource !== 'Manual' && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+                  <div className="flex gap-2 items-center mt-2">
+                    <span className="inline-block w-2 h-2 bg-emerald-400 rounded-full" />
                     <span className="text-xs text-emerald-200/80">
                       Precio EIA — {fuelPaddRegions.join(' / ')}
                     </span>
                   </div>
                 )}
                 {fuelSource === 'Manual' && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="inline-block h-2 w-2 rounded-full bg-blue-300/40" />
+                  <div className="flex gap-2 items-center mt-2">
+                    <span className="inline-block w-2 h-2 rounded-full bg-blue-300/40" />
                     <span className="text-xs text-blue-200/60">
                       {fuelReason === 'no_key' && 'Precio manual — sin clave EIA configurada'}
                       {fuelReason === 'quota' && 'Precio manual — cuota EIA alcanzada'}
@@ -549,17 +549,17 @@ const ManualDistanceInput = ({ onCalculate }) => {
       </div>
 
       <div
-        className="rounded-2xl border border-white/10 bg-white/5 p-4"
+        className="p-4 rounded-2xl border border-white/10 bg-white/5"
         data-aos="fade-up"
         data-aos-delay="160"
       >
         <div className="flex">
           <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-blue-300" viewBox="0 0 20 20" fill="currentColor">
+            <svg className="w-5 h-5 text-blue-300" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
           </div>
-          <div className="ml-3 flex-1">
+          <div className="flex-1 ml-3">
             <p className="text-sm text-blue-100/80">
               {calculationType === 'combined' && 'Precio basado en distancia y tiempo de viaje.'}
               {calculationType === 'distance-only' && 'Precio basado solo en la distancia del viaje.'}
