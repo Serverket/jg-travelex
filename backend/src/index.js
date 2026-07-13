@@ -1017,7 +1017,15 @@ async function ensureSettingsRow() {
   if (!data) {
     const { error: upErr } = await supabase
       .from('company_settings')
-      .insert({ id, distance_rate: 1.5, duration_rate: 15 });
+      .insert({ 
+        id, 
+        distance_rate: 1.5, 
+        duration_rate: 15,
+        default_mpg: 35.00,
+        default_fuel_price: 4.00,
+        default_stop_interval_hours: 4.00,
+        preferred_stop_brands: 'Wawa, Racetrack, Circle K'
+      });
     if (upErr) throw upErr;
   }
   return id;
@@ -1029,11 +1037,19 @@ app.get('/settings', async (req, res) => {
     const id = await ensureSettingsRow();
     const { data, error } = await supabase
       .from('company_settings')
-      .select('id, distance_rate, duration_rate')
+      .select('*')
       .eq('id', id)
       .single();
     if (error) throw error;
-    res.json({ id: data.id, distance_rate: Number(data.distance_rate), duration_rate: Number(data.duration_rate) });
+    res.json({ 
+      id: data.id, 
+      distance_rate: Number(data.distance_rate), 
+      duration_rate: Number(data.duration_rate),
+      default_mpg: data.default_mpg !== undefined ? Number(data.default_mpg) : 35,
+      default_fuel_price: data.default_fuel_price !== undefined ? Number(data.default_fuel_price) : 4.00,
+      default_stop_interval_hours: data.default_stop_interval_hours !== undefined ? Number(data.default_stop_interval_hours) : 4.00,
+      preferred_stop_brands: data.preferred_stop_brands !== undefined ? String(data.preferred_stop_brands) : 'Wawa, Racetrack, Circle K'
+    });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -1047,14 +1063,44 @@ app.patch('/settings', requireAdmin, async (req, res) => {
       ...(req.body?.distance_rate !== undefined ? { distance_rate: Number(req.body.distance_rate) } : {}),
       ...(req.body?.duration_rate !== undefined ? { duration_rate: Number(req.body.duration_rate) } : {}),
     };
-    const { data, error } = await supabase
+    
+    const extraUpdates = {
+      ...(req.body?.default_mpg !== undefined ? { default_mpg: Number(req.body.default_mpg) } : {}),
+      ...(req.body?.default_fuel_price !== undefined ? { default_fuel_price: Number(req.body.default_fuel_price) } : {}),
+      ...(req.body?.default_stop_interval_hours !== undefined ? { default_stop_interval_hours: Number(req.body.default_stop_interval_hours) } : {}),
+      ...(req.body?.preferred_stop_brands !== undefined ? { preferred_stop_brands: String(req.body.preferred_stop_brands) } : {}),
+    };
+
+    let result = await supabase
       .from('company_settings')
-      .update(updates)
+      .update({ ...updates, ...extraUpdates })
       .eq('id', id)
-      .select('id, distance_rate, duration_rate')
-      .single();
-    if (error) throw error;
-    res.json({ id: data.id, distance_rate: Number(data.distance_rate), duration_rate: Number(data.duration_rate) });
+      .select('*')
+      .maybeSingle();
+
+    if (result.error) {
+      if (result.error.code === '42703') { // undefined_column error code in PG
+        console.warn('New company_settings columns not found in database. Retrying with basic columns only.');
+        result = await supabase
+          .from('company_settings')
+          .update(updates)
+          .eq('id', id)
+          .select('*')
+          .single();
+      }
+      if (result.error) throw result.error;
+    }
+
+    const data = result.data;
+    res.json({ 
+      id: data.id, 
+      distance_rate: Number(data.distance_rate), 
+      duration_rate: Number(data.duration_rate),
+      default_mpg: data.default_mpg !== undefined ? Number(data.default_mpg) : 35,
+      default_fuel_price: data.default_fuel_price !== undefined ? Number(data.default_fuel_price) : 4.00,
+      default_stop_interval_hours: data.default_stop_interval_hours !== undefined ? Number(data.default_stop_interval_hours) : 4.00,
+      preferred_stop_brands: data.preferred_stop_brands !== undefined ? String(data.preferred_stop_brands) : 'Wawa, Racetrack, Circle K'
+    });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
