@@ -55,6 +55,10 @@ export const AppProvider = ({ children }) => {
   const [rateSettings, setRateSettings] = useState({
     distanceRate: 1.5, // Tarifa por distancia
     durationRate: 15, // Tarifa por duración
+    defaultMpg: 35,
+    defaultFuelPrice: 4.00,
+    defaultStopIntervalHours: 4.00,
+    preferredStopBrands: 'Wawa, Racetrack, Circle K',
     surchargeFactors: [],
     discounts: []
   })
@@ -164,6 +168,10 @@ export const AppProvider = ({ children }) => {
         setRateSettings({
           distanceRate: settings.distance_rate || 1.5,
           durationRate: settings.duration_rate || 15,
+          defaultMpg: settings.default_mpg !== undefined ? settings.default_mpg : 35,
+          defaultFuelPrice: settings.default_fuel_price !== undefined ? settings.default_fuel_price : 4.00,
+          defaultStopIntervalHours: settings.default_stop_interval_hours !== undefined ? settings.default_stop_interval_hours : 4.00,
+          preferredStopBrands: settings.preferred_stop_brands !== undefined ? settings.preferred_stop_brands : 'Wawa, Racetrack, Circle K',
           surchargeFactors: surchargeFactors.map(sf => ({
             id: sf.id,
             name: sf.name,
@@ -198,7 +206,11 @@ export const AppProvider = ({ children }) => {
       // Actualizar configuraciones básicas en la API
       await settingsService.updateSettings({
         distance_rate: newSettings.distanceRate,
-        duration_rate: newSettings.durationRate
+        duration_rate: newSettings.durationRate,
+        default_mpg: newSettings.defaultMpg,
+        default_fuel_price: newSettings.defaultFuelPrice,
+        default_stop_interval_hours: newSettings.defaultStopIntervalHours,
+        preferred_stop_brands: newSettings.preferredStopBrands
       })
       
       // Actualizar estado local asegurando que todas las propiedades esenciales estén presentes
@@ -206,6 +218,10 @@ export const AppProvider = ({ children }) => {
         ...prev, // Mantener valores anteriores como fallback
         distanceRate: newSettings.distanceRate || prev.distanceRate,
         durationRate: newSettings.durationRate || prev.durationRate,
+        defaultMpg: newSettings.defaultMpg !== undefined ? newSettings.defaultMpg : prev.defaultMpg,
+        defaultFuelPrice: newSettings.defaultFuelPrice !== undefined ? newSettings.defaultFuelPrice : prev.defaultFuelPrice,
+        defaultStopIntervalHours: newSettings.defaultStopIntervalHours !== undefined ? newSettings.defaultStopIntervalHours : prev.defaultStopIntervalHours,
+        preferredStopBrands: newSettings.preferredStopBrands !== undefined ? newSettings.preferredStopBrands : prev.preferredStopBrands,
         // Asegurar que surchargeFactors y discounts siempre sean arrays
         surchargeFactors: Array.isArray(newSettings.surchargeFactors) 
           ? newSettings.surchargeFactors 

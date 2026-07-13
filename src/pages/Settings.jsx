@@ -22,6 +22,10 @@ const Settings = () => {
   const [editedSettings, setEditedSettings] = useState({
     distanceRate: 1.5,
     durationRate: 15,
+    defaultMpg: 35,
+    defaultFuelPrice: 4.00,
+    defaultStopIntervalHours: 4.00,
+    preferredStopBrands: 'Wawa, Racetrack, Circle K',
     surchargeFactors: [],
     discounts: []
   })
@@ -49,6 +53,10 @@ const Settings = () => {
       setEditedSettings({ 
         distanceRate: rateSettings.distanceRate || 1.5,
         durationRate: rateSettings.durationRate || 15,
+        defaultMpg: rateSettings.defaultMpg || 35,
+        defaultFuelPrice: rateSettings.defaultFuelPrice || 4.00,
+        defaultStopIntervalHours: rateSettings.defaultStopIntervalHours || 4.00,
+        preferredStopBrands: rateSettings.preferredStopBrands || 'Wawa, Racetrack, Circle K',
         surchargeFactors: rateSettings.surchargeFactors || [],
         discounts: rateSettings.discounts || [] 
       })
@@ -118,10 +126,14 @@ const Settings = () => {
       // Guardar cambios de tarifas base
       await updateRateSettings({
         distanceRate: parseFloat(editedSettings.distanceRate) || 0,
-        durationRate: parseFloat(editedSettings.durationRate) || 0
+        durationRate: parseFloat(editedSettings.durationRate) || 0,
+        defaultMpg: parseFloat(editedSettings.defaultMpg) || 0,
+        defaultFuelPrice: parseFloat(editedSettings.defaultFuelPrice) || 0,
+        defaultStopIntervalHours: parseFloat(editedSettings.defaultStopIntervalHours) || 0,
+        preferredStopBrands: String(editedSettings.preferredStopBrands || '')
       }).catch(err => {
         console.error('Error updating rate settings:', err)
-        throw new Error('Error al actualizar tarifas base')
+        throw new Error('Error al actualizar tarifas base y por defecto')
       })
       
       // Guardar cambios de factores de recargo
@@ -406,6 +418,85 @@ const Settings = () => {
             </button>
           </div>
 
+        </div>
+
+        <div
+          className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-2xl shadow-blue-500/10 backdrop-blur"
+          data-aos="fade-up"
+          data-aos-delay="100"
+        >
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-white">Combustible y Paradas por Defecto</h2>
+            <p className="mt-1 text-sm text-blue-100/70">Configure las variables de rendimiento de combustible e intervalos sugeridos de descanso para viajes largos.</p>
+          </div>
+
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="defaultMpg" className="block text-sm font-semibold text-blue-100/80">Rendimiento (MPG)</label>
+                <input
+                  type="number"
+                  id="defaultMpg"
+                  name="defaultMpg"
+                  value={editedSettings.defaultMpg ?? ''}
+                  onChange={(e) => setEditedSettings(prev => ({ ...prev, defaultMpg: parseFloat(e.target.value) || 0 }))}
+                  min="1"
+                  step="0.1"
+                  className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="defaultFuelPrice" className="block text-sm font-semibold text-blue-100/80">Precio Gasolina ($/Gal)</label>
+                <input
+                  type="number"
+                  id="defaultFuelPrice"
+                  name="defaultFuelPrice"
+                  value={editedSettings.defaultFuelPrice ?? ''}
+                  onChange={(e) => setEditedSettings(prev => ({ ...prev, defaultFuelPrice: parseFloat(e.target.value) || 0 }))}
+                  min="0"
+                  step="0.01"
+                  className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="defaultStopIntervalHours" className="block text-sm font-semibold text-blue-100/80">Intervalo de Paradas (Horas)</label>
+              <input
+                type="number"
+                id="defaultStopIntervalHours"
+                name="defaultStopIntervalHours"
+                value={editedSettings.defaultStopIntervalHours ?? ''}
+                onChange={(e) => setEditedSettings(prev => ({ ...prev, defaultStopIntervalHours: parseFloat(e.target.value) || 0 }))}
+                min="1"
+                max="24"
+                step="0.5"
+                className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="preferredStopBrands" className="block text-sm font-semibold text-blue-100/80">Marcas de Paradas Preferidas</label>
+              <input
+                type="text"
+                id="preferredStopBrands"
+                name="preferredStopBrands"
+                value={editedSettings.preferredStopBrands ?? ''}
+                onChange={(e) => setEditedSettings(prev => ({ ...prev, preferredStopBrands: e.target.value }))}
+                placeholder="Ej. Wawa, Racetrack, Circle K"
+                className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+
+            <button
+              onClick={saveSettings}
+              disabled={localLoading || isLoading}
+              className="w-full rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/50"
+            >
+              {(localLoading || isLoading) ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          </div>
         </div>
 
         <div

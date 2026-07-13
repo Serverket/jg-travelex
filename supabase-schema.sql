@@ -40,6 +40,10 @@ CREATE TABLE IF NOT EXISTS company_settings (
     fuel_surcharge_percent DECIMAL(5, 2) DEFAULT 10.00,
     tax_rate DECIMAL(5, 2) DEFAULT 8.00,
     min_trip_charge DECIMAL(10, 2) DEFAULT 5.00,
+    default_mpg DECIMAL(10, 2) DEFAULT 35.00,
+    default_fuel_price DECIMAL(10, 2) DEFAULT 4.00,
+    default_stop_interval_hours DECIMAL(10, 2) DEFAULT 4.00,
+    preferred_stop_brands VARCHAR(255) DEFAULT 'Wawa, Racetrack, Circle K',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -700,3 +704,13 @@ ALTER TABLE api_usage_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Authenticated users can select api_usage_logs" ON api_usage_logs;
 CREATE POLICY "Authenticated users can select api_usage_logs" ON api_usage_logs
     FOR SELECT USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Service role can insert api_usage_logs" ON api_usage_logs;
+CREATE POLICY "Service role can insert api_usage_logs" ON api_usage_logs
+    FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admins can delete api_usage_logs" ON api_usage_logs;
+CREATE POLICY "Admins can delete api_usage_logs" ON api_usage_logs
+    FOR DELETE USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+    );

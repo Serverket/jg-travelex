@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import OpenStreetPlaceSearch from './OpenStreetPlaceSearch'
 import { fetchRouteFuelPrices } from '../services/fuelPriceService'
 import { useEiaQuota } from '../hooks/useEiaQuota'
+import { useAppContext } from '../context/AppContext'
 
 const tabs = [
   { id: 'combined', label: 'Distancia + Tiempo', description: 'Precio basado en distancia y duración del viaje.' },
@@ -9,7 +10,8 @@ const tabs = [
   { id: 'duration-only', label: 'Solo Tiempo', description: 'Precio basado solo en el tiempo estimado.' }
 ]
 
-const ManualDistanceInput = ({ onCalculate }) => {
+const ManualDistanceInput = ({ onCalculate, currentUser }) => {
+  const { rateSettings } = useAppContext()
   const [calculationType, setCalculationType] = useState('combined')
   const [errors, setErrors] = useState({})
 
@@ -17,17 +19,25 @@ const ManualDistanceInput = ({ onCalculate }) => {
   const [fuelEnabled, setFuelEnabled] = useState(false)
   const [roundTrip, setRoundTrip] = useState(true)
   const [addFuelToPrice, setAddFuelToPrice] = useState(false)
-  const [mpg, setMpg] = useState(38)
-  const [fuelPricePerGallon, setFuelPricePerGallon] = useState(3.50)
+  const [mpg, setMpg] = useState(35)
+  const [fuelPricePerGallon, setFuelPricePerGallon] = useState(4.00)
   const [fuelGallons, setFuelGallons] = useState(null)
   const [fuelCost, setFuelCost] = useState(null)
   const [fuelCostMin, setFuelCostMin] = useState(null)
   const [fuelCostMax, setFuelCostMax] = useState(null)
-  const [fuelSource, setFuelSource] = useState('')
+  const [fuelSource, setFuelSource] = useState('Manual')
   const [fuelPaddRegions, setFuelPaddRegions] = useState([])
   const [fuelReason, setFuelReason] = useState(null)
   const [isLoadingFuel, setIsLoadingFuel] = useState(false)
   const eiaQuota = useEiaQuota()
+
+  // Load defaults from rateSettings when loaded
+  useEffect(() => {
+    if (rateSettings) {
+      if (rateSettings.defaultMpg) setMpg(rateSettings.defaultMpg)
+      if (rateSettings.defaultFuelPrice) setFuelPricePerGallon(rateSettings.defaultFuelPrice)
+    }
+  }, [rateSettings])
 
   const [combinedState, setCombinedState] = useState({
     origin: null,
@@ -173,7 +183,7 @@ const ManualDistanceInput = ({ onCalculate }) => {
       setFuelCost(null)
       setFuelCostMin(null)
       setFuelCostMax(null)
-      setFuelSource('')
+      setFuelSource('Manual')
       setFuelPaddRegions([])
       setFuelReason(null)
       return
@@ -182,63 +192,46 @@ const ManualDistanceInput = ({ onCalculate }) => {
     const gallons = (Number(distance) / Number(mpg)) * (roundTrip ? 2 : 1)
     setFuelGallons(gallons.toFixed(2))
 
-    const computeCost = async () => {
-      setIsLoadingFuel(true)
-      try {
-        const originAddr = origin?.address || origin?.display_name || origin?.description || ''
-        const destAddr = destination?.address || destination?.display_name || destination?.description || ''
+    const manualPrice = Number(fuelPricePerGallon) || 4.00
+    setFuelCost((gallons * manualPrice).toFixed(2))
+    setFuelCostMin(null)
+    setFuelCostMax(null)
+  }, [fuelEnabled, distance, mpg, fuelPricePerGallon, roundTrip])
 
-        if (originAddr && destAddr) {
-          const quotaStatus = eiaQuota.getStatus()
-          if (quotaStatus.used < quotaStatus.limit) {
-            const result = await fetchRouteFuelPrices(originAddr, destAddr)
-            eiaQuota.increment()
-            setFuelPaddRegions(result.paddRegions || [])
-            setFuelReason(result.reason)
-            if (result.price !== null) {
-              setFuelCost((gallons * result.price).toFixed(2))
-              setFuelCostMin(null)
-              setFuelCostMax(null)
-              setFuelSource(result.source)
-              setFuelPricePerGallon(result.price)
-              setIsLoadingFuel(false)
-              return
-            }
-            if (result.priceMin !== null && result.priceMax !== null) {
-              setFuelCost(null)
-              setFuelCostMin((gallons * result.priceMin).toFixed(2))
-              setFuelCostMax((gallons * result.priceMax).toFixed(2))
-              setFuelSource(result.source)
-              setFuelPricePerGallon((result.priceMin + result.priceMax) / 2)
-              setIsLoadingFuel(false)
-              return
-            }
-          }
+  const handleFetchEiaPrices = async () => {
+    if (!distance || Number(distance) <= 0) return
+    const originAddr = origin?.address || origin?.display_name || origin?.description || ''
+    const destAddr = destination?.address || destination?.display_name || destination?.description || ''
+    if (!originAddr || !destAddr) return
+
+    setIsLoadingFuel(true)
+    setFuelReason(null)
+    try {
+      const quotaStatus = eiaQuota.getStatus()
+      if (quotaStatus.used < quotaStatus.limit) {
+        const result = await fetchRouteFuelPrices(originAddr, destAddr)
+        eiaQuota.increment()
+        setFuelPaddRegions(result.paddRegions || [])
+        setFuelReason(result.reason)
+        if (result.price !== null) {
+          setFuelPricePerGallon(result.price)
+          setFuelSource(result.source)
+        } else if (result.priceMin !== null && result.priceMax !== null) {
+          setFuelPricePerGallon(Number(((result.priceMin + result.priceMax) / 2).toFixed(2)))
+          setFuelSource(result.source)
+        } else {
+          setFuelReason('api_error')
         }
-
-        // Fallback to manual price
-        setFuelPaddRegions([])
-        setFuelReason('api_error')
-        const manualPrice = Number(fuelPricePerGallon) || 3.50
-        setFuelCost((gallons * manualPrice).toFixed(2))
-        setFuelCostMin(null)
-        setFuelCostMax(null)
-        setFuelSource('Manual')
-      } catch (err) {
-        console.error('Fuel calculation error:', err)
-        setFuelPaddRegions([])
-        setFuelReason('network')
-        const manualPrice = Number(fuelPricePerGallon) || 3.50
-        setFuelCost((gallons * manualPrice).toFixed(2))
-        setFuelSource('Manual')
-      } finally {
-        setIsLoadingFuel(false)
+      } else {
+        setFuelReason('quota_exceeded')
       }
+    } catch (err) {
+      console.error('EIA price fetch error:', err)
+      setFuelReason('network')
+    } finally {
+      setIsLoadingFuel(false)
     }
-
-    computeCost()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fuelEnabled, distance, mpg, fuelPricePerGallon, origin, destination, roundTrip])
+  }
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -372,7 +365,8 @@ const ManualDistanceInput = ({ onCalculate }) => {
         </div>
       )}
 
-      {/* Fuel Toggle */}
+      {/* Fuel Toggle - Admin Only */}
+      {currentUser?.role === 'admin' && (
       <div className="p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5">
         <label className="flex gap-3 items-center cursor-pointer">
           <div className="inline-flex relative items-center w-11 h-6">
@@ -419,16 +413,26 @@ const ManualDistanceInput = ({ onCalculate }) => {
                     </span>
                   )}
                 </label>
-                <input
-                  type="number"
-                  id="manual-fuel-price"
-                  value={fuelPricePerGallon || ''}
-                  onChange={(e) => setFuelPricePerGallon(Number(e.target.value))}
-                  disabled={isLoadingFuel}
-                  min="0"
-                  step="0.01"
-                  className="px-3 py-2 w-full text-sm text-white rounded-xl border border-white/15 bg-white/5 placeholder:text-blue-200/60 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    id="manual-fuel-price"
+                    value={fuelPricePerGallon || ''}
+                    onChange={(e) => setFuelPricePerGallon(Number(e.target.value))}
+                    disabled={isLoadingFuel}
+                    min="0"
+                    step="0.01"
+                    className="px-3 py-2 w-full text-sm text-white rounded-xl border border-white/15 bg-white/5 placeholder:text-blue-200/60 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleFetchEiaPrices}
+                    disabled={isLoadingFuel || !distance || Number(distance) <= 0}
+                    className="px-3 py-2 text-xs font-semibold text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    Consultar EIA
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -547,6 +551,7 @@ const ManualDistanceInput = ({ onCalculate }) => {
           </div>
         )}
       </div>
+      )}
 
       <div
         className="p-4 rounded-2xl border border-white/10 bg-white/5"

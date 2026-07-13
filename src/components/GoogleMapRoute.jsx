@@ -12,7 +12,7 @@ const mapOptions = {
   fullscreenControl: true,
 }
 
-const GoogleMapRoute = ({ origin, destination, path }) => {
+const GoogleMapRoute = ({ origin, destination, path, stops }) => {
   const mapRef = useRef(null)
   const prevPathRef = useRef(null)
 
@@ -32,10 +32,13 @@ const GoogleMapRoute = ({ origin, destination, path }) => {
       path.forEach((point) => bounds.extend(point))
       if (origin) bounds.extend({ lat: origin.lat, lng: origin.lng })
       if (destination) bounds.extend({ lat: destination.lat, lng: destination.lng })
+      if (stops && stops.length > 0) {
+        stops.forEach((stop) => bounds.extend({ lat: stop.lat, lng: stop.lng }))
+      }
       mapRef.current.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 })
       prevPathRef.current = path.map((p) => ({ lat: p.lat, lng: p.lng }))
     }
-  }, [path, origin, destination])
+  }, [path, origin, destination, stops])
 
   const handleLoad = (map) => {
     mapRef.current = map
@@ -64,6 +67,23 @@ const GoogleMapRoute = ({ origin, destination, path }) => {
             label="B"
           />
         )}
+        {stops && stops.map((stop, i) => (
+          <Marker
+            key={`stop-${i}`}
+            position={{ lat: stop.lat, lng: stop.lng }}
+            title={stop.name}
+            label={{
+              text: (i + 1).toString(),
+              color: '#000000',
+              fontWeight: 'bold',
+              fontSize: '11px'
+            }}
+            icon={window.google?.maps ? {
+              url: 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png',
+              labelOrigin: new window.google.maps.Point(15, 10)
+            } : 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png'}
+          />
+        ))}
         {path && path.length > 0 && (
           <Polyline
             path={path}
