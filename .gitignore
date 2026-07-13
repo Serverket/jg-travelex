@@ -67,3 +67,6 @@ yarn-error.log*
 
 # Testing
 /coverage
+
+# Migration files with credentials (security)
+MIGRATION-COMPLETE.sql

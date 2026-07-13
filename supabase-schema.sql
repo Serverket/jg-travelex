@@ -48,6 +48,12 @@ CREATE TABLE IF NOT EXISTS company_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Backfill company_settings columns for existing deployments
+ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS default_mpg DECIMAL(10, 2) DEFAULT 35.00;
+ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS default_fuel_price DECIMAL(10, 2) DEFAULT 4.00;
+ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS default_stop_interval_hours DECIMAL(10, 2) DEFAULT 4.00;
+ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS preferred_stop_brands VARCHAR(255) DEFAULT 'Wawa, Racetrack, Circle K';
+
 -- Surcharge Factors table with conditions
 CREATE TABLE IF NOT EXISTS surcharge_factors (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -684,14 +690,14 @@ CREATE INDEX IF NOT EXISTS idx_api_usage_logs_created ON api_usage_logs(created_
 
 -- RPC function for efficient usage stats aggregation
 CREATE OR REPLACE FUNCTION public.get_api_usage_stats()
-RETURNS TABLE(service VARCHAR, today_count BIGINT, total_count BIGINT)
+RETURNS TABLE(service VARCHAR(30), today_count BIGINT, total_count BIGINT)
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        api_usage_logs.service,
+        api_usage_logs.service::VARCHAR(30) AS service,
         COUNT(*) FILTER (WHERE api_usage_logs.created_at >= CURRENT_DATE)::BIGINT AS today_count,
         COUNT(*)::BIGINT AS total_count
     FROM api_usage_logs
@@ -714,3 +720,6 @@ CREATE POLICY "Admins can delete api_usage_logs" ON api_usage_logs
     FOR DELETE USING (
         EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
     );
+
+-- Note: After running this schema, create your admin user manually
+-- See migration docs for instructions (not included in repo for security)
