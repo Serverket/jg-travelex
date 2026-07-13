@@ -14,36 +14,56 @@ import { useToast } from '../context/ToastContext'
 
 const GOOGLE_MAP_LIBRARIES = ['places', 'geometry']
 
+// Buscar paradas (estaciones de servicio) cercanas a un punto usando Google Places API
 const searchNearbyStops = (location) => {
   return new Promise((resolve) => {
     if (!window.google?.maps?.places) {
+      console.warn('Google Maps Places library not available')
+      window.lastSearchStatus = 'LIBRARY_NOT_AVAILABLE'
       resolve([])
       return
     }
-    const service = new window.google.maps.places.PlacesService(document.createElement('div'))
-    service.nearbySearch({
-      location: location,
-      radius: 15000, // 15 km
-      type: ['gas_station']
-    }, (results, status) => {
-      if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
-        resolve(results)
-      } else {
-        resolve([])
-      }
-    })
+    try {
+      const dummy = document.createElement('div')
+      const service = new window.google.maps.places.PlacesService(dummy)
+      service.nearbySearch(
+        {
+          location: location,
+          radius: 24140, // ~15 millas en metros
+          type: 'gas_station'
+        },
+        (results, status) => {
+          window.lastSearchStatus = status
+          window.lastSearchResultsCount = results ? results.length : 0
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
+            resolve(results)
+          } else {
+            console.warn('Nearby search failed with status:', status)
+            resolve([])
+          }
+        }
+      )
+    } catch (err) {
+      console.error('Error in searchNearbyStops:', err)
+      window.lastSearchStatus = 'ERROR: ' + err.message
+      resolve([])
+    }
   })
 }
 
-const getStopPriority = (name) => {
+const getStopPriority = (name, preferredBrandsString = 'Wawa, Racetrack, Circle K') => {
   const n = name.toLowerCase()
-  if (n.includes('wawa') || n.includes('racetrack') || n.includes('race trac')) {
-    return 1
+  const brands = preferredBrandsString
+    .split(',')
+    .map(b => b.trim().toLowerCase())
+    .filter(Boolean)
+
+  for (let i = 0; i < brands.length; i++) {
+    if (n.includes(brands[i])) {
+      return i + 1
+    }
   }
-  if (n.includes('circle k') || n.includes('circlek')) {
-    return 2
-  }
-  return 3
+  return brands.length + 1
 }
 
 const DistanceCalculator = () => {
@@ -56,7 +76,7 @@ const DistanceCalculator = () => {
   const toast = useToast()
   // Ensure we have a user reference
   const activeUser = currentUser
-  const [_rateSettings, setRateSettings] = useState(null)
+  const [rateSettings, setRateSettings] = useState(null)
   const [surchargeFactors, setSurchargeFactors] = useState([])
   const [discounts, setDiscounts] = useState([])
 
@@ -103,6 +123,26 @@ const DistanceCalculator = () => {
     : null
 
   const googleMapsApiKeyAvailable = Boolean(googleMapsApiKey)
+
+  // Manejar errores no capturados de Google Maps
+  useEffect(() => {
+    const handleUnhandledRejection = (event) => {
+      // Suprimir errores de Google Maps Places API que son internos
+      if (event.reason && event.reason.message && 
+          (event.reason.message.includes('places') || 
+           event.reason.message.includes('PlacesService') ||
+           event.reason.message.includes('nearbySearch'))) {
+        event.preventDefault()
+        console.warn('Error de Google Places API capturado y suprimido:', event.reason.message)
+      }
+    }
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection)
+    
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+    }
+  }, [])
 
   // Load settings on mount
   useEffect(() => {
@@ -213,7 +253,7 @@ const DistanceCalculator = () => {
             const rawResults = await searchNearbyStops(stopLatLng)
             const processed = rawResults.map(r => {
               const dist = window.google.maps.geometry.spherical.computeDistanceBetween(stopLatLng, r.geometry.location)
-              const priority = getStopPriority(r.name)
+              const priority = getStopPriority(r.name, rateSettings?.preferred_stop_brands)
               return {
                 name: r.name,
                 address: r.vicinity || r.formatted_address || '',
@@ -615,6 +655,10 @@ const DistanceCalculator = () => {
     }
   }
 
+  const preferredBrandsList = rateSettings?.preferred_stop_brands
+    ? rateSettings.preferred_stop_brands.split(',').map(b => b.trim())
+    : ['Wawa', 'Racetrack', 'Circle K']
+
   return (
     <div className="space-y-10 text-blue-100/90">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -785,15 +829,15 @@ const DistanceCalculator = () => {
           {/* Planificador de Paradas Sugeridas */}
           {Number(duration) >= 4 && (stops.length > 0 || isLoadingStops) && (
             <div className={`p-5 mt-6 ${subtlePanelClass}`}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-md text-amber-200">Planificador de Paradas</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-amber-200 text-md">Planificador de Paradas</h3>
                 <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-medium text-amber-300">
                   Viaje Largo ({stops.length} {stops.length === 1 ? 'parada' : 'paradas'})
                 </span>
               </div>
               
               <div className="mb-4">
-                <label htmlFor="stop-interval" className="block text-xs font-medium text-blue-200/80 mb-1">
+                <label htmlFor="stop-interval" className="block mb-1 text-xs font-medium text-blue-200/80">
                   Intervalo de paradas: <span className="font-semibold text-white">{stopInterval} horas</span>
                 </label>
                 <input
@@ -814,8 +858,8 @@ const DistanceCalculator = () => {
               </div>
 
               {isLoadingStops ? (
-                <div className="flex flex-col items-center justify-center py-8 text-xs text-amber-200/70">
-                  <svg className="animate-spin h-6 w-6 text-amber-300 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <div className="flex flex-col justify-center items-center py-8 text-xs text-amber-200/70">
+                  <svg className="mb-2 w-6 h-6 text-amber-300 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
@@ -825,8 +869,8 @@ const DistanceCalculator = () => {
                 <>
                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
                     {stops.map((stop, index) => (
-                      <div key={index} className="rounded-xl border border-white/5 bg-white/5 p-3 relative">
-                        <div className="flex items-start justify-between">
+                      <div key={index} className="relative p-3 rounded-xl border border-white/5 bg-white/5">
+                        <div className="flex justify-between items-start">
                           <div className="flex gap-2">
                             <div className="w-5 h-5 flex items-center justify-center rounded-full bg-amber-500 text-[11px] font-bold text-slate-900 mt-0.5">
                               {index + 1}
@@ -835,19 +879,18 @@ const DistanceCalculator = () => {
                               <p className="text-xs font-semibold text-amber-200">
                                 Parada sugerida {index + 1} (~{stop.hoursFromStart}h)
                               </p>
-                              <p className="text-sm font-medium text-white mt-1">{stop.name}</p>
+                              <p className="mt-1 text-sm font-medium text-white">{stop.name}</p>
                               <p className="text-xs text-blue-200/70 mt-0.5">{stop.address}</p>
                             </div>
                           </div>
                           
-                          {stop.priority === 1 && (
+                          {stop.priority <= preferredBrandsList.length ? (
                             <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-[9px] font-medium text-emerald-300">
-                              Preferida
+                              {preferredBrandsList[stop.priority - 1]}
                             </span>
-                          )}
-                          {stop.priority === 2 && (
-                            <span className="inline-flex items-center rounded-full bg-blue-500/20 px-2 py-0.5 text-[9px] font-medium text-blue-300">
-                              Circle K
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-medium text-blue-200/60">
+                              Estación
                             </span>
                           )}
                         </div>
@@ -875,13 +918,18 @@ const DistanceCalculator = () => {
                                   })
                                 }
                               }}
-                              className="w-full text-xs text-blue-100 rounded-lg border border-white/10 bg-slate-900 px-2 py-1 focus:border-amber-400 focus:outline-none"
+                              className="px-2 py-1 w-full text-xs text-blue-100 rounded-lg border border-white/10 bg-slate-900 focus:border-amber-400 focus:outline-none"
                             >
-                              {stopOptionsMap[index].map((opt, oIdx) => (
-                                <option key={oIdx} value={`${opt.lat},${opt.lng}`}>
-                                  {opt.name} ({opt.priority === 1 ? '★ Wawa/Racetrack' : opt.priority === 2 ? 'Circle K' : 'Estación'}) - {(opt.distance / 1609.34).toFixed(1)}mi
-                                </option>
-                              ))}
+                              {stopOptionsMap[index].map((opt, oIdx) => {
+                                const brandLabel = opt.priority <= preferredBrandsList.length
+                                  ? `★ ${preferredBrandsList[opt.priority - 1]}`
+                                  : 'Estación'
+                                return (
+                                  <option key={oIdx} value={`${opt.lat},${opt.lng}`}>
+                                    {opt.name} ({brandLabel}) - {(opt.distance / 1609.34).toFixed(1)}mi
+                                  </option>
+                                )
+                              })}
                             </select>
                           </div>
                         )}
