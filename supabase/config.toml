@@ -1,16 +1,35 @@
-
 [functions.hello-world]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/hello-world/deno.json"
 entrypoint = "./functions/hello-world/index.ts"
 
 [functions.google-maps-proxy]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 entrypoint = "./functions/google-maps-proxy/index.ts"
 
 [functions.log-api-call]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 entrypoint = "./functions/log-api-call/index.ts"
+
+[functions.pricing-quote]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/pricing-quote/index.ts"
+
+[functions.places-search]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/places-search/index.ts"
+
+[functions.weather]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/weather/index.ts"
+
+[functions.admin-users]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/admin-users/index.ts"

@@ -86,12 +86,15 @@ try {
   // ---------- bump versions ----------
   const versionFiles = [
     { path: 'package.json', type: 'json' },
-    { path: 'backend/package.json', type: 'json' },
     { path: 'public/manifest.json', type: 'json' }
   ]
 
   versionFiles.forEach(({ path: filePath }) => {
     const fullPath = path.join(rootDir, filePath)
+    if (!fs.existsSync(fullPath)) {
+      console.log(`Skipped ${filePath} (not found)`)
+      return
+    }
     const data = readJSON(fullPath)
     if (data.version) {
       data.version = version

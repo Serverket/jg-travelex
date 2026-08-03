@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../services/supabase'
+import { backendService } from '../services/backendService'
 
 export function useApiUsageLogs() {
   const [stats, setStats] = useState({
@@ -12,7 +12,7 @@ export function useApiUsageLogs() {
   const fetchStats = useCallback(async () => {
     setStats((prev) => ({ ...prev, loading: true, error: null }))
     try {
-      const { data, error } = await supabase.rpc('get_api_usage_stats')
+      const { data, error } = await backendService.rpc('get_api_usage_stats')
       if (error) throw error
 
       const today = {}
@@ -33,11 +33,7 @@ export function useApiUsageLogs() {
 
   const resetService = useCallback(async (service) => {
     try {
-      const { error } = await supabase
-        .from('api_usage_logs')
-        .delete()
-        .eq('service', service)
-      if (error) throw error
+      await backendService.resetApiUsageLogs(service)
       await fetchStats()
     } catch (err) {
       console.error('Failed to reset API usage:', err)

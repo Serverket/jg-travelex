@@ -7,20 +7,22 @@
  * Key: VITE_CIE_FU (obfuscated name)
  */
 
+import { backendService } from './backendService'
+
 const EIA_BASE = 'https://api.eia.gov/v2'
 const API_KEY = import.meta.env.VITE_CIE_FU
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 async function logApiCall(service) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return
   try {
-    await fetch(`${SUPABASE_URL}/functions/v1/log-api-call`, {
+    const session = await backendService.getSession()
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL
+    const headers = { 'Content-Type': 'application/json' }
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`
+    }
+    await fetch(`${supabaseUrl}/functions/v1/log-api-call`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      },
+      headers,
       body: JSON.stringify({ service }),
     })
   } catch (err) {

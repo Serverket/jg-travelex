@@ -1,12 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase environment variables');
-}
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tejgmcclyoyojpkggooy.supabase.co';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_3kxR36ryr3a2suoH8q5UPg_x0VwjG1V';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -126,6 +122,20 @@ export const supabaseService = {
     }
   },
 
+  async deleteProfile(userId) {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Delete profile failed: ${error.message}`);
+    }
+  },
+
   async getAllProfiles() {
     try {
       const { data, error } = await supabase
@@ -195,11 +205,8 @@ export const supabaseService = {
         `)
         .order('trip_date', { ascending: false });
 
-      if (filters.userId) {
-        query = query.eq('user_id', filters.userId);
-      }
-      if (filters.status) {
-        query = query.eq('status', filters.status);
+      if (filters.userId || filters.user_id) {
+        query = query.eq('user_id', filters.userId || filters.user_id);
       }
       if (filters.dateFrom) {
         query = query.gte('trip_date', filters.dateFrom);
@@ -312,8 +319,8 @@ export const supabaseService = {
         `)
         .order('created_at', { ascending: false });
 
-      if (filters.userId) {
-        query = query.eq('user_id', filters.userId);
+      if (filters.userId || filters.user_id) {
+        query = query.eq('user_id', filters.userId || filters.user_id);
       }
       if (filters.status) {
         query = query.eq('status', filters.status);
@@ -435,6 +442,20 @@ export const supabaseService = {
     }
   },
 
+  async deleteOrderItem(itemId) {
+    try {
+      const { error } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Delete order item failed: ${error.message}`);
+    }
+  },
+
   // Invoices
   async getInvoices(filters = {}) {
     try {
@@ -466,6 +487,9 @@ export const supabaseService = {
       }
       if (filters.orderId) {
         query = query.eq('order_id', filters.orderId);
+      }
+      if (filters.userId || filters.user_id) {
+        query = query.eq('orders.user_id', filters.userId || filters.user_id);
       }
       if (filters.invoiceNumber) {
         query = query.eq('invoice_number', filters.invoiceNumber);

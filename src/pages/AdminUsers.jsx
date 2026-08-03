@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { adminService } from '../services/adminService'
 import { useToast } from '../context/ToastContext'
 import { useAppContext } from '../context/AppContext'
+import { backendService } from '../services/backendService'
 
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Administrador' },
@@ -10,9 +11,11 @@ const ROLE_OPTIONS = [
 ]
 
 const AVAILABLE_FEATURES = [
+  { value: 'dashboard', label: 'Panel' },
   { value: 'calculator', label: 'Calculadora' },
   { value: 'orders', label: 'Órdenes' },
   { value: 'invoices', label: 'Facturas' },
+  { value: 'tracking', label: 'Seguimiento' },
   { value: 'settings', label: 'Configuración' },
   { value: 'admin_users', label: 'Panel de usuarios' }
 ]
@@ -90,6 +93,19 @@ const AdminUsers = () => {
 
   useEffect(() => {
     loadUsers()
+
+    // Realtime subscription for profile changes across sessions
+    const channel = backendService
+      .createChannel('admin-profiles-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        loadUsers()
+        refreshCurrentUser().catch(() => {})
+      })
+      .subscribe()
+
+    return () => {
+      backendService.removeChannel(channel)
+    }
   }, [])
 
   const resetForm = () => {
@@ -178,20 +194,21 @@ const AdminUsers = () => {
 
       if (editingUser) {
         const updated = await adminService.updateUser(editingUser.id, payload)
-        setUsers(prev => prev.map(u => (u.id === updated.id ? updated : u)))
+        const updatedId = updated?.id || editingUser.id
+        setUsers(prev => prev.map(u => (u.id === updatedId ? { ...u, ...updated, id: updatedId } : u)))
         toast.success('Usuario actualizado correctamente')
-        if (editingUser.id === currentUser?.id) {
-          refreshCurrentUser()
-        }
+        await refreshCurrentUser()
       } else {
         const created = await adminService.createUser(payload)
         const { tempPassword, ...profile } = created
-        setUsers(prev => [profile, ...prev])
+        const newProfile = { ...profile, id: profile?.id || created?.id }
+        setUsers(prev => [newProfile, ...prev])
         if (tempPassword) {
           toast.info(`Contraseña temporal: ${tempPassword}`, { title: 'Usuario creado' })
         } else {
           toast.success('Usuario creado correctamente')
         }
+        await refreshCurrentUser()
       }
 
       closeDialog()

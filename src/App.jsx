@@ -6,6 +6,8 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import DistanceCalculator from './pages/DistanceCalculator'
 import Invoices from './pages/Invoices'
+import Orders from './pages/Orders'
+import TripTracking from './pages/TripTracking'
 import Settings from './pages/Settings'
 import AdminUsers from './pages/AdminUsers'
 import AccessDenied from './pages/AccessDenied'
@@ -100,6 +102,14 @@ function AppRoutes() {
         <Route 
           path="/invoices" 
           element={guard('invoices', Invoices)} 
+        />
+        <Route
+          path="/orders"
+          element={guard('orders', Orders)}
+        />
+        <Route
+          path="/tracking"
+          element={guard('tracking', TripTracking)}
         />
         <Route 
           path="/settings" 

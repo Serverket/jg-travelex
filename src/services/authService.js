@@ -2,6 +2,7 @@
  * Authentication service for handling user login/logout
  */
 import { supabaseService } from './supabase';
+import { backendService } from './backendService';
 
 // Session storage key constants
 const USER_KEY = 'travelex_user';
@@ -15,7 +16,7 @@ export const authService = {
    * @returns {Promise<object>} - Login response with user data
    */
   async login(email, password) {
-    const response = await supabaseService.signIn(email, password);
+    const response = await backendService.signIn(email, password);
     
     const profileData = response.profile || {};
     const combinedUser = {
@@ -32,7 +33,7 @@ export const authService = {
 
     if (isInactive || isExpired) {
       try {
-        await supabaseService.signOut();
+        await backendService.signOut();
       } catch (_signOutError) {
         // Ignore sign-out failures; we'll still clear local storage below.
       }
@@ -65,7 +66,7 @@ export const authService = {
   },
 
   async register(email, password, fullName, username) {
-    const response = await supabaseService.signUp(email, password, {
+    const response = await backendService.signUp(email, password, {
       full_name: fullName,
       username: username
     });
@@ -82,7 +83,7 @@ export const authService = {
   async logout() {
     let signOutError;
     try {
-      await supabaseService.signOut();
+      await backendService.signOut();
     } catch (error) {
       signOutError = error;
     } finally {
@@ -100,7 +101,7 @@ export const authService = {
   async getCurrentUser() {
     try {
       // First check if we have a session
-      const session = await supabaseService.getSession();
+      const session = await backendService.getSession();
       if (!session) {
         localStorage.removeItem(USER_KEY);
         localStorage.removeItem(SESSION_KEY);
@@ -108,7 +109,7 @@ export const authService = {
       }
 
       // Get the current user from Supabase Auth
-      const user = await supabaseService.getUser();
+      const user = await backendService.getUser();
       if (!user) {
         localStorage.removeItem(USER_KEY);
         localStorage.removeItem(SESSION_KEY);
@@ -116,7 +117,7 @@ export const authService = {
       }
 
       // Get the user profile
-      const profile = await supabaseService.getProfile(user.id);
+      const profile = await backendService.getProfile(user.id);
       
       const userData = {
         id: user.id,
@@ -150,7 +151,7 @@ export const authService = {
 
   async refreshSession() {
     try {
-      const session = await supabaseService.getSession();
+      const session = await backendService.getSession();
       if (session) {
         localStorage.setItem(SESSION_KEY, JSON.stringify(session));
         return true;
@@ -168,7 +169,7 @@ export const authService = {
       throw new Error('User not authenticated');
     }
 
-    const updatedProfile = await supabaseService.updateProfile(user.id, updates);
+    const updatedProfile = await backendService.updateProfile(user.id, updates);
     
     // Update cached user data
     const userData = {
@@ -181,11 +182,11 @@ export const authService = {
   },
 
   async getAllProfiles() {
-    return await supabaseService.getAllProfiles();
+    return await backendService.getAllProfiles();
   },
 
   async getProfile(userId) {
-    return await supabaseService.getProfile(userId);
+    return await backendService.getProfile(userId);
   }
 };
 

@@ -27,7 +27,9 @@ const Layout = ({ onLogout }) => {
   const visibleNavItems = useMemo(() => ([
     { to: '/dashboard', label: 'Panel', show: hasFeature('dashboard') },
     { to: '/calculator', label: 'Calculadora', show: hasFeature('calculator') },
+    { to: '/orders', label: 'Órdenes', show: hasFeature('orders') },
     { to: '/invoices', label: 'Facturas', show: hasFeature('invoices') },
+    { to: '/tracking', label: 'Seguimiento', show: hasFeature('tracking') },
     { to: '/settings', label: 'Configuración', show: hasFeature('settings') || isAdmin },
     { to: '/admin/users', label: 'Usuarios', show: isAdmin }
   ]), [hasFeature, isAdmin])

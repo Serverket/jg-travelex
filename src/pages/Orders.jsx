@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { orderService } from '../services/orderService'
 import { tripService } from '../services/tripService'
@@ -14,10 +14,12 @@ import {
 } from '../utils/share'
 
 const Orders = () => {
-  const { user } = useAppContext()
+  const { user, notifyStateChange } = useAppContext()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const refreshTimerRef = useRef(null)
+  const prevOrdersRef = useRef('')
   const [orderStatusFilter, setOrderStatusFilter] = useState('all') // 'all', 'pending', 'completed', 'cancelled'
   const [sortConfig, setSortConfig] = useState({
     key: 'date',
@@ -40,20 +42,15 @@ const Orders = () => {
         // Fetch orders based on user role
         let fetchedOrders = [];
         if (user.role === 'admin') {
-          // Admin sees all orders - pass all: true directly
           fetchedOrders = await orderService.getOrders({ all: true });
         } else {
-          // Regular users see only their orders
-          fetchedOrders = await orderService.getOrders({ user_id: user.id });
+          fetchedOrders = await orderService.getOrders({ userId: user.id });
         }
-        
-        console.log('Fetched orders:', fetchedOrders);
         
         // Fetch trip data for each order
         const ordersWithTrips = await Promise.all(
           fetchedOrders.map(async (order) => {
             try {
-              // Get order items to find associated trips
               const orderItems = await orderService.getOrderItems(order.id);
               const trips = await Promise.all(
                 orderItems.map(item => tripService.getTripById(item.trip_id))
@@ -66,8 +63,12 @@ const Orders = () => {
           })
         );
         
-  setOrders(ordersWithTrips);
-  setLastUpdated(new Date());
+        const sig = JSON.stringify(ordersWithTrips)
+        if (sig !== prevOrdersRef.current) {
+          prevOrdersRef.current = sig
+          setOrders(ordersWithTrips);
+        }
+        setLastUpdated(new Date());
       } catch (err) {
         console.error('Error loading orders:', err);
         if (isInitial) {
@@ -81,19 +82,18 @@ const Orders = () => {
     };
     
     if (user) {
-      // Initial fetch with loading indicator
       fetchOrders(true);
       
-      // Set up periodic refresh every 10 seconds (silent background updates)
-      const intervalId = setInterval(() => {
-        console.log('Orders: Background data refresh triggered');
-        fetchOrders(false); // Silent refresh - no loading indicator
-      }, 10000);
+      const handleSilentRefresh = () => {
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = setTimeout(() => fetchOrders(false), 300);
+      };
+
+      window.addEventListener('travelex:silent-refresh', handleSilentRefresh);
       
-      // Cleanup interval on unmount
       return () => {
-        console.log('Orders: Cleaning up refresh interval');
-        clearInterval(intervalId);
+        window.removeEventListener('travelex:silent-refresh', handleSilentRefresh);
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
       };
     }
   }, [user]);
@@ -387,6 +387,17 @@ const Orders = () => {
           await invoiceService.createInvoice(invoiceData);
         }
       }
+
+      // Debounce notifyStateChange to avoid race condition:
+      // local state is already updated optimistically, and an immediate
+      // re-fetch could overwrite correct local state with stale server data
+      // before the DB has fully committed. Supabase Realtime will also
+      // propagate the change to other tabs/components.
+      setTimeout(() => {
+        notifyStateChange('orders')
+        notifyStateChange('trips')
+        if (dbStatus === 'completed') notifyStateChange('invoices')
+      }, 800)
     } catch (err) {
       console.error('Error updating order status:', err);
       setError('Error al actualizar el estado del pedido');
@@ -518,7 +529,7 @@ const Orders = () => {
                         {order.trips?.length > 0 ? (
                           order.trips.map((trip, index) => (
                             <div key={index} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-blue-100/80">
-                              {trip.origin} <span className="mx-1 text-blue-200/60">→</span> {trip.destination}
+                              {trip.origin || trip.origin_address} <span className="mx-1 text-blue-200/60">→</span> {trip.destination || trip.destination_address}
                             </div>
                           ))
                         ) : (
@@ -572,7 +583,7 @@ const Orders = () => {
                             <span className="text-xs text-blue-200/60">Sin acciones</span>
                           )}
                           {(() => {
-                            const primaryTrip = order.trips?.[0] || order.items?.[0]?.tripData
+                            const primaryTrip = order.trips?.[0] || order.items?.[0]?.tripData || order.orderItems?.[0]?.trips
                             const sharePayload = extractTripShareData(primaryTrip, order.total_amount)
                             return (
                               <div className="flex items-center gap-2">

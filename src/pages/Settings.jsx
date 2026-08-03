@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { useApiUsageLogs } from '../hooks/useApiUsageLogs'
+import { backendService } from '../services/backendService'
 
 const Settings = () => {
   const { 
     rateSettings, 
-    updateRateSettings, 
+    refreshSettings,
     addSurchargeFactor, 
-    updateSurchargeFactor, 
     addDiscount, 
-    updateDiscount, 
     deleteSurchargeFactor, 
     deleteDiscount, 
     isLoading, 
@@ -46,22 +45,24 @@ const Settings = () => {
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [localLoading, setLocalLoading] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const isSavingRef = useRef(false)
   
-  // Reset editedSettings when rateSettings change
+  // Reset editedSettings when rateSettings change (only if not dirty and not currently saving)
   useEffect(() => {
-    if (rateSettings) {
+    if (rateSettings && !localLoading && !isDirty) {
       setEditedSettings({ 
-        distanceRate: rateSettings.distanceRate || 1.5,
-        durationRate: rateSettings.durationRate || 15,
-        defaultMpg: rateSettings.defaultMpg || 35,
-        defaultFuelPrice: rateSettings.defaultFuelPrice || 4.00,
-        defaultStopIntervalHours: rateSettings.defaultStopIntervalHours || 4.00,
+        distanceRate: rateSettings.distanceRate !== undefined ? rateSettings.distanceRate : 1.5,
+        durationRate: rateSettings.durationRate !== undefined ? rateSettings.durationRate : 15,
+        defaultMpg: rateSettings.defaultMpg !== undefined ? rateSettings.defaultMpg : 35,
+        defaultFuelPrice: rateSettings.defaultFuelPrice !== undefined ? rateSettings.defaultFuelPrice : 4.00,
+        defaultStopIntervalHours: rateSettings.defaultStopIntervalHours !== undefined ? rateSettings.defaultStopIntervalHours : 4.00,
         preferredStopBrands: rateSettings.preferredStopBrands || 'Wawa, Racetrack, Circle K',
         surchargeFactors: rateSettings.surchargeFactors || [],
         discounts: rateSettings.discounts || [] 
       })
     }
-  }, [rateSettings])
+  }, [rateSettings, localLoading, isDirty])
 
   // Efecto para mostrar errores del contexto
   useEffect(() => {
@@ -72,39 +73,42 @@ const Settings = () => {
 
   // Manejar cambios en las tarifas base
   const handleBaseRateChange = (e) => {
+    setIsDirty(true)
     const { name, value } = e.target
     setEditedSettings(prev => ({
       ...prev,
-      [name]: parseFloat(value) || 0
+      [name]: value === '' ? '' : parseFloat(value) || 0
     }))
   }
 
   // Manejar cambios en los factores de recargo existentes
   const handleSurchargeChange = (id, field, value) => {
+    setIsDirty(true)
     setEditedSettings(prev => ({
       ...prev,
-      surchargeFactors: prev.surchargeFactors.map(factor => 
-        factor.id === id ? { ...factor, [field]: field === 'rate' ? parseFloat(value) || 0 : value } : factor
+      surchargeFactors: (prev.surchargeFactors || []).map(factor => 
+        factor.id === id ? { ...factor, [field]: field === 'rate' ? (value === '' ? '' : parseFloat(value) || 0) : value } : factor
       )
     }))
   }
 
   // Manejar cambios en los descuentos existentes
   const handleDiscountChange = (id, field, value) => {
+    setIsDirty(true)
     setEditedSettings(prev => ({
       ...prev,
-      discounts: prev.discounts.map(discount => 
-        discount.id === id ? { ...discount, [field]: field === 'rate' ? parseFloat(value) || 0 : value } : discount
+      discounts: (prev.discounts || []).map(discount => 
+        discount.id === id ? { ...discount, [field]: field === 'rate' ? (value === '' ? '' : parseFloat(value) || 0) : value } : discount
       )
     }))
   }
 
-  // Manejar cambios en el nuevo factor de recargo
+  // Manejar cambios en el nuevo factor de recargo (esto no ensucia settings globales)
   const handleNewSurchargeChange = (e) => {
     const { name, value } = e.target
     setNewSurchargeFactor(prev => ({
       ...prev,
-      [name]: name === 'rate' ? parseFloat(value) || 0 : value
+      [name]: name === 'rate' ? (value === '' ? '' : parseFloat(value) || 0) : value
     }))
   }
 
@@ -113,92 +117,67 @@ const Settings = () => {
     const { name, value } = e.target
     setNewDiscount(prev => ({
       ...prev,
-      [name]: name === 'rate' ? parseFloat(value) || 0 : value
+      [name]: name === 'rate' ? (value === '' ? '' : parseFloat(value) || 0) : value
     }))
   }
-
   // Guardar cambios en las configuraciones
-  const saveSettings = async () => {
+  const saveSettings = async (settingsToSave = editedSettings) => {
+    isSavingRef.current = true
     try {
       setLocalLoading(true)
       setErrorMessage('')
       
-      // Guardar cambios de tarifas base
-      await updateRateSettings({
-        distanceRate: parseFloat(editedSettings.distanceRate) || 0,
-        durationRate: parseFloat(editedSettings.durationRate) || 0,
-        defaultMpg: parseFloat(editedSettings.defaultMpg) || 0,
-        defaultFuelPrice: parseFloat(editedSettings.defaultFuelPrice) || 0,
-        defaultStopIntervalHours: parseFloat(editedSettings.defaultStopIntervalHours) || 0,
-        preferredStopBrands: String(editedSettings.preferredStopBrands || '')
-      }).catch(err => {
-        console.error('Error updating rate settings:', err)
-        throw new Error('Error al actualizar tarifas base y por defecto')
+      // 1. Guardar cambios de tarifas base y variables de rendimiento
+      await backendService.updateSettings({
+        distance_rate: parseFloat(settingsToSave.distanceRate) || 0,
+        duration_rate: parseFloat(settingsToSave.durationRate) || 0,
+        default_mpg: parseFloat(settingsToSave.defaultMpg) || 0,
+        default_fuel_price: parseFloat(settingsToSave.defaultFuelPrice) || 0,
+        default_stop_interval_hours: parseFloat(settingsToSave.defaultStopIntervalHours) || 0,
+        preferred_stop_brands: String(settingsToSave.preferredStopBrands || '')
       })
       
-      // Guardar cambios de factores de recargo
-      const surchargePromises = []
-      if (editedSettings.surchargeFactors && editedSettings.surchargeFactors.length > 0) {
-        for (const factor of editedSettings.surchargeFactors) {
-          if (factor && factor.id) {
-            try {
-              const surchargePromise = updateSurchargeFactor(factor.id, {
+      // 2. Guardar cambios en factores de recargo en paralelo
+      if (settingsToSave.surchargeFactors && settingsToSave.surchargeFactors.length > 0) {
+        await Promise.all(
+          settingsToSave.surchargeFactors.map(factor => {
+            if (factor && factor.id) {
+              return backendService.updateSurchargeFactor(factor.id, {
                 name: factor.name || '',
                 rate: parseFloat(factor.rate) || 0,
                 type: factor.type || 'percentage'
-              }).catch(err => {
-                console.error(`Error updating surcharge factor ${factor.id}:`, err)
-                throw new Error(`Error al actualizar el factor de recargo: ${factor.name}`)
               })
-              surchargePromises.push(surchargePromise)
-            } catch (err) {
-              console.error(`Error preparing surcharge factor update for ${factor.id}:`, err)
-              // Continue with other factors even if one fails
             }
-          }
-        }
+            return Promise.resolve()
+          })
+        )
       }
       
-      // Guardar cambios de descuentos
-      const discountPromises = []
-      if (editedSettings.discounts && editedSettings.discounts.length > 0) {
-        for (const discount of editedSettings.discounts) {
-          if (discount && discount.id) {
-            try {
-              const discountPromise = updateDiscount(discount.id, {
+      // 3. Guardar cambios en descuentos en paralelo
+      if (settingsToSave.discounts && settingsToSave.discounts.length > 0) {
+        await Promise.all(
+          settingsToSave.discounts.map(discount => {
+            if (discount && discount.id) {
+              return backendService.updateDiscount(discount.id, {
                 name: discount.name || '',
                 rate: parseFloat(discount.rate) || 0,
                 type: discount.type || 'percentage'
-              }).catch(err => {
-                console.error(`Error updating discount ${discount.id}:`, err)
-                throw new Error(`Error al actualizar el descuento: ${discount.name}`)
               })
-              discountPromises.push(discountPromise)
-            } catch (err) {
-              console.error(`Error preparing discount update for ${discount.id}:`, err)
-              // Continue with other discounts even if one fails
             }
-          }
-        }
+            return Promise.resolve()
+          })
+        )
       }
       
-      // Esperar a que todas las actualizaciones terminen y manejar errores
-      try {
-        const results = await Promise.allSettled([...surchargePromises, ...discountPromises])
-        
-        // Check if any promises failed
-        const failures = results.filter(r => r.status === 'rejected').map(r => r.reason)
-        if (failures.length > 0) {
-          console.error('Some settings updates failed:', failures)
-          throw new Error(`${failures.length} actualizaciones fallaron. Revise los datos e intente nuevamente.`)
-        }
-        
-        setSuccessMessage('Configuraciones guardadas correctamente')
-        setErrorMessage('')
-      } catch (promiseErr) {
-        console.error('Error in batch settings update:', promiseErr)
-        throw new Error('Error al procesar las actualizaciones: ' + (promiseErr.message || 'Error desconocido'))
-      }
+      // 4. Re-fetch único desde el servidor para sincronizar AppContext y toda la UI
+      // Reset isDirty BEFORE refreshSettings so the sync useEffect can fire
+      // when rateSettings arrives with the updated values
+      setIsDirty(false)
+      isSavingRef.current = false
+      await refreshSettings()
+      
+      setSuccessMessage('Configuraciones guardadas automáticamente')
+      setErrorMessage('')
       
       // Limpiar mensaje después de 3 segundos
       setTimeout(() => {
@@ -208,10 +187,22 @@ const Settings = () => {
       console.error('Error al guardar configuraciones:', error)
       setErrorMessage('Error al guardar las configuraciones: ' + (error.message || 'Error desconocido'))
       setSuccessMessage('')
+      isSavingRef.current = false
     } finally {
       setLocalLoading(false)
     }
   }
+
+  // Auto-guardado
+  useEffect(() => {
+    if (!isDirty) return;
+    
+    const timer = setTimeout(() => {
+      saveSettings(editedSettings)
+    }, 1500)
+    
+    return () => clearTimeout(timer)
+  }, [editedSettings, isDirty])
 
   // Añadir nuevo factor de recargo
   const handleAddSurchargeFactor = async () => {
@@ -295,12 +286,6 @@ const Settings = () => {
       setSuccessMessage('Factor de recargo eliminado correctamente')
       setErrorMessage('')
       
-      // Actualizar estado local también
-      setEditedSettings(prev => ({
-        ...prev,
-        surchargeFactors: prev.surchargeFactors.filter(factor => factor.id !== id)
-      }))
-      
       // Limpiar mensaje después de 3 segundos
       setTimeout(() => {
         setSuccessMessage('')
@@ -320,12 +305,6 @@ const Settings = () => {
       await deleteDiscount(id)
       setSuccessMessage('Descuento eliminado correctamente')
       setErrorMessage('')
-      
-      // Actualizar estado local también
-      setEditedSettings(prev => ({
-        ...prev,
-        discounts: prev.discounts.filter(discount => discount.id !== id)
-      }))
       
       // Limpiar mensaje después de 3 segundos
       setTimeout(() => {
@@ -439,7 +418,7 @@ const Settings = () => {
                   id="defaultMpg"
                   name="defaultMpg"
                   value={editedSettings.defaultMpg ?? ''}
-                  onChange={(e) => setEditedSettings(prev => ({ ...prev, defaultMpg: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => { setIsDirty(true); setEditedSettings(prev => ({ ...prev, defaultMpg: parseFloat(e.target.value) || 0 })) }}
                   min="1"
                   step="0.1"
                   className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -453,7 +432,7 @@ const Settings = () => {
                   id="defaultFuelPrice"
                   name="defaultFuelPrice"
                   value={editedSettings.defaultFuelPrice ?? ''}
-                  onChange={(e) => setEditedSettings(prev => ({ ...prev, defaultFuelPrice: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => { setIsDirty(true); setEditedSettings(prev => ({ ...prev, defaultFuelPrice: parseFloat(e.target.value) || 0 })) }}
                   min="0"
                   step="0.01"
                   className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -468,7 +447,7 @@ const Settings = () => {
                 id="defaultStopIntervalHours"
                 name="defaultStopIntervalHours"
                 value={editedSettings.defaultStopIntervalHours ?? ''}
-                onChange={(e) => setEditedSettings(prev => ({ ...prev, defaultStopIntervalHours: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => { setIsDirty(true); setEditedSettings(prev => ({ ...prev, defaultStopIntervalHours: parseFloat(e.target.value) || 0 })) }}
                 min="1"
                 max="24"
                 step="0.5"
@@ -483,7 +462,7 @@ const Settings = () => {
                 id="preferredStopBrands"
                 name="preferredStopBrands"
                 value={editedSettings.preferredStopBrands ?? ''}
-                onChange={(e) => setEditedSettings(prev => ({ ...prev, preferredStopBrands: e.target.value }))}
+                onChange={(e) => { setIsDirty(true); setEditedSettings(prev => ({ ...prev, preferredStopBrands: e.target.value })) }}
                 placeholder="Ej. Wawa, Racetrack, Circle K"
                 className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
