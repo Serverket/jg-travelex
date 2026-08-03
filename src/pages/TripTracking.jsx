@@ -3,7 +3,6 @@ import { useAppContext } from '../context/AppContext'
 import { tripService } from '../services/tripService'
 import { orderService } from '../services/orderService'
 
-const REFRESH_INTERVAL_MS = 15000
 const STALE_ACTIVE_TRIP_THRESHOLD_MS = 1000 * 60 * 60 * 3 // 3 hours without updates triggers alert
 
 const numberFormatter = new Intl.NumberFormat('es-ES')
@@ -329,14 +328,16 @@ const buildSnapshot = async (user) => {
 const TripTracking = () => {
   const { currentUser, hasFeature } = useAppContext()
   const [snapshot, setSnapshot] = useState(initialSnapshot)
-  const refreshTimer = useRef(null)
   const mountedRef = useRef(true)
+  const refreshTimerRef = useRef(null)
 
   const canAccess = useMemo(() => {
     if (!currentUser) return false
     if (currentUser.role === 'admin') return true
     return hasFeature ? hasFeature('tracking') : true
   }, [currentUser, hasFeature])
+
+  const prevSnapshotRef = useRef('')
 
   const hydrate = useCallback(async (silent = false) => {
     if (!currentUser) return
@@ -352,7 +353,14 @@ const TripTracking = () => {
     try {
       const nextSnapshot = await buildSnapshot(currentUser)
       if (mountedRef.current) {
-        setSnapshot(nextSnapshot)
+        const sig = JSON.stringify(nextSnapshot)
+        if (sig !== prevSnapshotRef.current) {
+          prevSnapshotRef.current = sig
+          setSnapshot(nextSnapshot)
+        } else if (silent) {
+          // Data unchanged — just clear busy if it was set
+          setSnapshot(prev => prev.busy ? { ...prev, busy: false } : prev)
+        }
       }
     } catch (err) {
       if (mountedRef.current) {
@@ -369,9 +377,6 @@ const TripTracking = () => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
-      if (refreshTimer.current) {
-        clearInterval(refreshTimer.current)
-      }
     }
   }, [])
 
@@ -383,11 +388,16 @@ const TripTracking = () => {
 
     hydrate(false)
 
-    refreshTimer.current = setInterval(() => hydrate(true), REFRESH_INTERVAL_MS)
+    const handleSilentRefresh = () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
+      refreshTimerRef.current = setTimeout(() => hydrate(true), 300)
+    }
+
+    window.addEventListener('travelex:silent-refresh', handleSilentRefresh)
+
     return () => {
-      if (refreshTimer.current) {
-        clearInterval(refreshTimer.current)
-      }
+      window.removeEventListener('travelex:silent-refresh', handleSilentRefresh)
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
     }
   }, [canAccess, hydrate])
 
@@ -441,7 +451,7 @@ const TripTracking = () => {
           <div>
             <h1 className="text-3xl font-semibold text-white">Seguimiento Operativo</h1>
             <p className="mt-2 max-w-2xl text-sm text-blue-100/70">
-              Información esencial de viajes con actualizaciones automáticas cada 15 segundos.
+              Información esencial de viajes con actualizaciones automáticas en tiempo real.
             </p>
           </div>
           <div className="flex items-center gap-3 text-xs text-blue-200/70">

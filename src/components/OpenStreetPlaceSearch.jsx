@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { backendService } from '../services/backendService'
 
 const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
   const [query, setQuery] = useState('')
@@ -40,13 +41,11 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
 
     setLoading(true)
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-      const response = await fetch(
-        `${backendUrl}/places/search?q=${encodeURIComponent(searchQuery)}`
-      )
+      const { data, error } = await backendService.invokeFunction('places-search', {
+        body: { q: searchQuery }
+      })
 
-      if (response.ok) {
-        const data = await response.json()
+      if (!error && Array.isArray(data) && data.length > 0) {
         setSuggestions(
           data.map((item) => ({
             id: item.place_id,
@@ -57,8 +56,22 @@ const OpenStreetPlaceSearch = ({ onPlaceSelected, placeholder, value }) => {
           }))
         )
       } else {
-        console.error('Error en la búsqueda de lugares:', response.statusText)
-        setSuggestions([])
+        const photonRes = await fetch(`https://photon.komoot.io/api?q=${encodeURIComponent(searchQuery)}&limit=5`)
+        const photonData = await photonRes.json()
+        const features = (photonData.features || []).map((f) => {
+          const p = f.properties
+          const c = f.geometry.coordinates
+          const parts = [p.name, p.street, p.housenumber, p.city || p.town, p.state, p.country].filter(Boolean)
+          const desc = [...new Set(parts)].join(', ')
+          return {
+            id: p.osm_id || Math.random(),
+            description: desc,
+            lat: c[1],
+            lng: c[0],
+            address: desc
+          }
+        })
+        setSuggestions(features)
       }
     } catch (error) {
       console.error('Error en la búsqueda de lugares:', error)

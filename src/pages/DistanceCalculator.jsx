@@ -68,17 +68,21 @@ const getStopPriority = (name, preferredBrandsString = 'Wawa, Racetrack, Circle 
 
 const DistanceCalculator = () => {
   const {
+    rateSettings: contextRateSettings,
     calculateTripPrice: _calculateTripPrice,
     addTrip: _addTrip,
     createOrder: _createOrder,
+    notifyStateChange,
     currentUser
   } = useAppContext()
   const toast = useToast()
   // Ensure we have a user reference
   const activeUser = currentUser
-  const [rateSettings, setRateSettings] = useState(null)
-  const [surchargeFactors, setSurchargeFactors] = useState([])
-  const [discounts, setDiscounts] = useState([])
+  
+  // Use reactive rateSettings directly from AppContext
+  const rateSettings = contextRateSettings || { distanceRate: 1.5, durationRate: 15 }
+  const surchargeFactors = contextRateSettings?.surchargeFactors || []
+  const discounts = contextRateSettings?.discounts || []
 
   // Estado para el método de cálculo seleccionado
   const [calculationMethod, setCalculationMethod] = useState('google') // 'manual', 'google'
@@ -110,6 +114,14 @@ const DistanceCalculator = () => {
   const subtlePanelClass = 'rounded-2xl border border-white/10 bg-white/5'
 
   const chipClass = 'rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-blue-100/80 shadow-lg shadow-blue-950/20'
+
+  // Sync stopInterval default from rateSettings when loaded
+  useEffect(() => {
+    const defaultHours = rateSettings?.defaultStopIntervalHours || rateSettings?.default_stop_interval_hours
+    if (defaultHours) {
+      setStopInterval(Number(defaultHours))
+    }
+  }, [rateSettings?.defaultStopIntervalHours, rateSettings?.default_stop_interval_hours])
 
   // Cargar Google Maps JS API (para mapa, Places Autocomplete y polyline decoding)
   const googleMapsApiKey = import.meta.env.VITE_NSA_REGISTRY
@@ -144,32 +156,6 @@ const DistanceCalculator = () => {
     }
   }, [])
 
-  // Load settings on mount
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const [settings, surcharges, discountsList] = await Promise.all([
-          settingsService.getSettings(),
-          settingsService.getSurchargeFactors(),
-          settingsService.getDiscounts()
-        ])
-
-        setRateSettings(settings || { distance_rate: 2, duration_rate: 0.5 })
-        if (settings && settings.default_stop_interval_hours) {
-          setStopInterval(Number(settings.default_stop_interval_hours))
-        }
-        setSurchargeFactors(surcharges || [])
-        setDiscounts(discountsList || [])
-      } catch (error) {
-        console.error('Error loading settings:', error)
-        // Set default values if loading fails
-        setRateSettings({ distance_rate: 2, duration_rate: 0.5 })
-      }
-    }
-
-    loadSettings()
-  }, [])
-
   // Recalculate price via backend when inputs change
   useEffect(() => {
     const fetchQuote = async () => {
@@ -182,8 +168,6 @@ const DistanceCalculator = () => {
           discounts: activeDiscounts,
         };
 
-        console.log('Sending quote request:', quoteData);
-
         const { price: quotedPrice, breakdown } = await backendService.getQuote(quoteData);
         setPrice(quotedPrice)
         setQuoteBreakdown(breakdown)
@@ -194,11 +178,10 @@ const DistanceCalculator = () => {
       }
     }
 
-    // Only fetch quote if we have at least distance OR duration
     if (distance || duration) {
       fetchQuote()
     }
-  }, [activeSurcharges, activeDiscounts, distance, duration])
+  }, [activeSurcharges, activeDiscounts, distance, duration, rateSettings])
 
   // Recalcular paradas sugeridas si cambia la ruta o el intervalo
   useEffect(() => {
@@ -392,6 +375,7 @@ const DistanceCalculator = () => {
     const durationMinutes = duration ? Math.round(Number(duration) * 60) : 0
 
     return {
+      user_id: currentUser.id,
       origin_address: originDescription,
       destination_address: destinationDescription,
       ...(origin && origin.lat != null && origin.lng != null ? {
@@ -477,6 +461,7 @@ const DistanceCalculator = () => {
 
       setError('')
       toast.success(wasNew ? 'Viaje guardado correctamente' : 'Viaje actualizado sin duplicados')
+      setTimeout(() => notifyStateChange('trips'), 800)
     } catch (error) {
       console.error('Error saving trip:', error)
       setError('Error al guardar el viaje')
@@ -513,19 +498,16 @@ const DistanceCalculator = () => {
           : parseFloat(price)
       }
 
-      console.log('Creating order with data:', orderData);
       const createdOrder = await orderService.createOrder(orderData)
-      console.log('Order created:', createdOrder);
 
       // Create order item linked to the trip
       const orderItemData = {
         order_id: createdOrder.id,
         trip_id: persistedTrip.id,
-        amount: parseFloat(price)
+        amount: parseFloat(price),
+        unit_price: parseFloat(price)
       };
-      console.log('Creating order item with data:', orderItemData);
       const createdOrderItem = await orderService.createOrderItem(orderItemData);
-      console.log('Order item created:', createdOrderItem);
 
       // Update global context state immediately
       const newOrder = {
@@ -539,10 +521,13 @@ const DistanceCalculator = () => {
       };
 
       // Order created successfully
-      console.log('Order created successfully', newOrder)
       setOrderCreated(true)
       setError('')
       toast.success('La orden ha sido creada con éxito')
+      setTimeout(() => {
+        notifyStateChange('orders')
+        notifyStateChange('trips')
+      }, 800)
     } catch (error) {
       console.error('Error al crear la orden:', error)
       setError('Error al crear la orden')

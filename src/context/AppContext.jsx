@@ -4,6 +4,7 @@ import { tripService } from '../services/tripService'
 import { orderService } from '../services/orderService'
 import { invoiceService } from '../services/invoiceService'
 import { authService } from '../services/authService'
+import { backendService } from '../services/backendService'
 
 const ensureFeatureMap = (features) => {
   if (!features) return {}
@@ -65,10 +66,13 @@ export const AppProvider = ({ children }) => {
 
   // Estado para los viajes
   const [trips, setTrips] = useState([])
+  const prevTripsRef = useRef('')
 
   // Estado para las órdenes y facturas
   const [orders, setOrders] = useState([])
   const [invoices, setInvoices] = useState([])
+  const prevOrdersRef = useRef('')
+  const prevInvoicesRef = useRef('')
   
   // Estado para seguimiento de carga de datos
   const [isLoading, setIsLoading] = useState(true)
@@ -148,57 +152,179 @@ export const AppProvider = ({ children }) => {
     }
   }, [])
 
-  // Cargar configuraciones desde la API al iniciar
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
+  // Función reutilizable para cargar configuraciones desde la API
+  const fetchSettings = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) {
         setIsLoading(true)
-        setError(null)
-        
-        // Obtener configuraciones básicas
-        const settings = await settingsService.getSettings()
-        
-        // Obtener factores de recargo
-        const surchargeFactors = await settingsService.getSurchargeFactors()
-        
-        // Obtener descuentos
-        const discounts = await settingsService.getDiscounts()
-        
-        // Actualizar estado con datos de la API
-        setRateSettings({
-          distanceRate: settings.distance_rate || 1.5,
-          durationRate: settings.duration_rate || 15,
-          defaultMpg: settings.default_mpg !== undefined ? settings.default_mpg : 35,
-          defaultFuelPrice: settings.default_fuel_price !== undefined ? settings.default_fuel_price : 4.00,
-          defaultStopIntervalHours: settings.default_stop_interval_hours !== undefined ? settings.default_stop_interval_hours : 4.00,
-          preferredStopBrands: settings.preferred_stop_brands !== undefined ? settings.preferred_stop_brands : 'Wawa, Racetrack, Circle K',
-          surchargeFactors: surchargeFactors.map(sf => ({
-            id: sf.id,
-            name: sf.name,
-            active: false,
-            rate: sf.rate,
-            type: sf.type
-          })),
-          discounts: discounts.map(d => ({
-            id: d.id,
-            name: d.name,
-            active: false,
-            rate: d.rate,
-            type: d.type
-          }))
-        })
-        
+      }
+      setError(null)
+      
+      // Obtener configuraciones básicas
+      const settings = await settingsService.getSettings()
+      
+      // Obtener factores de recargo
+      const surchargeFactors = await settingsService.getSurchargeFactors()
+      
+      // Obtener descuentos
+      const discounts = await settingsService.getDiscounts()
+      
+      // Actualizar estado con datos de la API (parseando números de forma defensiva)
+      const parsedSettings = {
+        distanceRate: settings?.distance_rate !== undefined && settings?.distance_rate !== null ? Number(settings.distance_rate) : 1.5,
+        durationRate: settings?.duration_rate !== undefined && settings?.duration_rate !== null ? Number(settings.duration_rate) : 15,
+        defaultMpg: settings?.default_mpg !== undefined && settings?.default_mpg !== null ? Number(settings.default_mpg) : 35,
+        defaultFuelPrice: settings?.default_fuel_price !== undefined && settings?.default_fuel_price !== null ? Number(settings.default_fuel_price) : 4.00,
+        defaultStopIntervalHours: settings?.default_stop_interval_hours !== undefined && settings?.default_stop_interval_hours !== null ? Number(settings.default_stop_interval_hours) : 4.00,
+        preferredStopBrands: settings?.preferred_stop_brands || 'Wawa, Racetrack, Circle K',
+        distance_rate: settings?.distance_rate !== undefined && settings?.distance_rate !== null ? Number(settings.distance_rate) : 1.5,
+        duration_rate: settings?.duration_rate !== undefined && settings?.duration_rate !== null ? Number(settings.duration_rate) : 15,
+        default_mpg: settings?.default_mpg !== undefined && settings?.default_mpg !== null ? Number(settings.default_mpg) : 35,
+        default_fuel_price: settings?.default_fuel_price !== undefined && settings?.default_fuel_price !== null ? Number(settings.default_fuel_price) : 4.00,
+        default_stop_interval_hours: settings?.default_stop_interval_hours !== undefined && settings?.default_stop_interval_hours !== null ? Number(settings.default_stop_interval_hours) : 4.00,
+        preferred_stop_brands: settings?.preferred_stop_brands || 'Wawa, Racetrack, Circle K',
+        surchargeFactors: (surchargeFactors || []).map(sf => ({
+          id: sf.id,
+          name: sf.name,
+          active: false,
+          rate: Number(sf.rate || 0),
+          type: sf.type || 'percentage'
+        })),
+        discounts: (discounts || []).map(d => ({
+          id: d.id,
+          name: d.name,
+          active: false,
+          rate: Number(d.rate || 0),
+          type: d.type || 'percentage'
+        }))
+      }
+      
+      setRateSettings(parsedSettings)
+      
+      if (showLoading) {
         setIsLoading(false)
-      } catch (err) {
-        setError('Error al cargar las configuraciones. Por favor intente nuevamente.')
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err)
+      setError('Error al cargar las configuraciones. Por favor intente nuevamente.')
+      if (showLoading) {
         setIsLoading(false)
       }
     }
-    
-    if (currentUser) {
-      fetchSettings()
-    }
+  }, [])
+
+  // Broadcast channel para sincronización multitab sin reloads
+  const broadcastChannelRef = useRef(null)
+  const currentUserRef = useRef(currentUser)
+
+  useEffect(() => {
+    currentUserRef.current = currentUser
   }, [currentUser])
+
+  useEffect(() => {
+    let bcTimer = null
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('travelex-app-sync')
+        broadcastChannelRef.current = bc
+        bc.onmessage = (event) => {
+          if (bcTimer) clearTimeout(bcTimer)
+          bcTimer = setTimeout(() => {
+            fetchSettings(false).catch(() => {})
+            refreshCurrentUser().catch(() => {})
+            if (currentUserRef.current?.id) loadUserData(currentUserRef.current.id).catch(() => {})
+            window.dispatchEvent(new CustomEvent('travelex:silent-refresh', { detail: event.data }))
+          }, 400)
+        }
+      }
+    } catch (err) {
+      console.warn('BroadcastChannel error:', err)
+    }
+
+    return () => {
+      if (bcTimer) clearTimeout(bcTimer)
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.close()
+      }
+    }
+  }, [])
+
+  const notifyStateChange = useCallback((table, payload = {}) => {
+    try {
+      window.dispatchEvent(new CustomEvent('travelex:silent-refresh', { detail: { table, ...payload } }))
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage({ table, timestamp: Date.now(), ...payload })
+      }
+    } catch (err) {
+      console.warn('notifyStateChange error:', err)
+    }
+  }, [])
+
+  // Cargar configuraciones y suscribirse a cambios en tiempo real vía Supabase WebSockets
+  useEffect(() => {
+    if (!currentUser) return
+
+    fetchSettings(true)
+
+    const handlePostgresChange = (table, payload) => {
+      if (table === 'company_settings' || table === 'surcharge_factors' || table === 'discounts') {
+        fetchSettings(false).catch(() => {})
+      }
+      if (table === 'profiles') {
+        refreshCurrentUser().catch(() => {})
+      }
+      if (table === 'trips' || table === 'orders' || table === 'invoices') {
+        if (currentUser?.id) loadUserData(currentUser.id).catch(() => {})
+      }
+      notifyStateChange(table, payload)
+    }
+
+    // Listener de Supabase Realtime para cambios instantáneos en la base de datos
+    const channel = backendService
+      .createChannel('schema-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'company_settings' }, (payload) => handlePostgresChange('company_settings', payload))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'surcharge_factors' }, (payload) => handlePostgresChange('surcharge_factors', payload))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'discounts' }, (payload) => handlePostgresChange('discounts', payload))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => handlePostgresChange('profiles', payload))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, (payload) => handlePostgresChange('trips', payload))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => handlePostgresChange('orders', payload))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, (payload) => handlePostgresChange('invoices', payload))
+      .subscribe()
+
+    // Listener de ventana focus / visibility state para reactividad al volver a la app
+    // Debounced to coalesce rapid focus/visibility events and prevent flicker
+    let focusTimer = null
+    const handleFocus = () => {
+      if (focusTimer) clearTimeout(focusTimer)
+      focusTimer = setTimeout(() => {
+        fetchSettings(false).catch(() => {})
+        refreshCurrentUser().catch(() => {})
+        if (currentUser?.id) loadUserData(currentUser.id).catch(() => {})
+        window.dispatchEvent(new CustomEvent('travelex:silent-refresh', { detail: { reason: 'focus' } }))
+      }, 400)
+    }
+
+    window.addEventListener('focus', handleFocus)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') handleFocus()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // Intervalo de respaldo (30s) — Realtime + eventos manejan la reactividad instantánea
+    const interval = setInterval(() => {
+      fetchSettings(false).catch(() => {})
+      refreshCurrentUser().catch(() => {})
+      if (currentUser?.id) loadUserData(currentUser.id).catch(() => {})
+    }, 30000)
+
+    return () => {
+      backendService.removeChannel(channel)
+      clearInterval(interval)
+      if (focusTimer) clearTimeout(focusTimer)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [currentUser, fetchSettings, notifyStateChange])
 
   // Función para actualizar las tarifas
   const updateRateSettings = async (newSettings) => {
@@ -213,23 +339,8 @@ export const AppProvider = ({ children }) => {
         preferred_stop_brands: newSettings.preferredStopBrands
       })
       
-      // Actualizar estado local asegurando que todas las propiedades esenciales estén presentes
-      setRateSettings(prev => ({
-        ...prev, // Mantener valores anteriores como fallback
-        distanceRate: newSettings.distanceRate || prev.distanceRate,
-        durationRate: newSettings.durationRate || prev.durationRate,
-        defaultMpg: newSettings.defaultMpg !== undefined ? newSettings.defaultMpg : prev.defaultMpg,
-        defaultFuelPrice: newSettings.defaultFuelPrice !== undefined ? newSettings.defaultFuelPrice : prev.defaultFuelPrice,
-        defaultStopIntervalHours: newSettings.defaultStopIntervalHours !== undefined ? newSettings.defaultStopIntervalHours : prev.defaultStopIntervalHours,
-        preferredStopBrands: newSettings.preferredStopBrands !== undefined ? newSettings.preferredStopBrands : prev.preferredStopBrands,
-        // Asegurar que surchargeFactors y discounts siempre sean arrays
-        surchargeFactors: Array.isArray(newSettings.surchargeFactors) 
-          ? newSettings.surchargeFactors 
-          : (Array.isArray(prev.surchargeFactors) ? prev.surchargeFactors : []),
-        discounts: Array.isArray(newSettings.discounts) 
-          ? newSettings.discounts 
-          : (Array.isArray(prev.discounts) ? prev.discounts : [])
-      }))
+      // Re-fetch settings from server to guarantee UI is in sync
+      await fetchSettings(false)
       
       return true
   }
@@ -277,21 +388,10 @@ export const AppProvider = ({ children }) => {
       }
       if (!response) throw lastError || new Error('No se pudo crear el factor de recargo')
       
-      // Actualizar estado local con ID real de la base de datos
-      const newFactor = {
-        id: response.id || response.surchargeFactorId,
-        name: factor.name,
-        active: false,
-        rate: factor.rate,
-        type: factor.type
-      }
+      // Re-fetch settings from server to guarantee UI is in sync
+      await fetchSettings(false)
       
-      setRateSettings(prev => ({
-        ...prev,
-        surchargeFactors: [...prev.surchargeFactors, newFactor]
-      }))
-      
-      return newFactor
+      return response
   }
 
   // Función para añadir un nuevo descuento
@@ -326,21 +426,10 @@ export const AppProvider = ({ children }) => {
       }
       if (!response) throw lastError || new Error('No se pudo crear el descuento')
       
-      // Actualizar estado local con ID real de la base de datos
-      const newDiscount = {
-        id: response.id || response.discountId,
-        name: discount.name,
-        active: false,
-        rate: discount.rate,
-        type: discount.type
-      }
+      // Re-fetch settings from server to guarantee UI is in sync
+      await fetchSettings(false)
       
-      setRateSettings(prev => ({
-        ...prev,
-        discounts: [...prev.discounts, newDiscount]
-      }))
-      
-      return newDiscount
+      return response
   }
 
   // Función para añadir un nuevo viaje
@@ -366,6 +455,7 @@ export const AppProvider = ({ children }) => {
       const durationMinutes = Math.round(((typeof trip.duration === 'number' ? trip.duration : parseFloat(trip.duration)) || 0) * 60);
 
       const tripData = {
+        user_id: currentUser.id,
         origin_address: originDescription,
         destination_address: destinationDescription,
         ...(trip?.origin_lat != null && trip?.origin_lng != null
@@ -432,24 +522,26 @@ export const AppProvider = ({ children }) => {
       const orderData = {
         user_id: currentUser.id,
         total_amount: tripData.price,
-        status: 'pending',
-        items: [
-          {
-            trip_id: tripId,
-            amount: tripData.price
-          }
-        ]
+        status: 'pending'
       }
       
       // Crear orden en la API
       const response = await orderService.createOrder(orderData)
+
+      // Crear order_item por separado (la columna items no existe en la tabla orders)
+      await orderService.createOrderItem({
+        order_id: response.orderId || response.id,
+        trip_id: tripId,
+        amount: tripData.price
+      })
       
       // Formato para frontend
       const newOrder = {
-        id: response.orderId,
+        id: response.orderId || response.id,
         date: new Date().toISOString(),
-        tripData: {...tripData, id: tripId}, // Aseguramos que tripData tenga el ID correcto
-        status: 'pending'
+        tripData: {...tripData, id: tripId},
+        status: 'pending',
+        total_amount: tripData.price
       }
       
       // Actualizar estado local con verificación de duplicados
@@ -477,14 +569,15 @@ export const AppProvider = ({ children }) => {
         const existingInvoiceResponse = await invoiceService.getInvoiceByOrderId(orderId);
         if (existingInvoiceResponse && existingInvoiceResponse.id) {
           // Add the found invoice to our local state if it's not there already
-          const invoiceExists = invoices.some(inv => inv.id === existingInvoiceResponse.id);
-          if (!invoiceExists) {
-            setInvoices(prev => [...prev, {
+          setInvoices(prev => {
+            const invoiceExists = prev.some(inv => inv.id === existingInvoiceResponse.id);
+            if (invoiceExists) return prev;
+            return [...prev, {
               ...existingInvoiceResponse,
               orderId: orderId,
               orderData: orders.find(o => o.id === orderId)
-            }]);
-          }
+            }];
+          });
           return existingInvoiceResponse;
         }
       } catch (checkError) {
@@ -595,20 +688,39 @@ export const AppProvider = ({ children }) => {
     try {
       // Cargar viajes del usuario
       const userTrips = await tripService.getTripsByUserId(userId)
-      setTrips(userTrips) // Replace, don't append
+      const tripsSig = JSON.stringify(userTrips)
+      if (tripsSig !== prevTripsRef.current) {
+        prevTripsRef.current = tripsSig
+        setTrips(userTrips)
+      }
       
       // Cargar órdenes del usuario
       const userOrders = await orderService.getOrdersByUserId(userId)
-      setOrders(userOrders) // Replace, don't append
+      // Normalize: extract trips from nested order_items into top-level trips array
+      const normalizedOrders = (userOrders || []).map(order => {
+        const orderItems = order.order_items || order.orderItems || []
+        const trips = order.trips || orderItems
+          .map(item => item.trips)
+          .filter(Boolean)
+        return { ...order, trips, orderItems }
+      })
+      const ordersSig = JSON.stringify(normalizedOrders)
+      if (ordersSig !== prevOrdersRef.current) {
+        prevOrdersRef.current = ordersSig
+        setOrders(normalizedOrders)
+      }
       
-      // Cargar todas las facturas (filtraremos las del usuario después)
-      const allInvoices = await invoiceService.getAllInvoices()
-      const orderIds = userOrders.map(order => order.id)
-      const userInvoices = allInvoices.filter(invoice => orderIds.includes(invoice.order_id))
-      setInvoices(userInvoices) // Replace, don't append
+      // Cargar facturas del usuario (filtrado server-side)
+      const userInvoices = await invoiceService.getInvoices({ userId })
+      const invoicesSig = JSON.stringify(userInvoices)
+      if (invoicesSig !== prevInvoicesRef.current) {
+        prevInvoicesRef.current = invoicesSig
+        setInvoices(userInvoices)
+      }
       
       return { trips: userTrips, orders: userOrders, invoices: userInvoices }
     } catch (error) {
+      console.error('loadUserData error:', error)
       return { trips: [], orders: [], invoices: [] }
     }
   }
@@ -669,16 +781,9 @@ export const AppProvider = ({ children }) => {
     setError(null)
   }
 
-  const rateSettingsRef = useRef(rateSettings);
-  
-  useEffect(() => {
-    rateSettingsRef.current = rateSettings;
-  }, [rateSettings]);
-
   // Función para calcular el precio de un viaje
   const calculateTripPrice = (distance, duration, activeSurcharges, activeDiscounts) => {
-    const rs = rateSettingsRef.current;
-    console.log('Current rate settings:', rs);
+    const rs = rateSettings;
     // Start from 0
     let basePrice = 0;
     
@@ -725,15 +830,8 @@ export const AppProvider = ({ children }) => {
         type: updatedData.type
       })
       
-      // Actualizar estado local con comprobación defensiva
-      setRateSettings(prev => ({
-        ...prev,
-        surchargeFactors: Array.isArray(prev.surchargeFactors) 
-          ? prev.surchargeFactors.map(factor => 
-              factor.id === id ? { ...factor, ...updatedData } : factor
-            )
-          : [] // Si surchargeFactors no es un array, inicializarlo como array vacío
-      }))
+      // Re-fetch settings from server to guarantee UI is in sync
+      await fetchSettings(false)
       
       return true
     } catch (error) {
@@ -748,13 +846,8 @@ export const AppProvider = ({ children }) => {
       // Eliminar factor de recargo en la API
       await settingsService.deleteSurchargeFactor(id)
       
-      // Actualizar estado local con comprobación defensiva
-      setRateSettings(prev => ({
-        ...prev,
-        surchargeFactors: Array.isArray(prev.surchargeFactors) 
-          ? prev.surchargeFactors.filter(factor => factor.id !== id)
-          : [] // Si surchargeFactors no es un array, inicializarlo como array vacío
-      }))
+      // Re-fetch settings from server to guarantee UI is in sync
+      await fetchSettings(false)
       
       return true
     } catch (error) {
@@ -773,15 +866,8 @@ export const AppProvider = ({ children }) => {
         type: updatedData.type
       })
       
-      // Actualizar estado local con comprobación defensiva
-      setRateSettings(prev => ({
-        ...prev,
-        discounts: Array.isArray(prev.discounts) 
-          ? prev.discounts.map(discount => 
-              discount.id === id ? { ...discount, ...updatedData } : discount
-            )
-          : [] // Si discounts no es un array, inicializarlo como array vacío
-      }))
+      // Re-fetch settings from server to guarantee UI is in sync
+      await fetchSettings(false)
       
       return true
     } catch (error) {
@@ -796,13 +882,8 @@ export const AppProvider = ({ children }) => {
       // Eliminar descuento en la API
       await settingsService.deleteDiscount(id)
       
-      // Actualizar estado local con comprobación defensiva
-      setRateSettings(prev => ({
-        ...prev,
-        discounts: Array.isArray(prev.discounts) 
-          ? prev.discounts.filter(discount => discount.id !== id)
-          : [] // Si discounts no es un array, inicializarlo como array vacío
-      }))
+      // Re-fetch settings from server to guarantee UI is in sync
+      await fetchSettings(false)
       
       return true
     } catch (error) {
@@ -825,6 +906,8 @@ export const AppProvider = ({ children }) => {
     isLoading,
     error,
     refreshCurrentUser,
+    refreshSettings: () => fetchSettings(false),
+    refreshUserData: currentUser ? () => loadUserData(currentUser.id) : () => Promise.resolve(),
     updateRateSettings,
     addSurchargeFactor,
     updateSurchargeFactor,
@@ -838,6 +921,7 @@ export const AppProvider = ({ children }) => {
     calculateTripPrice,
     login,
     logout,
+    notifyStateChange,
     // Export state setters for direct updates from components
     setOrders,
     setInvoices,

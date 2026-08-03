@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend } from 'chart.js'
 import { Line, Bar } from 'react-chartjs-2'
@@ -13,6 +13,8 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 const Dashboard = () => {
   const { user } = useAppContext()
   const [loading, setLoading] = useState(true)
+  const refreshTimerRef = useRef(null)
+  const prevDataRef = useRef('')
   const [trips, setTrips] = useState([])
   const [orders, setOrders] = useState([])
   const [invoices, setInvoices] = useState([])
@@ -37,16 +39,14 @@ const Dashboard = () => {
     datasets: []
   })
 
-  // Load data with periodic refresh
+  // Load data with silent background refresh
   useEffect(() => {
     const loadData = async (isInitial = true) => {
       try {
         if (isInitial) {
           setLoading(true)
         }
-        console.log('Dashboard: Starting data load for user:', user, 'Initial:', isInitial)
         const filters = user?.role === 'admin' ? { all: true } : { userId: user?.id }
-        console.log('Dashboard: Using filters:', filters)
         
         const [tripsData, ordersData, invoicesData] = await Promise.all([
           tripService.getTrips(filters),
@@ -54,17 +54,15 @@ const Dashboard = () => {
           invoiceService.getInvoices(filters)
         ])
         
-        console.log('Dashboard: Loaded data:', { tripsData, ordersData, invoicesData })
-        setTrips(tripsData || [])
-        setOrders(ordersData || [])
-        setInvoices(invoicesData || [])
+        const dataSig = JSON.stringify({ trips: tripsData, orders: ordersData, invoices: invoicesData })
+        if (dataSig !== prevDataRef.current) {
+          prevDataRef.current = dataSig
+          setTrips(tripsData || [])
+          setOrders(ordersData || [])
+          setInvoices(invoicesData || [])
+        }
       } catch (error) {
         console.error('Dashboard: Error loading data:', error)
-        console.error('Dashboard: Error details:', {
-          message: error.message,
-          stack: error.stack,
-          user: user
-        })
       } finally {
         if (isInitial) {
           setLoading(false)
@@ -73,28 +71,22 @@ const Dashboard = () => {
     }
 
     if (user) {
-      console.log('Dashboard: User found, loading data...')
-      // Initial data load with loading indicator
       loadData(true)
-      
-      // Set up periodic refresh every 10 seconds (silent background updates)
-      const intervalId = setInterval(() => {
-        console.log('Dashboard: Background data refresh triggered')
-        loadData(false) // Silent refresh - no loading indicator
-      }, 10000)
-      
-      // Cleanup interval on unmount
-      return () => {
-        console.log('Dashboard: Cleaning up refresh interval')
-        clearInterval(intervalId)
+
+      const handleSilentRefresh = () => {
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
+        refreshTimerRef.current = setTimeout(() => loadData(false), 300)
       }
-    } else {
-      console.log('Dashboard: No user found, skipping data load')
+      window.addEventListener('travelex:silent-refresh', handleSilentRefresh)
+
+      return () => {
+        window.removeEventListener('travelex:silent-refresh', handleSilentRefresh)
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
+      }
     }
   }, [user])
 
   useEffect(() => {
-    console.log('Dashboard: Recalculating stats with data:', { tripsLength: trips.length, ordersLength: orders.length, invoicesLength: invoices.length })
     // Calcular estadísticas generales
     const totalTrips = trips.length
     const totalDistance = trips.reduce((sum, trip) => sum + parseFloat(trip.distance_miles || trip.distance || 0), 0)
@@ -114,7 +106,6 @@ const Dashboard = () => {
       paidInvoices
     }
     
-    console.log('Dashboard: Setting new stats:', newStats)
     setStats(newStats)
 
     // Preparar datos para gráfico de viajes por día (últimos 7 días)
@@ -145,8 +136,7 @@ const Dashboard = () => {
         },
       ],
     }
-    
-    console.log('Dashboard: Setting trips by day chart data:', newTripsByDay)
+
     setTripsByDay(newTripsByDay)
 
     // Preparar datos para gráfico de ingresos por mes (últimos 6 meses)
@@ -181,7 +171,6 @@ const Dashboard = () => {
       ],
     }
     
-    console.log('Dashboard: Setting revenue by month chart data:', newRevenueByMonth)
     setRevenueByMonth(newRevenueByMonth)
   }, [trips, orders, invoices])
 

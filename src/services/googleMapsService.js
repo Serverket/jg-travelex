@@ -1,25 +1,29 @@
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || import.meta.env.VITE_SUPABASE_URL
-const isLocalFunction = SUPABASE_URL.includes('localhost') || SUPABASE_URL.includes('127.0.0.1')
-const SUPABASE_ANON_KEY = isLocalFunction
-  ? (import.meta.env.VITE_SUPABASE_LOCAL_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY)
-  : import.meta.env.VITE_SUPABASE_ANON_KEY
+import { backendService } from './backendService'
 
 async function callEdgeFunction(service, params) {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/google-maps-proxy`, {
+  const session = await backendService.getSession()
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL
+  const url = `${supabaseUrl}/functions/v1/google-maps-proxy`
+
+  const headers = {
+    'Content-Type': 'application/json',
+  }
+  if (session?.access_token) {
+    headers['Authorization'] = `Bearer ${session.access_token}`
+  }
+
+  const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-    },
+    headers,
     body: JSON.stringify({ service, params }),
   })
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-    throw new Error(error.error || `HTTP ${response.status}`)
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    throw new Error(errBody.error || `Edge Function error: ${res.status}`)
   }
 
-  return response.json()
+  return await res.json()
 }
 
 /**

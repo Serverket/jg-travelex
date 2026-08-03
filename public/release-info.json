@@ -1,5 +1,5 @@
 {
-  "version": "2.5.5",
-  "note": "Fuel pricing new logic, parades, better quota performance and permission handling overall.",
-  "date": "2026-07-13T03:59:28.491Z"
+  "version": "3.0.0",
+  "note": "Backend abstraction",
+  "date": "2026-08-03T19:08:24.826Z"
 }

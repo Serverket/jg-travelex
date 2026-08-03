@@ -234,7 +234,7 @@ const ResponsiveField = ({ displayValue, fullValue }) => {
 }
 
 const Invoices = () => {
-  const { user } = useAppContext()
+  const { user, notifyStateChange } = useAppContext()
   const toast = useToast()
   const [orders, setOrders] = useState([])
   const [invoices, setInvoices] = useState([])
@@ -243,6 +243,8 @@ const Invoices = () => {
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const refreshTimerRef = useRef(null)
+  const prevDataRef = useRef('')
 
   // Sorting states
   const [sortConfig, setSortConfig] = useState({
@@ -375,11 +377,13 @@ const Invoices = () => {
 
   // Load orders and invoices from API
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (isInitial = true) => {
       if (!user) return;
 
       try {
-        setLoading(true);
+        if (isInitial) {
+          setLoading(true);
+        }
         setError(null);
 
         // Fetch orders based on user role
@@ -389,24 +393,17 @@ const Invoices = () => {
           ordersResponse = await orderService.getOrders({ all: true });
         } else {
           // Regular users see only their orders
-          ordersResponse = await orderService.getOrders({ user_id: user.id });
+          ordersResponse = await orderService.getOrders({ userId: user.id });
         }
-
-        console.log('Orders response:', ordersResponse);
-        console.log('Orders fetched:', ordersResponse);
 
         // Process orders - make sure trip data is attached and accessible
         const processedOrders = [];
         for (const order of ordersResponse) {
-          // Make a copy of the order to avoid reference issues
           const processedOrder = { ...order };
-
-          // Initialize items array if needed
           if (!processedOrder.items) {
             processedOrder.items = [];
           }
 
-          // Fetch order items and trip data
           if (processedOrder.id) {
             try {
               const orderItems = await orderService.getOrderItems(processedOrder.id);
@@ -417,15 +414,11 @@ const Invoices = () => {
             }
           }
 
-          // Fetch trip data for each order item if missing
           for (let i = 0; i < processedOrder.items.length; i++) {
             if (!processedOrder.items[i].tripData && processedOrder.items[i].trip_id) {
               try {
-                // Actually fetch trip data from API
                 const tripData = await tripService.getTripById(processedOrder.items[i].trip_id);
                 if (tripData) {
-                  console.log(`Fetched trip data for trip_id ${processedOrder.items[i].trip_id}:`, tripData);
-                  // Normalize fields for UI compatibility
                   processedOrder.items[i].tripData = {
                     ...tripData,
                     origin: tripData.origin_address ?? tripData.origin,
@@ -433,8 +426,6 @@ const Invoices = () => {
                     price: tripData.final_price ?? tripData.price ?? processedOrder.items[i].amount ?? processedOrder.total_amount
                   };
                 } else {
-                  // Fallback if trip not found
-                  console.warn(`No trip data found for trip_id ${processedOrder.items[i].trip_id}, using placeholder`);
                   processedOrder.items[i].tripData = {
                     id: processedOrder.items[i].trip_id,
                     origin: 'Pending Data',
@@ -446,7 +437,6 @@ const Invoices = () => {
                 }
               } catch (tripError) {
                 console.error(`Error fetching trip data for trip_id ${processedOrder.items[i].trip_id}:`, tripError);
-                // Fallback on error
                 processedOrder.items[i].tripData = {
                   id: processedOrder.items[i].trip_id,
                   origin: 'Error Loading Data',
@@ -459,55 +449,32 @@ const Invoices = () => {
             }
           }
 
-          // Add processed order
           processedOrders.push(processedOrder);
         }
-
-        // Update orders in context with processed data
-        setOrders(processedOrders);
 
         // Fetch invoices based on user role
         let invoicesResponse = [];
         if (user.role === 'admin') {
           invoicesResponse = await invoiceService.getInvoices();
         } else {
-          // Filter invoices by user's orders
-          invoicesResponse = await invoiceService.getInvoices();
-          const userOrderIds = processedOrders.map(o => o.id);
-          invoicesResponse = invoicesResponse.filter(inv =>
-            userOrderIds.includes(inv.order_id)
-          );
+          invoicesResponse = await invoiceService.getInvoices({ userId: user.id });
         }
-        console.log('Invoices fetched:', invoicesResponse);
 
-        // Process and link invoices with orders - ensure complete trip data is included
         const processedInvoices = [];
         for (const invoice of invoicesResponse) {
-          // Make a copy of the invoice
           const processedInvoice = { ...invoice };
-
-          // Convert orderIds to be consistent across frontend and API
           processedInvoice.orderId = invoice.order_id || invoice.orderId;
-
-          // Find the matching order
           const matchingOrder = processedOrders.find(order => order.id === processedInvoice.orderId);
 
           if (matchingOrder) {
-            // Attach order data to invoice
             processedInvoice.orderData = matchingOrder;
             processedInvoices.push(processedInvoice);
           } else {
-            // If no matching order found, try to fetch order data from API
-            console.log(`No matching order found for invoice ${processedInvoice.id}, fetching from API...`);
             try {
               const fetchedOrder = await orderService.getOrderById(processedInvoice.orderId);
               if (fetchedOrder) {
-                console.log('Fetched order data for invoice:', fetchedOrder);
-
-                // Process the fetched order to ensure it has trip data
                 const processedFetchedOrder = { ...fetchedOrder };
 
-                // Fetch order items and trip data
                 try {
                   const orderItems = await orderService.getOrderItems(processedFetchedOrder.id);
                   processedFetchedOrder.items = orderItems || [];
@@ -516,13 +483,11 @@ const Invoices = () => {
                   processedFetchedOrder.items = [];
                 }
 
-                // Fetch trip data for each order item
                 for (let i = 0; i < processedFetchedOrder.items.length; i++) {
                   if (!processedFetchedOrder.items[i].tripData && processedFetchedOrder.items[i].trip_id) {
                     try {
                       const tripData = await tripService.getTripById(processedFetchedOrder.items[i].trip_id);
                       if (tripData) {
-                        console.log(`Fetched trip data for invoice trip_id ${processedFetchedOrder.items[i].trip_id}:`, tripData);
                         processedFetchedOrder.items[i].tripData = {
                           ...tripData,
                           origin: tripData.origin_address ?? tripData.origin,
@@ -544,13 +509,11 @@ const Invoices = () => {
                   }
                 }
 
-                // Attach processed order data to invoice
                 processedInvoice.orderData = processedFetchedOrder;
                 processedInvoices.push(processedInvoice);
               }
             } catch (fetchError) {
               console.error('Error fetching order data for invoice:', fetchError);
-              // Create a minimal invoice without order data
               processedInvoice.orderData = {
                 id: processedInvoice.orderId,
                 total_amount: processedInvoice.total_amount || 'N/A',
@@ -569,20 +532,35 @@ const Invoices = () => {
           }
         }
 
-        // Update invoices in context with processed data
-        setInvoices(processedInvoices);
+        const dataSig = JSON.stringify({ orders: processedOrders, invoices: processedInvoices })
+        if (dataSig !== prevDataRef.current) {
+          prevDataRef.current = dataSig
+          setOrders(processedOrders);
+          setInvoices(processedInvoices);
+        }
       } catch (err) {
         console.error('Error loading data:', err);
         setError('Error loading orders and invoices. Please try again.');
       } finally {
-        setLoading(false);
+        if (isInitial) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchData();
+    fetchData(true);
 
-    // Clean up function (removed auto-refresh for now)
-    return () => { };
+    const handleSilentRefresh = () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(() => fetchData(false), 300);
+    };
+
+    window.addEventListener('travelex:silent-refresh', handleSilentRefresh);
+
+    return () => {
+      window.removeEventListener('travelex:silent-refresh', handleSilentRefresh);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    };
   }, [user]);
 
   // Generar una nueva factura
@@ -601,7 +579,6 @@ const Invoices = () => {
         for (let i = 0; i < processedOrder.items.length; i++) {
           if (!processedOrder.items[i].tripData && processedOrder.items[i].trip_id) {
             try {
-              console.log(`Fetching trip data for order item trip_id ${processedOrder.items[i].trip_id} during invoice creation`);
               const tripData = await tripService.getTripById(processedOrder.items[i].trip_id);
               if (tripData) {
                 processedOrder.items[i].tripData = {
@@ -610,7 +587,6 @@ const Invoices = () => {
                   destination: tripData.destination_address ?? tripData.destination,
                   price: tripData.final_price ?? tripData.price ?? processedOrder.items[i].amount ?? processedOrder.total_amount
                 };
-                console.log('Trip data attached to order item for invoice creation:', processedOrder.items[i].tripData);
               }
             } catch (tripError) {
               console.error(`Error fetching trip data during invoice creation:`, tripError);
@@ -645,6 +621,10 @@ const Invoices = () => {
 
       setSelectedOrderId(null);
       toast.success('Factura creada exitosamente');
+      // Debounce notifyStateChange to avoid race condition with DB commit
+      setTimeout(() => {
+        notifyStateChange('invoices');
+      }, 800)
     } catch (error) {
       console.error('Error al crear la factura:', error);
       toast.error('Error al crear la factura. Por favor intente nuevamente.');
@@ -656,21 +636,17 @@ const Invoices = () => {
     setIsGeneratingInvoice(true)
 
     try {
-      console.log('Generating PDF for invoice:', invoice);
-
       // First, ensure we have full order and trip data
       let orderData = invoice.orderData;
       let tripData = null;
 
       // If orderData is missing, try to fetch it from the API
       if (!orderData) {
-        console.log('OrderData missing, fetching from API...');
         try {
           // First get the order
           const fetchedOrder = await orderService.getOrderById(invoice.order_id || invoice.orderId);
           if (fetchedOrder) {
             orderData = fetchedOrder;
-            console.log('Fetched order data:', orderData);
           }
         } catch (fetchError) {
           console.error('Error fetching order data for PDF:', fetchError);
@@ -684,13 +660,11 @@ const Invoices = () => {
         // Check if tripData already exists on the item
         if (orderItem.tripData) {
           tripData = orderItem.tripData;
-          console.log('Found tripData in order item:', tripData);
         }
         // If not, try to fetch it
         else if (orderItem.trip_id) {
           try {
             tripData = await tripService.getTripById(orderItem.trip_id);
-            console.log(`Fetched trip data for trip_id ${orderItem.trip_id}:`, tripData);
           } catch (tripError) {
             console.error(`Error fetching trip data for trip_id ${orderItem.trip_id}:`, tripError);
           }
@@ -749,7 +723,6 @@ const Invoices = () => {
 
       // Guardar o abrir el PDF
       doc.save(`factura-${invoiceNumber || 'nuevo'}.pdf`)
-      console.log('PDF generated successfully');
 
     } catch (error) {
       console.error('Error al generar el PDF:', error)
@@ -775,7 +748,7 @@ const Invoices = () => {
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4 text-sm text-blue-100/70 shadow-inner shadow-blue-500/10">
               <p className="font-medium text-blue-100">Estado del Servicio</p>
-              <p className="mt-1 text-xs text-blue-200/70">Pedidos y facturas se sincronizan cada 10 segundos en segundo plano.</p>
+              <p className="mt-1 text-xs text-blue-200/70">Pedidos y facturas se sincronizan automáticamente en tiempo real.</p>
             </div>
           </div>
           {error && (

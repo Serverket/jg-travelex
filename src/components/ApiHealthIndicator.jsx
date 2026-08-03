@@ -1,27 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabaseService } from '../services/supabase';
 import { backendService } from '../services/backendService';
 
 const ApiHealthIndicator = () => {
   const [supabaseStatus, setSupabaseStatus] = useState('checking');
-  const [backendStatus, setBackendStatus] = useState('checking');
+  const [edgeStatus, setEdgeStatus] = useState('checking');
   const [hoveredPill, setHoveredPill] = useState(null);
 
   const checkHealth = async () => {
-    // Check Supabase
-    try {
-      const res = await supabaseService.checkHealth();
-      setSupabaseStatus(res?.healthy ? 'connected' : 'disconnected');
-    } catch {
-      setSupabaseStatus('disconnected');
-    }
-
-    // Check Backend
     try {
       const res = await backendService.health();
-      setBackendStatus(res?.ok ? 'connected' : 'disconnected');
+      const ok = res?.ok;
+      setSupabaseStatus(ok ? 'connected' : 'disconnected');
+      setEdgeStatus(ok ? 'connected' : 'disconnected');
     } catch {
-      setBackendStatus('disconnected');
+      setSupabaseStatus('disconnected');
+      setEdgeStatus('disconnected');
     }
   };
 
@@ -110,7 +103,7 @@ const ApiHealthIndicator = () => {
   };
 
   const serviceEmoji = {
-    backend: '🤖',
+    edge: '⚡',
     supabase: '🛢'
   };
 
@@ -134,8 +127,8 @@ const ApiHealthIndicator = () => {
 
   return (
     <div className="fixed bottom-4 right-4 z-50 space-y-2">
-      {pill('Backend', backendStatus, 'backend')}
-      {pill('Supabase', supabaseStatus, 'supabase')}
+      {pill('Edge Functions', edgeStatus, 'edge')}
+      {pill('Supabase DB', supabaseStatus, 'supabase')}
     </div>
   );
 };
