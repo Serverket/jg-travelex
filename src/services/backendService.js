@@ -336,5 +336,36 @@ export const backendService = {
 
   async deleteInvoice(id) {
     return await supabaseService.deleteInvoice(id);
+  },
+
+  // ---------------------
+  // Bulk deletes (Danger Zone)
+  // ---------------------
+  async deleteAllInvoices() {
+    return await supabaseService.deleteAllInvoices();
+  },
+
+  async deleteAllOrders() {
+    return await supabaseService.deleteAllOrders();
+  },
+
+  async deleteAllTrips() {
+    return await supabaseService.deleteAllTrips();
+  },
+
+  async deleteAllSurcharges() {
+    return await supabaseService.deleteAllSurcharges();
+  },
+
+  async deleteAllDiscounts() {
+    return await supabaseService.deleteAllDiscounts();
+  },
+
+  async deleteAllBusinessData() {
+    return await supabaseService.deleteAllBusinessData();
+  },
+
+  async getEntityCounts() {
+    return await supabaseService.getEntityCounts();
   }
 };
