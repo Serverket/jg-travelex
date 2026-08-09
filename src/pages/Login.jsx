@@ -1,10 +1,12 @@
-import React, { useState, useContext, useEffect, useRef } from 'react';
+import React, { useState, useContext, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { AppContext } from '../context/AppContext';
 import ApiHealthIndicator from '../components/ApiHealthIndicator';
 import { useToast } from '../context/ToastContext';
 import Logo from '../components/Logo';
+import MapBackground from '../components/MapBackground';
+import { ROUTES } from '../components/routes.js';
 
 const ENV_BACKGROUND_IMAGES = (import.meta.env.VITE_LOGIN_BG_IMAGES || '')
   .split(',')
@@ -25,6 +27,8 @@ const DEFAULT_BACKGROUND_IMAGES = [
   '/destinations/splitsville.jpg.webp'
 ];
 
+const NUM_ROUTES = ROUTES.length;
+
 const Login = ({ onLogin: _onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,6 +42,19 @@ const Login = ({ onLogin: _onLogin }) => {
   const toast = useToast();
 
   const backgroundImages = ENV_BACKGROUND_IMAGES.length > 0 ? ENV_BACKGROUND_IMAGES : DEFAULT_BACKGROUND_IMAGES;
+
+  // Build interleaved slides: image[0], map[0], image[1], map[1], ...
+  // Routes cycle through 0..NUM_ROUTES-1 as needed
+  const slides = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < backgroundImages.length; i++) {
+      result.push({ type: 'image', src: backgroundImages[i] });
+      result.push({ type: 'map', routeIndex: i % NUM_ROUTES });
+    }
+    return result;
+  }, [backgroundImages]);
+
+  const totalSlides = slides.length;
   const [bgIndex, setBgIndex] = useState(0);
   const [loadedImages, setLoadedImages] = useState(() => new Set());
   const [logoReady, setLogoReady] = useState(false);
@@ -54,12 +71,12 @@ const Login = ({ onLogin: _onLogin }) => {
   useEffect(() => {
     const interval = setInterval(() => {
       setBgIndex((prevIndex) => 
-        (prevIndex + 1) % backgroundImages.length
+        (prevIndex + 1) % totalSlides
       )
     }, 5000)
     
     return () => clearInterval(interval)
-  }, [backgroundImages.length]);
+  }, [totalSlides]);
 
   useEffect(() => {
     setLoadedImages(new Set());
@@ -69,33 +86,42 @@ const Login = ({ onLogin: _onLogin }) => {
     prevBgIndexRef.current = bgIndex;
   }, [bgIndex]);
 
+  // Preload the next image slide (skip map slides)
   useEffect(() => {
-    const nextSrc = backgroundImages[(bgIndex + 1) % backgroundImages.length];
-    if (!nextSrc || loadedImages.has(nextSrc)) return;
-
-    const image = new Image();
-    const handleLoad = () => {
-      setLoadedImages(prev => {
-        if (prev.has(nextSrc)) return prev;
-        const updated = new Set(prev);
-        updated.add(nextSrc);
-        return updated;
-      });
-    };
-    image.onload = handleLoad;
-    image.src = nextSrc;
-    if (image.complete) {
-      handleLoad();
+    // Find the next image slide after current
+    for (let offset = 1; offset <= 2; offset++) {
+      const nextIdx = (bgIndex + offset) % totalSlides;
+      const slide = slides[nextIdx];
+      if (slide && slide.type === 'image') {
+        if (loadedImages.has(slide.src)) return;
+        const image = new Image();
+        const handleLoad = () => {
+          setLoadedImages(prev => {
+            if (prev.has(slide.src)) return prev;
+            const updated = new Set(prev);
+            updated.add(slide.src);
+            return updated;
+          });
+        };
+        image.onload = handleLoad;
+        image.src = slide.src;
+        if (image.complete) {
+          handleLoad();
+        }
+        return;
+      }
     }
-  }, [bgIndex, backgroundImages, loadedImages]);
+  }, [bgIndex, slides, loadedImages, totalSlides]);
 
   useEffect(() => {
     if (logoReady) return;
-    const activeSrc = backgroundImages[bgIndex];
-    if (activeSrc && loadedImages.has(activeSrc)) {
+    const activeSlide = slides[bgIndex];
+    if (activeSlide && activeSlide.type === 'image' && loadedImages.has(activeSlide.src)) {
+      setLogoReady(true);
+    } else if (activeSlide && activeSlide.type === 'map') {
       setLogoReady(true);
     }
-  }, [bgIndex, backgroundImages, loadedImages, logoReady]);
+  }, [bgIndex, slides, loadedImages, logoReady]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -162,34 +188,45 @@ const Login = ({ onLogin: _onLogin }) => {
   };
 
   const previousBgIndex = prevBgIndexRef.current;
-  const activeBackgroundSrc = backgroundImages[bgIndex];
-  const activeImageLoaded = activeBackgroundSrc ? loadedImages.has(activeBackgroundSrc) : false;
+  const currentSlide = slides[bgIndex];
+  const activeImageLoaded = currentSlide?.type === 'image' ? loadedImages.has(currentSlide.src) : false;
+
+  // Derive which route index to show on the map (from current or upcoming map slide)
+  const currentMapRouteIndex = useMemo(() => {
+    for (let i = 0; i < slides.length; i++) {
+      const idx = (bgIndex + i) % totalSlides;
+      if (slides[idx]?.type === 'map') return slides[idx].routeIndex;
+    }
+    return 0;
+  }, [bgIndex, slides, totalSlides]);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">
       <div className="absolute inset-0" aria-hidden="true">
-        {backgroundImages.map((src, index) => {
+        {/* Image slides — each image is a layer that fades in/out */}
+        {slides.map((slide, index) => {
+          if (slide.type !== 'image') return null;
           const isActive = index === bgIndex;
           const isPreviousActive = previousBgIndex !== bgIndex && index === previousBgIndex;
-          const isLoaded = loadedImages.has(src);
+          const isLoaded = loadedImages.has(slide.src);
           const shouldShow = (isActive && isLoaded) || (isPreviousActive && !activeImageLoaded);
           return (
             <div
-              key={index}
+              key={`img-${index}`}
               className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-out will-change-opacity ${
                 shouldShow ? 'opacity-100' : 'opacity-0'
               }`}
-              style={{ backgroundImage: `url(${src})` }}
+              style={{ backgroundImage: `url(${slide.src})` }}
             >
               <img
-                src={src}
+                src={slide.src}
                 alt=""
                 className="invisible h-0 w-0"
                 onLoad={() => {
                   setLoadedImages(prev => {
-                    if (prev.has(src)) return prev;
+                    if (prev.has(slide.src)) return prev;
                     const updated = new Set(prev);
-                    updated.add(src);
+                    updated.add(slide.src);
                     return updated;
                   });
                 }}
@@ -197,6 +234,16 @@ const Login = ({ onLogin: _onLogin }) => {
             </div>
           );
         })}
+
+        {/* Map slide — single always-mounted instance, opacity-controlled */}
+        <div
+          className={`absolute inset-0 transition-opacity duration-1000 ease-out will-change-opacity ${
+            currentSlide?.type === 'map' ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <MapBackground routeIndex={currentMapRouteIndex} />
+        </div>
+
         <div className={`absolute inset-0 ${overlayGradientClass} backdrop-blur`} />
       </div>
 
