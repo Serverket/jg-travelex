@@ -567,6 +567,20 @@ export const supabaseService = {
     }
   },
 
+  async deleteInvoice(id) {
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Delete invoice failed: ${error.message}`);
+    }
+  },
+
   // Surcharge Factors
   async getSurchargeFactors(activeOnly = false) {
     try {
@@ -846,5 +860,90 @@ export const supabaseService = {
     } catch (error) {
       throw new Error(`Get audit logs failed: ${error.message}`);
     }
+  },
+
+  // ---------------------
+  // Bulk deletes (Danger Zone)
+  // ---------------------
+
+  async deleteAllInvoices() {
+    try {
+      const { error } = await supabase.from('invoices').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Delete all invoices failed: ${error.message}`);
+    }
+  },
+
+  async deleteAllOrders() {
+    try {
+      const { error } = await supabase.from('orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Delete all orders failed: ${error.message}`);
+    }
+  },
+
+  async deleteAllTrips() {
+    try {
+      const { error } = await supabase.from('trips').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Delete all trips failed: ${error.message}`);
+    }
+  },
+
+  async deleteAllSurcharges() {
+    try {
+      const { error } = await supabase.from('surcharge_factors').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Delete all surcharge factors failed: ${error.message}`);
+    }
+  },
+
+  async deleteAllDiscounts() {
+    try {
+      const { error } = await supabase.from('discounts').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Delete all discounts failed: ${error.message}`);
+    }
+  },
+
+  async deleteAllBusinessData() {
+    // Delete in dependency order: invoices → orders → trips → surcharges → discounts
+    await this.deleteAllInvoices();
+    await this.deleteAllOrders();
+    await this.deleteAllTrips();
+    await this.deleteAllSurcharges();
+    await this.deleteAllDiscounts();
+    return { success: true };
+  },
+
+  // ---------------------
+  // Entity counts (Danger Zone preview)
+  // ---------------------
+
+  async getEntityCounts() {
+    const tables = ['trips', 'orders', 'invoices', 'surcharge_factors', 'discounts'];
+    const counts = {};
+    for (const table of tables) {
+      try {
+        const { count, error } = await supabase
+          .from(table)
+          .select('*', { count: 'exact', head: true });
+        if (error) throw error;
+        counts[table] = count || 0;
+      } catch {
+        counts[table] = 0;
+      }
+    }
+    return counts;
   }
 };

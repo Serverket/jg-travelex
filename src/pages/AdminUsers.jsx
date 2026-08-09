@@ -17,6 +17,7 @@ const AVAILABLE_FEATURES = [
   { value: 'invoices', label: 'Facturas' },
   { value: 'tracking', label: 'Seguimiento' },
   { value: 'settings', label: 'Configuración' },
+  { value: 'data_management', label: 'Gestión de datos' },
   { value: 'admin_users', label: 'Panel de usuarios' }
 ]
 
