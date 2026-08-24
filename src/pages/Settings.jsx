@@ -25,6 +25,7 @@ const Settings = () => {
   const [editedSettings, setEditedSettings] = useState({
     distanceRate: 1.5,
     durationRate: 15,
+    minTripCharge: 11.95,
     defaultMpg: 35,
     defaultFuelPrice: 4.00,
     defaultStopIntervalHours: 4.00,
@@ -324,6 +325,53 @@ const Settings = () => {
     }
   }
 
+  // Asistente de Presets de Mercado
+  const applyPreset = async (presetName) => {
+    let distanceRate, durationRate, minTripCharge;
+    
+    switch (presetName) {
+      case 'UberX':
+        distanceRate = 1.25; durationRate = 14.00; minTripCharge = 11.95;
+        break;
+      case 'Comfort':
+        distanceRate = 1.30; durationRate = 15.00; minTripCharge = 12.95;
+        break;
+      case 'UberXL':
+        distanceRate = 1.50; durationRate = 17.00; minTripCharge = 15.00;
+        break;
+      case 'Premier':
+        distanceRate = 2.00; durationRate = 35.00; minTripCharge = 25.00;
+        break;
+      default:
+        return;
+    }
+    
+    const newSettings = {
+      ...editedSettings,
+      distanceRate,
+      durationRate,
+      minTripCharge
+    };
+    
+    setEditedSettings(newSettings);
+    
+    // Auto-guardado transparente
+    await saveSettings(newSettings);
+    
+    setSuccessMessage(`¡Preset '${presetName}' activado y guardado automáticamente!`);
+  }
+
+  const isActivePreset = (presetName) => {
+    const { distanceRate, durationRate, minTripCharge } = editedSettings;
+    switch (presetName) {
+      case 'UberX': return distanceRate === 1.25 && durationRate === 14.00 && minTripCharge === 11.95;
+      case 'Comfort': return distanceRate === 1.30 && durationRate === 15.00 && minTripCharge === 12.95;
+      case 'UberXL': return distanceRate === 1.50 && durationRate === 17.00 && minTripCharge === 15.00;
+      case 'Premier': return distanceRate === 2.00 && durationRate === 35.00 && minTripCharge === 25.00;
+      default: return false;
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div
@@ -352,6 +400,51 @@ const Settings = () => {
             {errorMessage}
           </div>
         )}
+      </div>
+
+      {/* Asistente de Precios de Mercado */}
+      <div
+        className="rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-900/40 to-slate-900/40 p-4 shadow-lg backdrop-blur-md"
+        data-aos="fade-up"
+        data-aos-delay="40"
+      >
+        <div className="mb-3">
+          <h2 className="text-base font-semibold text-white flex items-center gap-2">
+            <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Asistente de Presets (Mercado Uber)
+          </h2>
+          <p className="text-xs text-blue-100/70 mt-1">
+            Haz clic en un nivel para autocompletar y <strong>guardar automáticamente</strong> las Tarifas Base.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button 
+            onClick={() => applyPreset('UberX')} 
+            className={`px-3 py-1.5 rounded-full border transition-all text-xs font-medium focus:outline-none ${isActivePreset('UberX') ? 'bg-slate-600 border-slate-400 text-white ring-2 ring-slate-400 shadow-[0_0_15px_rgba(148,163,184,0.4)]' : 'border-slate-600 bg-slate-800/50 hover:bg-slate-700/50 hover:border-slate-400 text-slate-200'}`}
+          >
+            🚗 UberX
+          </button>
+          <button 
+            onClick={() => applyPreset('Comfort')} 
+            className={`px-3 py-1.5 rounded-full border transition-all text-xs font-medium focus:outline-none ${isActivePreset('Comfort') ? 'bg-blue-600 border-blue-400 text-white ring-2 ring-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'border-blue-500/50 bg-blue-500/20 hover:bg-blue-500/30 hover:border-blue-400 text-blue-100'}`}
+          >
+            ⚡ Comfort (Recomendado)
+          </button>
+          <button 
+            onClick={() => applyPreset('UberXL')} 
+            className={`px-3 py-1.5 rounded-full border transition-all text-xs font-medium focus:outline-none ${isActivePreset('UberXL') ? 'bg-indigo-600 border-indigo-400 text-white ring-2 ring-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.6)]' : 'border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 hover:border-indigo-400 text-indigo-200'}`}
+          >
+            🚐 UberXL
+          </button>
+          <button 
+            onClick={() => applyPreset('Premier')} 
+            className={`px-3 py-1.5 rounded-full border transition-all text-xs font-medium focus:outline-none ${isActivePreset('Premier') ? 'bg-amber-600 border-amber-400 text-white ring-2 ring-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.6)]' : 'border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-400 text-amber-200'}`}
+          >
+            👑 Premier
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
