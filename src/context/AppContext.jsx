@@ -173,12 +173,14 @@ export const AppProvider = ({ children }) => {
       const parsedSettings = {
         distanceRate: settings?.distance_rate !== undefined && settings?.distance_rate !== null ? Number(settings.distance_rate) : 1.5,
         durationRate: settings?.duration_rate !== undefined && settings?.duration_rate !== null ? Number(settings.duration_rate) : 15,
+        minTripCharge: settings?.min_trip_charge !== undefined && settings?.min_trip_charge !== null ? Number(settings.min_trip_charge) : 5.00,
         defaultMpg: settings?.default_mpg !== undefined && settings?.default_mpg !== null ? Number(settings.default_mpg) : 35,
         defaultFuelPrice: settings?.default_fuel_price !== undefined && settings?.default_fuel_price !== null ? Number(settings.default_fuel_price) : 4.00,
         defaultStopIntervalHours: settings?.default_stop_interval_hours !== undefined && settings?.default_stop_interval_hours !== null ? Number(settings.default_stop_interval_hours) : 4.00,
         preferredStopBrands: settings?.preferred_stop_brands || 'Wawa, Racetrack, Circle K',
         distance_rate: settings?.distance_rate !== undefined && settings?.distance_rate !== null ? Number(settings.distance_rate) : 1.5,
         duration_rate: settings?.duration_rate !== undefined && settings?.duration_rate !== null ? Number(settings.duration_rate) : 15,
+        min_trip_charge: settings?.min_trip_charge !== undefined && settings?.min_trip_charge !== null ? Number(settings.min_trip_charge) : 5.00,
         default_mpg: settings?.default_mpg !== undefined && settings?.default_mpg !== null ? Number(settings.default_mpg) : 35,
         default_fuel_price: settings?.default_fuel_price !== undefined && settings?.default_fuel_price !== null ? Number(settings.default_fuel_price) : 4.00,
         default_stop_interval_hours: settings?.default_stop_interval_hours !== undefined && settings?.default_stop_interval_hours !== null ? Number(settings.default_stop_interval_hours) : 4.00,
@@ -333,6 +335,7 @@ export const AppProvider = ({ children }) => {
       await settingsService.updateSettings({
         distance_rate: newSettings.distanceRate,
         duration_rate: newSettings.durationRate,
+        min_trip_charge: newSettings.minTripCharge,
         default_mpg: newSettings.defaultMpg,
         default_fuel_price: newSettings.defaultFuelPrice,
         default_stop_interval_hours: newSettings.defaultStopIntervalHours,

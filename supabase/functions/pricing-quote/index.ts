@@ -35,8 +35,13 @@ Deno.serve(async (req) => {
       supabase.from("discounts").select("*").in("id", dIds)
     ])
 
+    const minCharge = Number(settings.min_trip_charge ?? 5.00)
+
     let basePrice = (Number(distance) * Number(settings.distance_rate)) + 
                     (Number(duration) * Number(settings.duration_rate))
+    
+    // Apply Minimum Fare floor
+    basePrice = Math.max(minCharge, basePrice)
 
     const breakdown = { base: basePrice, surcharges: [] as any[], discounts: [] as any[] };
 

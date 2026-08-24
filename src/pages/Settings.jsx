@@ -392,6 +392,20 @@ const Settings = () => {
               />
             </div>
 
+            <div>
+              <label htmlFor="minTripCharge" className="block text-sm font-semibold text-blue-100/80">Tarifa Mínima por Viaje ($)</label>
+              <input
+                type="number"
+                id="minTripCharge"
+                name="minTripCharge"
+                value={editedSettings.minTripCharge ?? ''}
+                onChange={handleBaseRateChange}
+                min="0"
+                step="0.01"
+                className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-blue-200/60 shadow-inner shadow-blue-500/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+
             <button
               onClick={saveSettings}
               disabled={localLoading || isLoading}

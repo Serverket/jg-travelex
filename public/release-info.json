@@ -1,5 +1,5 @@
 {
-  "version": "3.2.0",
-  "note": "Delete features for Orders, Invoices, Trips and more, with DZ plus a new route-based login bg with preload improvements.",
-  "date": "2026-08-09T03:52:54.666Z"
+  "version": "3.3.0",
+  "note": "minimum trip charge setting and automatic GPS location",
+  "date": "2026-08-24T18:57:45.601Z"
 }
