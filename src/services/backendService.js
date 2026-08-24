@@ -87,8 +87,13 @@ export const backendService = {
       const settings = await supabaseService.getCompanySettings();
       const distRate = Number(settings?.distance_rate ?? 1.50);
       const durRate = Number(settings?.duration_rate ?? 15.00);
+      const minCharge = Number(settings?.min_trip_charge ?? 5.00);
 
       let basePrice = (Number(distance) * distRate) + (Number(duration) * durRate);
+      
+      // Apply Minimum Fare Floor
+      basePrice = Math.max(minCharge, basePrice);
+      
       const breakdown = { base: basePrice, surcharges: [], discounts: [] };
 
       if (surcharges.length) {

@@ -309,6 +309,7 @@ const GoogleDistanceInput = ({ isGoogleReady, googleLoadError, onCalculate, onRo
           placeholder="Ingrese dirección de origen"
           onPlaceSelect={(place) => updateCurrentState({ origin: place })}
           enableSmartLocation={true}
+          autoLocateOnLoad={true}
         />
         {errors.origin && <p className="mt-1 text-sm text-red-300">{errors.origin}</p>}
       </div>
