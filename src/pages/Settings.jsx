@@ -58,6 +58,7 @@ const Settings = () => {
       setEditedSettings({ 
         distanceRate: rateSettings.distanceRate !== undefined ? rateSettings.distanceRate : 1.5,
         durationRate: rateSettings.durationRate !== undefined ? rateSettings.durationRate : 15,
+        minTripCharge: rateSettings.minTripCharge !== undefined ? rateSettings.minTripCharge : 11.95,
         defaultMpg: rateSettings.defaultMpg !== undefined ? rateSettings.defaultMpg : 35,
         defaultFuelPrice: rateSettings.defaultFuelPrice !== undefined ? rateSettings.defaultFuelPrice : 4.00,
         defaultStopIntervalHours: rateSettings.defaultStopIntervalHours !== undefined ? rateSettings.defaultStopIntervalHours : 4.00,
@@ -135,6 +136,7 @@ const Settings = () => {
       await backendService.updateSettings({
         distance_rate: parseFloat(settingsToSave.distanceRate) || 0,
         duration_rate: parseFloat(settingsToSave.durationRate) || 0,
+        min_trip_charge: parseFloat(settingsToSave.minTripCharge) || 0,
         default_mpg: parseFloat(settingsToSave.defaultMpg) || 0,
         default_fuel_price: parseFloat(settingsToSave.defaultFuelPrice) || 0,
         default_stop_interval_hours: parseFloat(settingsToSave.defaultStopIntervalHours) || 0,
@@ -407,7 +409,7 @@ const Settings = () => {
             </div>
 
             <button
-              onClick={saveSettings}
+              onClick={() => saveSettings()}
               disabled={localLoading || isLoading}
               className="w-full rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/50"
             >
@@ -487,7 +489,7 @@ const Settings = () => {
             </div>
 
             <button
-              onClick={saveSettings}
+              onClick={() => saveSettings()}
               disabled={localLoading || isLoading}
               className="w-full rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-blue-200/50"
             >
