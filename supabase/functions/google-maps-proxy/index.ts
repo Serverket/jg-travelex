@@ -119,6 +119,7 @@ Deno.serve(async (req) => {
       places: "https://maps.googleapis.com/maps/api/place/findplacefromtext/json",
       autocomplete: "https://maps.googleapis.com/maps/api/place/autocomplete/json",
       distancematrix: "https://maps.googleapis.com/maps/api/distancematrix/json",
+      routes: "https://routes.googleapis.com/directions/v2:computeRoutes",
     }
 
     const baseUrl = baseUrls[service]
@@ -126,15 +127,32 @@ Deno.serve(async (req) => {
       return json({ error: `Unknown service: ${service}` }, 400)
     }
 
-    // Build query string from params + append API key
-    const queryParams = new URLSearchParams({ ...params, key: apiKey })
-    const url = `${baseUrl}?${queryParams.toString()}`
+    let response;
+    if (service === "routes") {
+      const fieldMask = params.fieldMask || "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline"
+      delete params.fieldMask // Remove from body
 
-    const response = await fetch(url)
+      response = await fetch(baseUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": fieldMask,
+        },
+        body: JSON.stringify(params),
+      })
+    } else {
+      // Build query string from params + append API key
+      const queryParams = new URLSearchParams({ ...params, key: apiKey })
+      const url = `${baseUrl}?${queryParams.toString()}`
+      response = await fetch(url)
+    }
+
     const data = await response.json()
 
-    // Log the proxy call to Supabase
-    await logApiCall(`gm_${service}`, clientIP)
+    // Log the proxy call to Supabase (map routes back to directions for legacy analytics)
+    const logService = service === "routes" ? "gm_directions" : `gm_${service}`
+    await logApiCall(logService, clientIP)
 
     return json(data)
   } catch (error) {

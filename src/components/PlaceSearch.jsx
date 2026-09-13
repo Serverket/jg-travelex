@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-const PlaceSearch = ({ placeholder, onPlaceSelect, enableSmartLocation = false, autoLocateOnLoad = false }) => {
-  const [inputValue, setInputValue] = useState('')
+const PlaceSearch = ({ placeholder, onPlaceSelect, enableSmartLocation = false, autoLocateOnLoad = false, initialValue = '' }) => {
+  const [inputValue, setInputValue] = useState(initialValue)
   const [isLocating, setIsLocating] = useState(false)
   const [locationSource, setLocationSource] = useState(null)
   const [statusMessage, setStatusMessage] = useState(null)
@@ -142,14 +142,21 @@ const PlaceSearch = ({ placeholder, onPlaceSelect, enableSmartLocation = false, 
     )
   }, [onPlaceSelect])
 
+  // Sync initialValue changes
+  useEffect(() => {
+    if (initialValue !== undefined && initialValue !== null) {
+      setInputValue(initialValue)
+    }
+  }, [initialValue])
+
   // Auto-locate on load if requested
   const hasAutoLocated = useRef(false)
   useEffect(() => {
-    if (autoLocateOnLoad && isGoogleReady && !hasAutoLocated.current && !inputValue) {
+    if (autoLocateOnLoad && isGoogleReady && !hasAutoLocated.current && !inputValue && !initialValue) {
       hasAutoLocated.current = true
       handleSmartLocation()
     }
-  }, [autoLocateOnLoad, isGoogleReady, handleSmartLocation, inputValue])
+  }, [autoLocateOnLoad, isGoogleReady, handleSmartLocation, inputValue, initialValue])
 
   return (
     <div className="w-full">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import PlaceSearch from './PlaceSearch'
 import { getDirections } from '../services/googleMapsService'
 import { fetchRouteFuelPrices } from '../services/fuelPriceService'
@@ -11,7 +11,7 @@ const tabs = [
   { id: 'duration-only', label: 'Solo Tiempo', description: 'Precio basado solo en el tiempo estimado.' }
 ]
 
-const GoogleDistanceInput = ({ isGoogleReady, googleLoadError, onCalculate, onRoutePathChange, currentUser }) => {
+const GoogleDistanceInput = ({ isGoogleReady, googleLoadError, onCalculate, onRoutePathChange, currentUser, initialDraft }) => {
   const { rateSettings } = useAppContext()
   const [calculationType, setCalculationType] = useState('combined')
   const [errors, setErrors] = useState({})
@@ -43,23 +43,44 @@ const GoogleDistanceInput = ({ isGoogleReady, googleLoadError, onCalculate, onRo
   }, [rateSettings])
 
   const [combinedState, setCombinedState] = useState({
-    origin: null,
-    destination: null,
-    distance: '',
-    duration: ''
+    origin: initialDraft?.origin || null,
+    destination: initialDraft?.destination || null,
+    distance: initialDraft?.distance || '',
+    duration: initialDraft?.duration || ''
   })
 
   const [distanceOnlyState, setDistanceOnlyState] = useState({
-    origin: null,
-    destination: null,
-    distance: ''
+    origin: initialDraft?.origin || null,
+    destination: initialDraft?.destination || null,
+    distance: initialDraft?.distance || ''
   })
 
   const [durationOnlyState, setDurationOnlyState] = useState({
-    origin: null,
-    destination: null,
-    duration: ''
+    origin: initialDraft?.origin || null,
+    destination: initialDraft?.destination || null,
+    duration: initialDraft?.duration || ''
   })
+
+  useEffect(() => {
+    if (initialDraft) {
+      setCombinedState({
+        origin: initialDraft.origin || null,
+        destination: initialDraft.destination || null,
+        distance: initialDraft.distance || '',
+        duration: initialDraft.duration || ''
+      })
+      setDistanceOnlyState({
+        origin: initialDraft.origin || null,
+        destination: initialDraft.destination || null,
+        distance: initialDraft.distance || ''
+      })
+      setDurationOnlyState({
+        origin: initialDraft.origin || null,
+        destination: initialDraft.destination || null,
+        duration: initialDraft.duration || ''
+      })
+    }
+  }, [initialDraft])
 
   const getCurrentState = useCallback(() => {
     switch (calculationType) {
@@ -92,7 +113,14 @@ const GoogleDistanceInput = ({ isGoogleReady, googleLoadError, onCalculate, onRo
   }, [calculationType])
 
   // Notify parent whenever calculate-able data changes
+  const isFirstRender = useRef(true)
   useEffect(() => {
+    if (isFirstRender.current && initialDraft) {
+      isFirstRender.current = false
+      return
+    }
+    isFirstRender.current = false
+
     if (!validate(true)) return
 
     const payload = {
@@ -209,13 +237,15 @@ const GoogleDistanceInput = ({ isGoogleReady, googleLoadError, onCalculate, onRo
       const data = await getDirections(origin, destination)
 
       const route = data?.routes?.[0]
-      const leg = route?.legs?.[0]
-      if (!leg || !leg.distance || !leg.duration) {
-        throw new Error('La respuesta no contiene datos de ruta válidos')
+      if (!route) {
+        throw new Error('No se encontró ninguna ruta entre el origen y destino seleccionados')
       }
 
-      const distanceInMiles = (leg.distance.value / 1609.34).toFixed(2)
-      const durationInHours = (leg.duration.value / 3600).toFixed(2)
+      // Google Routes API omite distanceMeters cuando la distancia es 0 o muy pequeña
+      const distanceMeters = typeof route.distanceMeters === 'number' ? route.distanceMeters : 0
+      const distanceInMiles = (distanceMeters / 1609.34).toFixed(2)
+      const durationSeconds = parseInt((route.duration || '0s').replace('s', ''), 10) || 0
+      const durationInHours = (durationSeconds / 3600).toFixed(2)
 
       const updates = {}
       if (calculationType !== 'duration-only') updates.distance = distanceInMiles
@@ -224,17 +254,29 @@ const GoogleDistanceInput = ({ isGoogleReady, googleLoadError, onCalculate, onRo
         updateCurrentState(updates)
       }
 
+      const payload = {
+        origin: origin || null,
+        destination: destination || null,
+        calculationType,
+        distance: calculationType === 'duration-only' ? null : Number(distanceInMiles),
+        duration: calculationType === 'distance-only' ? null : Number(durationInHours),
+        fuelCost: fuelEnabled && fuelCost !== null ? Number(fuelCost) : 0,
+        addFuelToPrice: fuelEnabled && addFuelToPrice,
+        isManualAction: true
+      }
+      onCalculate(payload)
+
       // Decode polyline and pass up to parent for map rendering
-      if (window.google?.maps?.geometry?.encoding && route?.overview_polyline?.points) {
-        const path = window.google.maps.geometry.encoding.decodePath(route.overview_polyline.points)
-        onRoutePathChange?.(path)
+      if (window.google?.maps?.geometry?.encoding && route?.polyline?.encodedPolyline) {
+        const path = window.google.maps.geometry.encoding.decodePath(route.polyline.encodedPolyline)
+        onRoutePathChange?.(path, route.polyline.encodedPolyline)
       } else {
-        onRoutePathChange?.(null)
+        onRoutePathChange?.(null, null)
       }
     } catch (error) {
       console.error('Error calculando ruta:', error)
       setRouteError(error.message || 'Error al calcular la ruta')
-      onRoutePathChange?.(null)
+      onRoutePathChange?.(null, null)
     } finally {
       setIsLoadingRoute(false)
     }
@@ -309,7 +351,8 @@ const GoogleDistanceInput = ({ isGoogleReady, googleLoadError, onCalculate, onRo
           placeholder="Ingrese dirección de origen"
           onPlaceSelect={(place) => updateCurrentState({ origin: place })}
           enableSmartLocation={true}
-          autoLocateOnLoad={true}
+          autoLocateOnLoad={!origin}
+          initialValue={origin?.description || origin?.address || ''}
         />
         {errors.origin && <p className="mt-1 text-sm text-red-300">{errors.origin}</p>}
       </div>
@@ -320,9 +363,10 @@ const GoogleDistanceInput = ({ isGoogleReady, googleLoadError, onCalculate, onRo
           Destino {calculationType !== 'combined' && <span className="text-blue-200/60">(opcional)</span>}
         </label>
         <PlaceSearch
-          key={`destination-${calculationType}`}
+          key={`dest-${calculationType}`}
           placeholder="Ingrese dirección de destino"
           onPlaceSelect={(place) => updateCurrentState({ destination: place })}
+          initialValue={destination?.description || destination?.address || ''}
         />
         {errors.destination && <p className="mt-1 text-sm text-red-300">{errors.destination}</p>}
       </div>

@@ -10,7 +10,7 @@ const tabs = [
   { id: 'duration-only', label: 'Solo Tiempo', description: 'Precio basado solo en el tiempo estimado.' }
 ]
 
-const ManualDistanceInput = ({ onCalculate, currentUser }) => {
+const ManualDistanceInput = ({ onCalculate, currentUser, initialDraft }) => {
   const { rateSettings } = useAppContext()
   const [calculationType, setCalculationType] = useState('combined')
   const [errors, setErrors] = useState({})
@@ -40,23 +40,44 @@ const ManualDistanceInput = ({ onCalculate, currentUser }) => {
   }, [rateSettings])
 
   const [combinedState, setCombinedState] = useState({
-    origin: null,
-    destination: null,
-    distance: '',
-    duration: ''
+    origin: initialDraft?.origin || null,
+    destination: initialDraft?.destination || null,
+    distance: initialDraft?.distance || '',
+    duration: initialDraft?.duration || ''
   })
 
   const [distanceOnlyState, setDistanceOnlyState] = useState({
-    origin: null,
-    destination: null,
-    distance: ''
+    origin: initialDraft?.origin || null,
+    destination: initialDraft?.destination || null,
+    distance: initialDraft?.distance || ''
   })
 
   const [durationOnlyState, setDurationOnlyState] = useState({
-    origin: null,
-    destination: null,
-    duration: ''
+    origin: initialDraft?.origin || null,
+    destination: initialDraft?.destination || null,
+    duration: initialDraft?.duration || ''
   })
+
+  useEffect(() => {
+    if (initialDraft) {
+      setCombinedState({
+        origin: initialDraft.origin || null,
+        destination: initialDraft.destination || null,
+        distance: initialDraft.distance || '',
+        duration: initialDraft.duration || ''
+      })
+      setDistanceOnlyState({
+        origin: initialDraft.origin || null,
+        destination: initialDraft.destination || null,
+        distance: initialDraft.distance || ''
+      })
+      setDurationOnlyState({
+        origin: initialDraft.origin || null,
+        destination: initialDraft.destination || null,
+        duration: initialDraft.duration || ''
+      })
+    }
+  }, [initialDraft])
 
   const getCurrentState = useCallback(() => {
     switch (calculationType) {
@@ -159,7 +180,14 @@ const ManualDistanceInput = ({ onCalculate, currentUser }) => {
     return Object.keys(newErrors).length === 0
   }
 
+  const isFirstRender = React.useRef(true)
   useEffect(() => {
+    if (isFirstRender.current && initialDraft) {
+      isFirstRender.current = false
+      return
+    }
+    isFirstRender.current = false
+
     if (!validate(true)) return
 
     const payload = {
@@ -244,7 +272,8 @@ const ManualDistanceInput = ({ onCalculate, currentUser }) => {
       distance: calculationType === 'duration-only' ? null : (distance ? Number(distance) : null),
       duration: calculationType === 'distance-only' ? null : (duration ? Number(duration) : null),
       fuelCost: fuelEnabled && fuelCost !== null ? Number(fuelCost) : 0,
-      addFuelToPrice: fuelEnabled && addFuelToPrice
+      addFuelToPrice: fuelEnabled && addFuelToPrice,
+      isManualAction: true
     }
 
     onCalculate(payload)

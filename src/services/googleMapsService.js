@@ -3,13 +3,19 @@ import { backendService } from './backendService'
 async function callEdgeFunction(service, params) {
   const session = await backendService.getSession()
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   const url = `${supabaseUrl}/functions/v1/google-maps-proxy`
 
   const headers = {
     'Content-Type': 'application/json',
   }
+  if (anonKey) {
+    headers['apikey'] = anonKey
+  }
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`
+  } else if (anonKey) {
+    headers['Authorization'] = `Bearer ${anonKey}`
   }
 
   const res = await fetch(url, {
@@ -30,17 +36,33 @@ async function callEdgeFunction(service, params) {
  * Get directions from origin to destination via Edge Function.
  */
 export async function getDirections(origin, destination) {
-  const data = await callEdgeFunction('directions', {
-    origin: `${origin.lat},${origin.lng}`,
-    destination: `${destination.lat},${destination.lng}`,
-    mode: 'driving',
+  const data = await callEdgeFunction('routes', {
+    origin: {
+      location: {
+        latLng: {
+          latitude: origin.lat,
+          longitude: origin.lng
+        }
+      }
+    },
+    destination: {
+      location: {
+        latLng: {
+          latitude: destination.lat,
+          longitude: destination.lng
+        }
+      }
+    },
+    travelMode: 'DRIVE',
+    fieldMask: 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline'
   })
 
-  if (data.status === 'ZERO_RESULTS') {
-    throw new Error('No se encontró ninguna ruta')
+  if (data.error) {
+    throw new Error(`Google Routes API error: ${data.error.message || data.error.status || 'Unknown error'}`)
   }
-  if (data.status !== 'OK') {
-    throw new Error(`Google Directions API error: ${data.status} - ${data.error_message || 'Unknown error'}`)
+
+  if (!data.routes || data.routes.length === 0) {
+    throw new Error('No se encontró ninguna ruta')
   }
 
   return data

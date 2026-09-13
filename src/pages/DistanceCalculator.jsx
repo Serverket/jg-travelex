@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { useJsApiLoader } from '@react-google-maps/api'
 import OpenStreetMap from '../components/OpenStreetMap'
@@ -84,44 +84,49 @@ const DistanceCalculator = () => {
   const surchargeFactors = contextRateSettings?.surchargeFactors || []
   const discounts = contextRateSettings?.discounts || []
 
+  // Read initial draft synchronously from sessionStorage on component initialization
+  const initialDraft = (() => {
+    try {
+      const raw = sessionStorage.getItem('jg_trip_draft')
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  })()
+
   // Estado para el método de cálculo seleccionado
-  const [calculationMethod, setCalculationMethod] = useState('google') // 'manual', 'google'
+  const [calculationMethod, setCalculationMethod] = useState(initialDraft?.calculationMethod || 'google')
 
   // Estado para origen y destino
-  const [origin, setOrigin] = useState(null)
-  const [destination, setDestination] = useState(null)
+  const [origin, setOrigin] = useState(initialDraft?.origin || null)
+  const [destination, setDestination] = useState(initialDraft?.destination || null)
 
   // Estado común para todos los métodos
-  const [distance, setDistance] = useState(null)
-  const [duration, setDuration] = useState(null)
-  const [price, setPrice] = useState(null)
-  const [fuelCost, setFuelCost] = useState(0)
-  const [addFuelToPrice, setAddFuelToPrice] = useState(false)
-  const [quoteBreakdown, setQuoteBreakdown] = useState(null)
-  const [activeSurcharges, setActiveSurcharges] = useState([])
-  const [activeDiscounts, setActiveDiscounts] = useState([])
+  const [distance, setDistance] = useState(initialDraft?.distance || null)
+  const [duration, setDuration] = useState(initialDraft?.duration || null)
+  const [price, setPrice] = useState(initialDraft?.price || null)
+  const [fuelCost, setFuelCost] = useState(initialDraft?.fuelCost || 0)
+  const [addFuelToPrice, setAddFuelToPrice] = useState(initialDraft?.addFuelToPrice || false)
+  const [quoteBreakdown, setQuoteBreakdown] = useState(initialDraft?.quoteBreakdown || null)
+  const [activeSurcharges, setActiveSurcharges] = useState(initialDraft?.activeSurcharges || [])
+  const [activeDiscounts, setActiveDiscounts] = useState(initialDraft?.activeDiscounts || [])
   const [error, setError] = useState('')
   const [orderCreated, setOrderCreated] = useState(false)
-  const [routePath, setRoutePath] = useState(null)
+  const [routePath, setRoutePath] = useState(initialDraft?.routePath || null)
+  const [encodedPolyline, setEncodedPolyline] = useState(initialDraft?.encodedPolyline || null)
   const [stopInterval, setStopInterval] = useState(4)
   const [stops, setStops] = useState([])
   const [stopOptionsMap, setStopOptionsMap] = useState({})
   const [isLoadingStops, setIsLoadingStops] = useState(false)
   const [resetKey, setResetKey] = useState(0)
+  const [isDraftMode, setIsDraftMode] = useState(Boolean(initialDraft?.price))
+  const [snapshotRates, setSnapshotRates] = useState(initialDraft?.snapshotRates || null)
   const lastTripRef = useRef(null)
   const surfacePanelClass = 'rounded-3xl border border-white/10 bg-white/5 shadow-xl shadow-blue-950/20 backdrop-blur-lg'
 
   const subtlePanelClass = 'rounded-2xl border border-white/10 bg-white/5'
 
   const chipClass = 'rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-blue-100/80 shadow-lg shadow-blue-950/20'
-
-  // Sync stopInterval default from rateSettings when loaded
-  useEffect(() => {
-    const defaultHours = rateSettings?.defaultStopIntervalHours || rateSettings?.default_stop_interval_hours
-    if (defaultHours) {
-      setStopInterval(Number(defaultHours))
-    }
-  }, [rateSettings?.defaultStopIntervalHours, rateSettings?.default_stop_interval_hours])
 
   // Cargar Google Maps JS API (para mapa, Places Autocomplete y polyline decoding)
   const googleMapsApiKey = import.meta.env.VITE_NSA_REGISTRY
@@ -135,6 +140,26 @@ const DistanceCalculator = () => {
     : null
 
   const googleMapsApiKeyAvailable = Boolean(googleMapsApiKey)
+
+  // Decodificar polyline en objetos LatLng de Google Maps cuando la API esté lista
+  useEffect(() => {
+    if (isLoaded && window.google?.maps?.geometry?.encoding && encodedPolyline && (!routePath || routePath.length === 0)) {
+      try {
+        const decoded = window.google.maps.geometry.encoding.decodePath(encodedPolyline)
+        setRoutePath(decoded)
+      } catch (err) {
+        console.warn('Failed to decode polyline:', err)
+      }
+    }
+  }, [isLoaded, encodedPolyline, routePath])
+
+  // Sync stopInterval default from rateSettings when loaded
+  useEffect(() => {
+    const defaultHours = rateSettings?.defaultStopIntervalHours || rateSettings?.default_stop_interval_hours
+    if (defaultHours) {
+      setStopInterval(Number(defaultHours))
+    }
+  }, [rateSettings?.defaultStopIntervalHours, rateSettings?.default_stop_interval_hours])
 
   // Manejar errores no capturados de Google Maps
   useEffect(() => {
@@ -159,6 +184,9 @@ const DistanceCalculator = () => {
   // Recalculate price via backend when inputs change
   useEffect(() => {
     const fetchQuote = async () => {
+      // Si estamos en draft mode, bloqueamos el recálculo para proteger el pantallazo
+      if (isDraftMode) return;
+
       try {
         // Handle different calculation types for backend
         const quoteData = {
@@ -181,7 +209,37 @@ const DistanceCalculator = () => {
     if (distance || duration) {
       fetchQuote()
     }
-  }, [activeSurcharges, activeDiscounts, distance, duration, rateSettings])
+  }, [activeSurcharges, activeDiscounts, distance, duration, rateSettings, isDraftMode])
+
+  // Save draft whenever important state stabilizes (and we aren't already loading a draft)
+  useEffect(() => {
+    if (!isDraftMode && price && (distance || duration)) {
+      const serializableRoutePath = Array.isArray(routePath)
+        ? routePath.map(p => ({
+            lat: typeof p.lat === 'function' ? p.lat() : Number(p.lat),
+            lng: typeof p.lng === 'function' ? p.lng() : Number(p.lng)
+          }))
+        : null
+
+      const draft = {
+        origin,
+        destination,
+        distance,
+        duration,
+        price,
+        quoteBreakdown,
+        fuelCost,
+        addFuelToPrice,
+        routePath: serializableRoutePath,
+        encodedPolyline,
+        calculationMethod,
+        activeSurcharges,
+        activeDiscounts,
+        snapshotRates: rateSettings
+      }
+      sessionStorage.setItem('jg_trip_draft', JSON.stringify(draft))
+    }
+  }, [price, quoteBreakdown, routePath, encodedPolyline, fuelCost, addFuelToPrice, activeSurcharges, activeDiscounts, calculationMethod, origin, destination, distance, duration, rateSettings, isDraftMode])
 
   // Recalcular paradas sugeridas si cambia la ruta o el intervalo
   useEffect(() => {
@@ -305,6 +363,21 @@ const DistanceCalculator = () => {
 
   // Manejar entrada manual de distancia y duración (OSM)
   const handleManualCalculation = (data) => {
+    if (isDraftMode) {
+      const isSameCoreInputs = 
+        String(data.distance || '') === String(distance || '') &&
+        String(data.duration || '') === String(duration || '') &&
+        Boolean(data.addFuelToPrice) === Boolean(addFuelToPrice);
+
+      if (isSameCoreInputs && !data.isManualAction) {
+        setOrigin(data.origin)
+        setDestination(data.destination)
+        setFuelCost(data.fuelCost || 0)
+        return;
+      }
+    }
+
+    setIsDraftMode(false)
     setOrigin(data.origin)
     setDestination(data.destination)
     setDistance(data.distance)
@@ -315,6 +388,21 @@ const DistanceCalculator = () => {
 
   // Manejar cálculo desde Google Distance Input
   const handleGoogleCalculation = (data) => {
+    if (isDraftMode) {
+      const isSameCoreInputs = 
+        String(data.distance || '') === String(distance || '') &&
+        String(data.duration || '') === String(duration || '') &&
+        Boolean(data.addFuelToPrice) === Boolean(addFuelToPrice);
+
+      if (isSameCoreInputs && !data.isManualAction) {
+        setOrigin(data.origin)
+        setDestination(data.destination)
+        setFuelCost(data.fuelCost || 0)
+        return;
+      }
+    }
+    
+    setIsDraftMode(false)
     setOrigin(data.origin)
     setDestination(data.destination)
     setDistance(data.distance)
@@ -325,6 +413,7 @@ const DistanceCalculator = () => {
 
   // Manejar cambios en los recargos
   const handleSurchargeChange = (id) => {
+    setIsDraftMode(false)
     setActiveSurcharges(prev => {
       const newSurcharges = prev.includes(id)
         ? prev.filter(surchargeId => surchargeId !== id)
@@ -336,6 +425,7 @@ const DistanceCalculator = () => {
 
   // Manejar cambios en los descuentos
   const handleDiscountChange = (id) => {
+    setIsDraftMode(false)
     setActiveDiscounts(prev => {
       const newDiscounts = prev.includes(id)
         ? prev.filter(discountId => discountId !== id)
@@ -535,7 +625,16 @@ const DistanceCalculator = () => {
   }
 
   // Limpiar estado específico del modo de cálculo al cambiar de modo
+  const previousMethod = useRef(calculationMethod)
   useEffect(() => {
+    if (previousMethod.current === calculationMethod) {
+      return
+    }
+    previousMethod.current = calculationMethod
+    
+    // Si estamos en draft mode, acabamos de hidratar, no queremos destruirlo
+    if (isDraftMode) return
+
     setOrigin(null)
     setDestination(null)
     setDistance(null)
@@ -543,16 +642,19 @@ const DistanceCalculator = () => {
     setPrice(null)
     setQuoteBreakdown(null)
     setRoutePath(null)
+    setEncodedPolyline(null)
     setStops([])
     setStopOptionsMap({})
     setError('')
     setOrderCreated(false)
     setResetKey((k) => k + 1)
     // Mantener surcharges/discounts porque son agnósticos al modo
-  }, [calculationMethod])
+  }, [calculationMethod, isDraftMode])
 
   // Limpiar el formulario
   const clearForm = () => {
+    setIsDraftMode(false)
+    sessionStorage.removeItem('jg_trip_draft')
     setOrigin(null)
     setDestination(null)
     setDistance(null)
@@ -560,6 +662,7 @@ const DistanceCalculator = () => {
     setPrice(null)
     setQuoteBreakdown(null)
     setRoutePath(null)
+    setEncodedPolyline(null)
     setStops([])
     setStopOptionsMap({})
     setActiveSurcharges([])
@@ -572,12 +675,28 @@ const DistanceCalculator = () => {
     setResetKey((k) => k + 1)
   }
 
+  const handleRoutePathChange = (path, encoded) => {
+    setRoutePath(path)
+    if (encoded !== undefined) {
+      setEncodedPolyline(encoded)
+    }
+  }
+
+  const draftProps = React.useMemo(() => {
+    return isDraftMode ? { origin, destination, distance, duration } : null
+  }, [isDraftMode, origin, destination, distance, duration])
+
   // Renderizar el método de cálculo seleccionado
   const renderCalculationMethod = () => {
     switch (calculationMethod) {
       case 'manual':
         return (
-          <ManualDistanceInput key={`manual-${resetKey}`} onCalculate={handleManualCalculation} currentUser={currentUser} />
+          <ManualDistanceInput 
+            key={`manual-${resetKey}`} 
+            onCalculate={handleManualCalculation} 
+            currentUser={currentUser} 
+            initialDraft={draftProps}
+          />
         )
       case 'google':
         return (
@@ -586,8 +705,9 @@ const DistanceCalculator = () => {
             isGoogleReady={isLoaded}
             googleLoadError={googleMapsLoadError}
             onCalculate={handleGoogleCalculation}
-            onRoutePathChange={setRoutePath}
+            onRoutePathChange={handleRoutePathChange}
             currentUser={currentUser}
+            initialDraft={draftProps}
           />
         )
       default:
@@ -652,10 +772,23 @@ const DistanceCalculator = () => {
           <h1 className="text-3xl font-bold text-white sm:text-4xl">Calculadora de Distancias</h1>
         </div>
         {(distance || duration) && price && (
-          <div className={chipClass}>
-            Precio estimado: <span className="font-semibold text-white">${addFuelToPrice ? (Number(price) + Number(fuelCost)).toFixed(2) : price}</span>
-            {currentUser?.role === 'admin' && addFuelToPrice && fuelCost > 0 && (
-              <span className="ml-1 text-xs text-amber-200/80">(+ ${Number(fuelCost).toFixed(2)} combustible)</span>
+          <div className="flex flex-col items-start gap-2">
+            <div className={chipClass}>
+              Precio estimado: <span className="font-semibold text-white">${addFuelToPrice ? (Number(price) + Number(fuelCost)).toFixed(2) : price}</span>
+              {currentUser?.role === 'admin' && addFuelToPrice && fuelCost > 0 && (
+                <span className="ml-1 text-xs text-amber-200/80">(+ ${Number(fuelCost).toFixed(2)} combustible)</span>
+              )}
+            </div>
+            {isDraftMode && (
+              <div className="mt-2 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-100 shadow-lg backdrop-blur-md">
+                <span>⚠️ Estás viendo un borrador recuperado de la memoria. Las tarifas están congeladas.</span>
+                <button
+                  onClick={() => setIsDraftMode(false)}
+                  className="rounded-lg bg-amber-500/20 px-3 py-1 font-semibold text-amber-200 transition hover:bg-amber-500/40"
+                >
+                  Recalcular con Tasas Actuales
+                </button>
+              </div>
             )}
           </div>
         )}

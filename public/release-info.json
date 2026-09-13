@@ -1,5 +1,5 @@
 {
-  "version": "3.3.3",
-  "note": "Market preset assistant on config panel",
-  "date": "2026-08-24T21:22:32.764Z"
+  "version": "3.3.4",
+  "note": "migrate from Google Directions API to Google Routes API",
+  "date": "2026-09-13T03:36:23.615Z"
 }
