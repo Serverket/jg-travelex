@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { backendService } from '../services/backendService';
 
-const ApiHealthIndicator = () => {
+const ApiHealthIndicator = ({ className = '', inline = false }) => {
   const [supabaseStatus, setSupabaseStatus] = useState('checking');
   const [edgeStatus, setEdgeStatus] = useState('checking');
   const [hoveredPill, setHoveredPill] = useState(null);
@@ -113,20 +113,29 @@ const ApiHealthIndicator = () => {
 
     return (
       <div
-        className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm transition-opacity duration-200 ${variant.container} ${hoveredPill === pillType ? 'opacity-100' : 'opacity-70'}`}
+        className={`flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs sm:text-sm transition-opacity duration-200 ${variant.container} ${hoveredPill === pillType ? 'opacity-100' : 'opacity-85'}`}
         onMouseEnter={() => setHoveredPill(pillType)}
         onMouseLeave={() => setHoveredPill(null)}
       >
-        <span className={`h-2 w-2 rounded-full ${variant.dot}`} />
-        <span aria-hidden="true" className="text-base">{emoji}</span>
+        <span className={`h-2 w-2 rounded-full shrink-0 ${variant.dot}`} />
+        <span aria-hidden="true" className="text-sm sm:text-base leading-none">{emoji}</span>
         <span className="sr-only">{label}: {statusText(status)}</span>
         {statusIcon(status)}
       </div>
     );
   };
 
+  if (inline) {
+    return (
+      <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+        {pill('Edge Functions', edgeStatus, 'edge')}
+        {pill('Supabase DB', supabaseStatus, 'supabase')}
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed bottom-4 right-4 z-50 space-y-2">
+    <div className={`hidden sm:flex sm:flex-col sm:fixed sm:bottom-4 sm:left-4 sm:z-40 sm:space-y-2 ${className}`}>
       {pill('Edge Functions', edgeStatus, 'edge')}
       {pill('Supabase DB', supabaseStatus, 'supabase')}
     </div>

@@ -1,5 +1,5 @@
 {
-  "version": "3.3.4",
-  "note": "migrate from Google Directions API to Google Routes API",
-  "date": "2026-09-13T03:36:23.615Z"
+  "version": "3.4.0",
+  "note": "Improve responsive layout and mobile styling across distance calculator and login components",
+  "date": "2026-10-11T15:04:31.460Z"
 }

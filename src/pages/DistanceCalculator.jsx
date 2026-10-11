@@ -772,7 +772,7 @@ const DistanceCalculator = () => {
           <h1 className="text-3xl font-bold text-white sm:text-4xl">Calculadora de Distancias</h1>
         </div>
         {(distance || duration) && price && (
-          <div className="flex flex-col items-start gap-2">
+          <div className="flex flex-col items-start sm:items-end gap-2 w-full sm:w-auto">
             <div className={chipClass}>
               Precio estimado: <span className="font-semibold text-white">${addFuelToPrice ? (Number(price) + Number(fuelCost)).toFixed(2) : price}</span>
               {currentUser?.role === 'admin' && addFuelToPrice && fuelCost > 0 && (
@@ -780,11 +780,11 @@ const DistanceCalculator = () => {
               )}
             </div>
             {isDraftMode && (
-              <div className="mt-2 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-100 shadow-lg backdrop-blur-md">
-                <span>⚠️ Estás viendo un borrador recuperado de la memoria. Las tarifas están congeladas.</span>
+              <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:px-4 sm:py-2 text-xs sm:text-sm text-amber-100 shadow-lg backdrop-blur-md">
+                <span className="leading-snug">⚠️ Estás viendo un borrador recuperado de la memoria. Las tarifas están congeladas.</span>
                 <button
                   onClick={() => setIsDraftMode(false)}
-                  className="rounded-lg bg-amber-500/20 px-3 py-1 font-semibold text-amber-200 transition hover:bg-amber-500/40"
+                  className="w-full sm:w-auto shrink-0 rounded-lg bg-amber-500/20 px-3 py-1.5 font-semibold text-amber-200 text-center transition hover:bg-amber-500/40"
                 >
                   Recalcular con Tasas Actuales
                 </button>
@@ -922,10 +922,10 @@ const DistanceCalculator = () => {
                   </ul>
                 </div>
               )}
-              <div className="flex flex-wrap gap-3 mt-6">
+              <div className="flex flex-col sm:flex-row gap-3 mt-6">
                 <button
                   onClick={saveTrip}
-                  className="transform rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition-transform duration-150 hover:scale-[1.02] hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 whitespace-nowrap"
+                  className="w-full sm:w-auto transform rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition-transform duration-150 hover:scale-[1.02] hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 whitespace-nowrap text-center justify-center flex items-center"
                 >
                   Guardar Viaje
                 </button>
@@ -933,7 +933,7 @@ const DistanceCalculator = () => {
                 <button
                   onClick={createTripOrder}
                   disabled={orderCreated}
-                  className={`transform rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 transition-transform duration-150 whitespace-nowrap ${orderCreated
+                  className={`w-full sm:w-auto transform rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 transition-transform duration-150 whitespace-nowrap text-center justify-center flex items-center ${orderCreated
                     ? 'bg-purple-500/40 cursor-not-allowed'
                     : 'bg-purple-500 hover:bg-purple-400 hover:scale-[1.02]'
                     }`}
@@ -947,7 +947,7 @@ const DistanceCalculator = () => {
           {/* Planificador de Paradas Sugeridas */}
           {Number(duration) >= 4 && (stops.length > 0 || isLoadingStops) && (
             <div className={`p-5 mt-6 ${subtlePanelClass}`}>
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <h3 className="font-semibold text-amber-200 text-md">Planificador de Paradas</h3>
                 <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-medium text-amber-300">
                   Viaje Largo ({stops.length} {stops.length === 1 ? 'parada' : 'paradas'})
@@ -1036,7 +1036,7 @@ const DistanceCalculator = () => {
                                   })
                                 }
                               }}
-                              className="px-2 py-1 w-full text-xs text-blue-100 rounded-lg border border-white/10 bg-slate-900 focus:border-amber-400 focus:outline-none"
+                              className="px-2 py-1.5 w-full max-w-full text-xs text-blue-100 rounded-lg border border-white/10 bg-slate-900 focus:border-amber-400 focus:outline-none truncate"
                             >
                               {stopOptionsMap[index].map((opt, oIdx) => {
                                 const brandLabel = opt.priority <= preferredBrandsList.length

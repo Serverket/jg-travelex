@@ -112,6 +112,9 @@ const Layout = ({ onLogout }) => {
               >
                 Cerrar Sesión
               </button>
+              <div className="mt-3 pt-3 border-t border-white/10 flex justify-center">
+                <ApiHealthIndicator inline={true} />
+              </div>
             </div>
           </div>
         )}
@@ -124,17 +127,18 @@ const Layout = ({ onLogout }) => {
       
       {/* Footer */}
       <footer className="border-t border-white/10 bg-slate-900/70 py-4">
-        <div className="mx-auto max-w-7xl px-4 text-sm text-blue-200/80 sm:px-6 lg:px-8">
-            <p className="text-center">
+        <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-blue-200/80 sm:px-6 lg:px-8">
+            <p className="text-center sm:text-left">
               &copy; {new Date().getFullYear()} JG TravelEx · Travel Experience
             </p>
+            <div className="flex sm:hidden items-center justify-center gap-2">
+              <ApiHealthIndicator inline={true} />
+            </div>
         </div>
       </footer>
       
-      {/* API Health Indicator */}
-      <div className="absolute bottom-6 left-6 z-20">
-        <ApiHealthIndicator />
-      </div>
+      {/* API Health Indicator for Desktop */}
+      <ApiHealthIndicator />
     </div>
   )
 }

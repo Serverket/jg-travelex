@@ -415,8 +415,8 @@ const Login = ({ onLogin: _onLogin }) => {
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-4 z-10">
-        <ApiHealthIndicator />
+      <div className="absolute bottom-4 left-4 z-10 hidden sm:block">
+        <ApiHealthIndicator inline={true} />
       </div>
     </div>
   );
